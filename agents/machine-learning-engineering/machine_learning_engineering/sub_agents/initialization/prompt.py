@@ -15,7 +15,7 @@ MODEL_RETRIEVAL_INSTR = """# Competition
 {task_summary}
 
 # Your task
-- List {num_model_candidates} recent effective models and their example codes to win the above competition.
+- List {num_model_candidates} recent effective models and their example codes to win the above competition. Call the web_search tool with focused queries for this.
 
 # Requirement
 - The example code should be concise and simple.

@@ -20,6 +20,17 @@ session_service = InMemorySessionService()
 artifact_service = InMemoryArtifactService()
 
 
+def _last_visible_model_text(parts: list[types.Part]) -> str:
+    """Return the last text part that is not a reasoning / thought block."""
+    last = ""
+    for part in parts:
+        if getattr(part, "thought", False):
+            continue
+        if part.text:
+            last = part.text
+    return last
+
+
 @pytest.fixture(scope="session", autouse=True)
 def load_env():
     dotenv.load_dotenv()

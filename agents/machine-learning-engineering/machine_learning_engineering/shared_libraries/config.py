@@ -5,8 +5,31 @@ import os
 from typing import Any
 
 
+def _uses_openai_compat_llm() -> bool:
+    """True when LiteLLM is used for the agent (matches get_agent_model)."""
+    model_name = os.environ.get(
+        "ROOT_AGENT_MODEL", "gemini-2.0-flash-001"
+    )
+    api_base = os.environ.get("OPENAI_API_BASE")
+    return bool(model_name.startswith("openai/") or api_base)
+
+
+def get_search_tools() -> list[Any]:
+    """Gemini grounding search for native Gemini; DuckDuckGo tool otherwise."""
+    if _uses_openai_compat_llm():
+        from machine_learning_engineering.shared_libraries.compat_web_search import (
+            compat_web_search_tool,
+        )
+
+        return [compat_web_search_tool]
+
+    from google.adk.tools.google_search_tool import google_search
+
+    return [google_search]
+
+
 def get_agent_model() -> Any:
-    """Builds the ADK model config from environment variables."""
+    """Builds the ADK model config from environment variables. This will use litellm for chatai models"""
     model_name = CONFIG.agent_model
     api_base = os.environ.get("OPENAI_API_BASE")
     api_key = os.environ.get("OPENAI_API_KEY")

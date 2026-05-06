@@ -6,7 +6,7 @@ from google.adk import agents
 from google.adk.agents import callback_context as callback_context_module
 from google.adk.models import llm_request as llm_request_module
 from google.adk.models import llm_response as llm_response_module
-from google.adk.tools.google_search_tool import google_search
+#from google.adk.tools.google_search_tool import google_search
 from google.genai import types
 
 from machine_learning_engineering.shared_libraries import (
@@ -261,7 +261,8 @@ def get_debug_inner_loop_agent(
             get_debug_agent_instruction,
             prefix=prefix,
         ),
-        tools=[google_search],
+        tools=config.get_search_tools(),
+        #tools=[google_search],
         before_model_callback=check_bug_existence,
         after_model_callback=get_code_from_response,
         generate_content_config=types.GenerateContentConfig(

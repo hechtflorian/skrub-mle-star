@@ -10,7 +10,7 @@ from google.adk import agents
 from google.adk.agents import callback_context as callback_context_module
 from google.adk.models import llm_request as llm_request_module
 from google.adk.models import llm_response as llm_response_module
-from google.adk.tools.google_search_tool import google_search
+#from google.adk.tools.google_search_tool import google_search
 from google.genai import types
 
 from machine_learning_engineering.shared_libraries import (
@@ -406,7 +406,8 @@ for k in range(config.CONFIG.num_solutions):
         name=f"model_retriever_agent_{k + 1}",
         description="Retrieve effective models for solving a given task.",
         instruction=get_model_retriever_agent_instruction,
-        tools=[google_search],
+        #tools=[google_search],
+        tools=config.get_search_tools(),
         before_model_callback=check_model_finish,
         after_model_callback=get_model_candidates,
         generate_content_config=types.GenerateContentConfig(

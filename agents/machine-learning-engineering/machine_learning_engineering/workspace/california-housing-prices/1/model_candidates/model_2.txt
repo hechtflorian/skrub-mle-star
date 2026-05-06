@@ -1,0 +1,71 @@
+## Model name
+FT-Transformer (via PyTorch‑Tabular)
+
+## Example Python code
+```python
+import pandas as pd
+from pytorch_tabular import TabularModel
+from pytorch_tabular.config import DataConfig, TrainerConfig, ModelConfig
+
+# -------------------------------------------------
+# 1. Load data
+# -------------------------------------------------
+train_df = pd.read_csv('train.csv')
+test_df  = pd.read_csv('test.csv')
+
+# Split features / target
+target = 'median_house_value'
+
+# -------------------------------------------------
+# 2. Define configuration objects
+# -------------------------------------------------
+data_config = DataConfig(
+    target=[target],
+    continuous_cols=[c for c in train_df.columns if c not in [target]],
+    categorical_cols=[],          # all features are numeric here
+    test_split=None               # we keep the provided test set separate
+)
+
+model_config = ModelConfig(
+    model_name='FTTransformer',   # selects the FT‑Transformer architecture
+    task='regression',
+    loss='mse',
+    optimizer='AdamW',
+    learning_rate=1e-3,
+    weight_decay=1e-5,
+    metric='rmse',
+    scheduler='CosineAnnealingLR',
+    scheduler_params={'T_max': 10},
+    # FT‑Transformer specific hyper‑parameters
+    ft_transformer={'d_token': 192, 'n_heads': 8, 'n_layers': 4, 'ffn_dropout': 0.1}
+)
+
+trainer_config = TrainerConfig(
+    max_epochs=30,
+    gpus=0,               # set >0 if a GPU is available
+    early_stopping_patience=5,
+    batch_size=1024,
+    log_batch_frequency=0
+)
+
+# -------------------------------------------------
+# 3. Create the TabularModel and train
+# -------------------------------------------------
+model = TabularModel(
+    data_config=data_config,
+    model_config=model_config,
+    trainer_config=trainer_config,
+    verbose=False
+)
+model.fit(train=train_df)
+
+# -------------------------------------------------
+# 4. Predict on the provided test set
+# -------------------------------------------------
+preds = model.predict(test_df)['prediction']
+
+# -------------------------------------------------
+# 5. Save submission file
+# -------------------------------------------------
+pd.DataFrame({target: preds}).to_csv('submission.csv', index=False)
+```
