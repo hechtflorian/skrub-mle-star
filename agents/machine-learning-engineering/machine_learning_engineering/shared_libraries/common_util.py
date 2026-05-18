@@ -14,11 +14,21 @@ def get_text_from_response(
 ) -> str:
     """Extracts text from response."""
     final_text = ""
-    if response.content and response.content.parts:
-        num_parts = len(response.content.parts)
-        for i in range(num_parts):
-            if hasattr(response.content.parts[i], "text"):
-                final_text += response.content.parts[i].text
+    #if response.content and response.content.parts:
+        #num_parts = len(response.content.parts)
+        #for i in range(num_parts):
+            #if hasattr(response.content.parts[i], "text"):
+                #final_text += response.content.parts[i].text
+                
+    if not response or not response.content or not response.content.parts:
+        return final_text
+
+    for part in response.content.parts:
+        # Some OpenAI-compatible providers may return text parts as None.
+        # Preserve existing behavior for normal string parts and skip invalid ones.
+        text = getattr(part, "text", None)
+        if isinstance(text, str):
+            final_text += text
     return final_text
 
 

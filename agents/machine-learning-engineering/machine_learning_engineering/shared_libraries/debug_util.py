@@ -15,6 +15,7 @@ from machine_learning_engineering.shared_libraries import (
     common_util,
     config,
     debug_prompt,
+    search_tool_util,
 )
 
 
@@ -261,8 +262,9 @@ def get_debug_inner_loop_agent(
             get_debug_agent_instruction,
             prefix=prefix,
         ),
-        tools=config.get_search_tools(),
         #tools=[google_search],
+        # Replaced direct google_search with model-aware search tools.
+        tools=search_tool_util.get_search_tools(config.CONFIG.agent_model),
         before_model_callback=check_bug_existence,
         after_model_callback=get_code_from_response,
         generate_content_config=types.GenerateContentConfig(

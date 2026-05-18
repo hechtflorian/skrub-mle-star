@@ -1,4 +1,4 @@
-"""Tests for OpenAI-compat vs Gemini search tool routing."""
+"""Tests for OpenAI-compat vs Gemini search tool routing. Added for DuckDuckGo search tool for ChatAI models."""
 
 import pytest
 

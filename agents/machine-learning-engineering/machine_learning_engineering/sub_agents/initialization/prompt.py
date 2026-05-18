@@ -44,6 +44,8 @@ MODEL_EVAL_INSTR = """# Introduction
 - Propose an evaluation metric that is reasonable for this task.
 - All the provided data is already prepared and available in the `./input` directory. There is no need to unzip any files.
 - Do not include other models that are not directly related to the model described.
+- You must use `skrub` and implement the data workflow using `skrub` DataOps abstractions (i.e., not a plain sklearn-only ML pipeline).
+- Keep the model in the model description, but integrate preprocessing/feature workflow through `skrub` DataOps.
 - Use PyTorch rather than TensorFlow. Use CUDA if you need. All the necessary libraries are installed.
 - The code should implement the proposed solution and print the value of the evaluation metric computed on a hold-out validation set.
 - Only use the provided train data in the `./input` directory.
@@ -53,6 +55,7 @@ MODEL_EVAL_INSTR = """# Introduction
 - Print out or return a final performance metric in your answer in a clear format with the exact words: 'Final Validation Performance: {{final_validation_score}}'.
 - The code should be a single-file Python program that is self-contained and can be executed as-is.
 - Your response should only contain a single code block.
+- A response is invalid if it removes `skrub` and uses only plain sklearn `Pipeline`/`ColumnTransformer` for the main data workflow.
 - Do not use exit() function in the Python code.
 - Do not use try: and except: or if else to ignore unintended behavior.
 """
@@ -76,6 +79,7 @@ BUG_REFINE_INSTR = """# Task description
 # Your task
 - Please revise the code to fix the error.
 - Do not remove subsampling if exists.
+- If you hit a `skrub` argument/API issue, fix it by consulting current `skrub` docs and keep the solution in `skrub` DataOps (do not switch to sklearn-only fallback).
 - Provide the improved, self-contained Python script again.
 - There should be no additional headings or text in your response.
 - All the provided input data is stored in \"./input\" directory.
@@ -107,6 +111,8 @@ CODE_INTEGRATION_INSTR = """# Introduction
 - When integrating, try to keep code with similar functionality in the same place (e.g., all preprocessing should be done and then all training).
 - When integrating, ensemble the models.
 - The solution design should be relatively simple.
+- The integrated solution must use `skrub` DataOps for the data/preprocessing pipeline.
+- Keep `skrub` DataOps as the primary workflow when merging; do not replace it with sklearn-only fallback.
 - The code should implement the proposed solution and print the value of the evaluation metric computed on a hold-out validation set.
 - Only use the provided train data in the `./input` directory.
 

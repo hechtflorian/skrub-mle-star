@@ -17,6 +17,7 @@ from machine_learning_engineering.shared_libraries import (
     common_util,
     config,
     debug_util,
+    search_tool_util,
 )
 from machine_learning_engineering.sub_agents.initialization import prompt
 
@@ -407,7 +408,8 @@ for k in range(config.CONFIG.num_solutions):
         description="Retrieve effective models for solving a given task.",
         instruction=get_model_retriever_agent_instruction,
         #tools=[google_search],
-        tools=config.get_search_tools(),
+        # Replaced direct google_search with model-aware search tools.
+        tools=search_tool_util.get_search_tools(config.CONFIG.agent_model),
         before_model_callback=check_model_finish,
         after_model_callback=get_model_candidates,
         generate_content_config=types.GenerateContentConfig(
