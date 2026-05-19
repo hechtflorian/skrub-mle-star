@@ -5,8 +5,8 @@ import functools
 from google.adk import agents
 from google.adk.agents import callback_context as callback_context_module
 from google.adk.models import llm_request as llm_request_module
-from google.adk.models import llm_response as llm_response_module
 #from google.adk.tools.google_search_tool import google_search
+from google.adk.models import llm_response as llm_response_module
 from google.genai import types
 
 from machine_learning_engineering.shared_libraries import (
@@ -229,7 +229,7 @@ def get_debug_inner_loop_agent(
 ) -> agents.LoopAgent:
     """Gets the debug_inner_loop_agent."""
     bug_summary_agent = agents.Agent(
-        model=config.get_agent_model(),
+        model=config.CONFIG.agent_model,
         name=code_util.get_name_with_prefix_and_suffix(
             base_name="bug_summary_agent",
             prefix=prefix,
@@ -251,7 +251,7 @@ def get_debug_inner_loop_agent(
         include_contents="none",
     )
     debug_agent = agents.Agent(
-        model=config.get_agent_model(),
+        model=config.CONFIG.agent_model,
         name=code_util.get_name_with_prefix_and_suffix(
             base_name="debug_agent",
             prefix=prefix,
@@ -311,7 +311,7 @@ def get_run_and_debug_agent(
     else:
         use_data_leakage_checker = config.CONFIG.use_data_leakage_checker
     run_agent = agents.Agent(
-        model=config.get_agent_model(),
+        model=config.CONFIG.agent_model,
         name=code_util.get_name_with_prefix_and_suffix(
             base_name="agent",
             prefix=prefix,

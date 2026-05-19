@@ -346,7 +346,7 @@ use_data_leakage_checker = config.CONFIG.use_data_leakage_checker
 refinement_parallel_sub_agents = []
 for k in range(config.CONFIG.num_solutions):
     ablation_agent = agents.Agent(
-        model=config.get_agent_model(),
+        model=config.CONFIG.agent_model,
         name=f"ablation_agent_{k + 1}",
         description="Perform ablation studies to improve the solution.",
         instruction=get_ablation_agent_instruction,
@@ -393,7 +393,7 @@ for k in range(config.CONFIG.num_solutions):
         max_iterations=config.CONFIG.max_rollback_round,
     )
     ablation_summary_agent = agents.Agent(
-        model=config.get_agent_model(),
+        model=config.CONFIG.agent_model,
         name=f"ablation_summary_agent_{k + 1}",
         description="Summarize the ablation study results.",
         instruction=get_ablation_summary_agent_instruction,
@@ -404,7 +404,7 @@ for k in range(config.CONFIG.num_solutions):
         include_contents="none",
     )
     init_plan_agent = agents.Agent(
-        model=config.get_agent_model(),
+        model=config.CONFIG.agent_model,
         name=f"init_plan_agent_{k + 1}",
         description="Generate an initial plan and a code block.",
         instruction=get_init_plan_agent_instruction,
@@ -432,7 +432,7 @@ for k in range(config.CONFIG.num_solutions):
         before_model_callback=check_plan_implement_finish,
     )
     plan_refine_agent = agents.Agent(
-        model=config.get_agent_model(),
+        model=config.CONFIG.agent_model,
         name=f"plan_refine_agent_{k + 1}",
         description="Refine the plan.",
         instruction=get_plan_refinement_instruction,

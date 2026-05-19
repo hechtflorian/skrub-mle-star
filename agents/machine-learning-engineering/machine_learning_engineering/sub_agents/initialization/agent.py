@@ -9,8 +9,8 @@ import time
 from google.adk import agents
 from google.adk.agents import callback_context as callback_context_module
 from google.adk.models import llm_request as llm_request_module
-from google.adk.models import llm_response as llm_response_module
 #from google.adk.tools.google_search_tool import google_search
+from google.adk.models import llm_response as llm_response_module
 from google.genai import types
 
 from machine_learning_engineering.shared_libraries import (
@@ -390,7 +390,7 @@ def get_check_data_use_instruction(
 
 
 task_summarization_agent = agents.Agent(
-    model=config.get_agent_model(),
+    model=config.CONFIG.agent_model,
     name="task_summarization_agent",
     description="Summarize the task description.",
     instruction=prompt.SUMMARIZATION_AGENT_INSTR,
@@ -403,7 +403,7 @@ task_summarization_agent = agents.Agent(
 init_parallel_sub_agents = []
 for k in range(config.CONFIG.num_solutions):
     model_retriever_agent = agents.Agent(
-        model=config.get_agent_model(),
+        model=config.CONFIG.agent_model,
         name=f"model_retriever_agent_{k + 1}",
         description="Retrieve effective models for solving a given task.",
         instruction=get_model_retriever_agent_instruction,

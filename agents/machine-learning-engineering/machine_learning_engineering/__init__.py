@@ -16,24 +16,11 @@
 
 import os
 
-from dotenv import load_dotenv
+import google.auth
 
-load_dotenv()
-
-use_vertexai = os.environ.get("GOOGLE_GENAI_USE_VERTEXAI", "True").lower() in (
-    "1",
-    "true",
-    "yes",
-)
-
-if use_vertexai:
-    import google.auth
-
-    _, project_id = google.auth.default()
-    os.environ.setdefault("GOOGLE_CLOUD_PROJECT", project_id)
-    os.environ.setdefault("GOOGLE_CLOUD_LOCATION", "global")
-    os.environ.setdefault("GOOGLE_GENAI_USE_VERTEXAI", "True")
-else:
-    os.environ.setdefault("GOOGLE_GENAI_USE_VERTEXAI", "False")
+_, project_id = google.auth.default()
+os.environ.setdefault("GOOGLE_CLOUD_PROJECT", project_id)
+os.environ.setdefault("GOOGLE_CLOUD_LOCATION", "global")
+os.environ.setdefault("GOOGLE_GENAI_USE_VERTEXAI", "True")
 
 from . import agent  # noqa: E402

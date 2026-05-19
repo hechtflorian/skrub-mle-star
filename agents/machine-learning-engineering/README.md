@@ -123,6 +123,10 @@ Alternative: Local development (run from this sample repo)
   Set up Google Cloud credentials. You may set the following environment variables in your shell, or in a `.env` file instead.
    Authenticate your GCloud account.
 
+   Search tool compatibility note:
+   - Gemini models use ADK native `google_search`.
+   - Non-Gemini models (for example `openai/*` routed via LiteLLM/ChatAI) automatically use DuckDuckGo web search in the retriever/debug agents.
+
 ### Running the Agent Locally
 
 **Prepare your task**

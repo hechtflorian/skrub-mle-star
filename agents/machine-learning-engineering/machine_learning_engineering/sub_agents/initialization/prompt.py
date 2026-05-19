@@ -15,11 +15,13 @@ MODEL_RETRIEVAL_INSTR = """# Competition
 {task_summary}
 
 # Your task
-- List {num_model_candidates} recent effective models and their example codes to win the above competition. Call the web_search tool with focused queries for this.
+- List {num_model_candidates} recent effective models and their example codes to win the above competition.
+- Prefer model/code patterns that can be implemented with `skrub` DataOps pipelines.
 
 # Requirement
 - The example code should be concise and simple.
 - You must provide an example code, i.e., do not just mention GitHubs or papers.
+- Prefer examples that use skrub DataOps, e.g.: `skrub.var(name: str, value: object)`, `skrub.X(value: object)`, `skrub.y(value: object)`, and `.skb.apply(...)`.
 
 Use this JSON schema:
 Model = {{'model_name': str, 'example_code': str}}
@@ -44,9 +46,9 @@ MODEL_EVAL_INSTR = """# Introduction
 - Propose an evaluation metric that is reasonable for this task.
 - All the provided data is already prepared and available in the `./input` directory. There is no need to unzip any files.
 - Do not include other models that are not directly related to the model described.
+- Use PyTorch rather than TensorFlow. Use CUDA if you need. All the necessary libraries are installed.
 - You must use `skrub` and implement the data workflow using `skrub` DataOps abstractions (i.e., not a plain sklearn-only ML pipeline).
 - Keep the model in the model description, but integrate preprocessing/feature workflow through `skrub` DataOps.
-- Use PyTorch rather than TensorFlow. Use CUDA if you need. All the necessary libraries are installed.
 - The code should implement the proposed solution and print the value of the evaluation metric computed on a hold-out validation set.
 - Only use the provided train data in the `./input` directory.
 

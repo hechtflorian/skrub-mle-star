@@ -1,93 +1,298 @@
-# MLE-Star_Improved
+# Machine Learning Engineering with Multiple Agents (MLE-STAR) - Improved
+
+Derived from google/adk-samples, python/agents/machine-learning-engineering, Apache-2.0.
+
+## Overview
+
+The Machine Learning Engineering Agent is an approach to building Machine Learning Engineering (MLE) agents that can train state-of-the-art machine learning models on various tasks (including classification and regression tasks), through a novel approach of leveraging web search and targeted code block refinement. Using the example of predicting California housing prices, we show how MLE-STAR can create a regression model based on factors like population, income, etc. that outperforms traditional approaches to training ML models. The experimental results show that MLE-STAR achieves medals in 63.6% of the Kaggle competitions on the MLE-bench-Lite, significantly outperforming the best alternative. The implementation is based on the Google Cloud AI Research paper "MLE-STAR: Machine Learning Engineering Agent via Search and Targeted Refinement" (https://www.arxiv.org/abs/2506.15692).
+
+#### Performance of MLE agents on [MLE-Bench-Lite](https://github.com/openai/mle-bench/tree/main) datasets.
+
+| MLE Agents | Base LLM | Any Medals| Gold Medals | Silver Medals | Bronze Medals |
+| --- | --- | --- | --- | --- | --- |
+| [ **MLE-STAR** ](https://www.arxiv.org/pdf/2506.15692) | **Gemini-2.5-Pro** | **63.6%** | **36.4%** | **21.2%** | 6.1% |
+| [ **MLE-STAR** ](https://www.arxiv.org/pdf/2506.15692) | **Gemini-2.5-Flash** | 43.9% | 30.3% | 4.5% | **9.1%** |
+---
+
+<br>
+
+## Agent Details
+
+The key features of the Machine Learning Agent include:
+
+| Feature | Description |
+| --- | --- |
+| **Interaction Type** | Conversational |
+| **Complexity**  | Advanced |
+| **Agent Type**  | Multi Agent |
+| **Components**  | Tools: Code execution, Retrieval |
+| **Vertical**  | All |
+
+### Agent architecture
+
+This diagram shows the detailed architecture of the agents and tools used
+to implement this workflow.
+<img src="machine-learning-engineering-architecture.svg" alt="Machine-Learning-Engineering" width="800"/>
+
+### Key Features
+
+1. **Initial Solution Generation:** Uses a search engine to retrieve state-of-the-art models and their example codes, then merges the best-performing candidates into a consolidated initial solution.
+
+2. **Code Block Refinement:** Iteratively improves the solution by identifying and targeting specific code blocks (ML pipeline components) that have the most significant impact on performance, determined through ablation studies. An inner loop refines the targeted block with various strategies.
+
+3. **Ensemble Strategies:** Introduces a novel ensembling method where the Agent proposes and refines ensemble strategies to combine multiple solutions, aiming for superior performance than individual best solutions.
+
+4. **Robustness Modules:** Includes a debugging agent for error correction, a data leakage checker to prevent improper data access during preprocessing, and a data usage checker to ensure all provided data sources are utilized.
+
+## Setup and Installation
+
+### Prerequisites
+
+- Python 3.12+
+- uv for dependency management and packaging
+  - See the official [uv website](https://docs.astral.sh/uv/) for installation.
+  ```bash
+  curl -LsSf https://astral.sh/uv/install.sh | sh
+  ```
+- Git
+  - Git can be downloaded from [https://git-scm.com/](https://git-scm.com/). Then follow the [installation guide](https://git-scm.com/book/en/v2/Getting-Started-Installing-Git).
+- Google Cloud Account
+  - You need a Google Cloud account
+- A project on Google Cloud Platform
+- Google Cloud CLI
+  - For installation, please follow the instruction on the official
+  [Google Cloud website](https://cloud.google.com/sdk/docs/install).
+
+## Agent Starter Pack (recommended)
+
+Use the [Agent Starter Pack](https://goo.gle/agent-starter-pack) to scaffold a production-ready project and choose your deployment target ([Vertex AI Agent Engine](https://cloud.google.com/vertex-ai/generative-ai/docs/agent-engine/overview) or [Cloud Run](https://cloud.google.com/run)), with CI/CD and other production features. The easiest way is with [uv](https://docs.astral.sh/uv/) (one command, no venv or pip install needed):
+
+```bash
+uvx agent-starter-pack create my-mle-agent -a adk@machine-learning-engineering
+```
+
+If you don't have uv yet: `curl -LsSf https://astral.sh/uv/install.sh | sh`
+
+The starter pack will prompt you to select deployment options and set up your Google Cloud project.
+
+Alternative: Using pip and a virtual environment
+
+```bash
+# Create and activate a virtual environment
+python -m venv .venv && source .venv/bin/activate # On Windows: .venv\Scripts\activate
+
+# Install the starter pack and create your project
+pip install --upgrade agent-starter-pack
+agent-starter-pack create my-mle-agent -a adk@machine-learning-engineering
+```
 
 
 
-## Getting started
+From your newly created project directory (e.g. `my-mle-agent`), run:
 
-To make it easy for you to get started with GitLab, here's a list of recommended next steps.
+```bash
+cd my-mle-agent
+uv sync --dev
+uv run adk run machine_learning_engineering
+```
 
-Already a pro? Just edit this README.md and make it your own. Want to make it easy? [Use the template at the bottom](#editing-this-readme)!
+For the web UI:
 
-## Add your files
+```bash
+uv run adk web
+```
 
-* [Create](https://docs.gitlab.com/user/project/repository/web_editor/#create-a-file) or [upload](https://docs.gitlab.com/user/project/repository/web_editor/#upload-a-file) files
-* [Add files using the command line](https://docs.gitlab.com/topics/git/add_files/#add-files-to-a-git-repository) or push an existing Git repository with the following command:
+Then select `machine_learning_engineering` from the dropdown menu.
+
+---
+
+Alternative: Local development (run from this sample repo)
+
+### Agent Setup
+
+1. Clone the repository:
+  ```bash
+   git clone https://github.com/google/adk-samples.git
+   cd adk-samples/python/agents/machine-learning-engineering
+  ```
+   For the rest of this tutorial **ensure you remain in the `python/agents/machine-learning-engineering` directory**.
+2. Install the dependencies:
+  ```bash
+   uv sync
+  ```
+
+1. Configure settings:
+  Set up Google Cloud credentials. You may set the following environment variables in your shell, or in a `.env` file instead.
+   Authenticate your GCloud account.
+
+### Running the Agent Locally
+
+**Prepare your task**
+
+You should prepare the inputs for your task in the following way:
+
+1. Create a folder under `tasks` with the name of your task.
+2. In that folder, create a file containing the description of the task.
+3. Place the data files in this folder.
+
+**Using `adk`**
+
+ADK provides convenient ways to bring up agents locally and interact with them.
+You may talk to the agent using the CLI:
+
+```bash
+adk run machine_learning_engineering
+```
+
+Or on a web interface:
+
+```bash
+adk web
+```
+
+The command `adk web` will start a web server on your machine and print the URL.
+
+### Development
+
+```bash
+uv sync --dev
+uv run pytest tests
+uv run pytest eval
+```
+
+### Deployment
+
+You will need to have specified a GCS bucket in the environment variable `GOOGLE_CLOUD_BUCKET` as detailed in the [Configuration](#configuration) section.
+
+If the bucket does not exist, ADK will create one for you. This is the easiest option. If the bucket does exist, then you must provide permissions to the service account as described in [this](https://cloud.google.com/vertex-ai/generative-ai/docs/agent-engine/troubleshooting/deploy#permission_errors) Troubleshooting article.
+
+The Machine Learning Engineering Agent can be deployed to Vertex AI Agent Engine using the following
+commands:
+
+```bash
+uv sync --group deployment
+uv run deployment/deploy.py --create
+```
+
+When the deployment finishes, it will print a line like this:
 
 ```
-cd existing_repo
-git remote add origin https://git.tu-berlin.de/wang.zk25/mle-star_improved.git
-git branch -M main
-git push -uf origin main
+Created remote agent: projects/<PROJECT_NUMBER>/locations/<PROJECT_LOCATION>/reasoningEngines/<AGENT_ENGINE_ID>
 ```
 
-## Integrate with your tools
+If you forget the AGENT_ENGINE_ID, you can list the existing agents using:
 
-* [Set up project integrations](https://git.tu-berlin.de/wang.zk25/mle-star_improved/-/settings/integrations)
+```bash
+uv run deployment/deploy.py --list
+```
 
-## Collaborate with your team
+The output will be like:
 
-* [Invite team members and collaborators](https://docs.gitlab.com/user/project/members/)
-* [Create a new merge request](https://docs.gitlab.com/user/project/merge_requests/creating_merge_requests/)
-* [Automatically close issues from merge requests](https://docs.gitlab.com/user/project/issues/managing_issues/#closing-issues-automatically)
-* [Enable merge request approvals](https://docs.gitlab.com/user/project/merge_requests/approvals/)
-* [Set auto-merge](https://docs.gitlab.com/user/project/merge_requests/auto_merge/)
+```
+All remote agents:
 
-## Test and Deploy
+123456789 ("machine_learning_engineering")
+- Create time: 2025-07-11 09:46:07+00:00
+- Update time: 2025-05-10 09:46:09+00:00
+```
 
-Use the built-in continuous integration in GitLab.
+You may interact with the deployed agent using the `test_deployment.py` script
 
-* [Get started with GitLab CI/CD](https://docs.gitlab.com/ci/quick_start/)
-* [Analyze your code for known vulnerabilities with Static Application Security Testing (SAST)](https://docs.gitlab.com/user/application_security/sast/)
-* [Deploy to Kubernetes, Amazon EC2, or Amazon ECS using Auto Deploy](https://docs.gitlab.com/topics/autodevops/requirements/)
-* [Use pull-based deployments for improved Kubernetes management](https://docs.gitlab.com/user/clusters/agent/)
-* [Set up protected environments](https://docs.gitlab.com/ci/environments/protected_environments/)
+```bash
+$ export USER_ID=<any string>
+$ uv run deployment/test_deployment.py --resource_id=${AGENT_ENGINE_ID} --user_id=${USER_ID}
+Found agent with resource ID: ...
+Created session for user ID: ...
+Type 'quit' to exit.
+Input: Hello. What can you do for me?
+Response: Hello! I'm a Machine Learning Engineer Assistant. I can help you achieve competition-level quality in solving machine learning tasks.
 
-***
+To get started, please provide the task description of the competition.
+```
 
-# Editing this README
+To delete the deployed agent, you may run the following command:
 
-When you're ready to make this README your own, just edit this file and use the handy template below (or feel free to structure it however you want - this is just a starting point!). Thanks to [makeareadme.com](https://www.makeareadme.com/) for this template.
+```bash
+uv run deployment/deploy.py --delete --resource_id=${AGENT_ENGINE_ID}
+```
 
-## Suggestions for a good README
 
-Every project is different, so consider which of these sections apply to yours. The sections used in the template are suggestions for most open source projects. Also keep in mind that while a README can be too long and detailed, too long is better than too short. If you think your README is too long, consider utilizing another form of documentation rather than cutting out information.
 
-## Name
-Choose a self-explaining name for your project.
+### Example Interaction
 
-## Description
-Let people know what your project can do specifically. Provide context and add a link to any reference visitors might be unfamiliar with. A list of Features or a Background subsection can also be added here. If there are alternatives to your project, this is a good place to list differentiating factors.
+You may open the URL, select "machine_learning_engineering" in the top-left drop-down menu, and
+a chatbot interface will appear on the right. The conversation is initially
+blank. Here are some example requests you may ask the Machine Learning Agent to identity itself:
 
-## Badges
-On some READMEs, you may see small images that convey metadata, such as whether or not all the tests are passing for the project. You can use Shields to add some to your README. Many services also have instructions for adding a badge.
+> **[user]:** who are you?
 
-## Visuals
-Depending on what you are making, it can be a good idea to include screenshots or even a video (you'll frequently see GIFs rather than actual videos). Tools like ttygif can help, but check out Asciinema for a more sophisticated method.
+> **[mle_frontdoor_agent]:** I am a machine learning engineer agent.
 
-## Installation
-Within a particular ecosystem, there may be a common way of installing things, such as using Yarn, NuGet, or Homebrew. However, consider the possibility that whoever is reading your README is a novice and would like more guidance. Listing specific steps helps remove ambiguity and gets people to using your project as quickly as possible. If it only runs in a specific context like a particular programming language version or operating system or has dependencies that have to be installed manually, also add a Requirements subsection.
+> **[user]:** what can you do?
 
-## Usage
-Use examples liberally, and show the expected output if you can. It's helpful to have inline the smallest example of usage that you can demonstrate, while providing links to more sophisticated examples if they are too long to reasonably include in the README.
+> **[mle_frontdoor_agent]:** I am a machine learning engineer. My primary role is to engineer solutions for machine learning tasks, such as the California Housing Task. I can also describe the task if you'd like. I work by executing a sequence of sub-agents to solve the machine learning engineering task.
 
-## Support
-Tell people where they can go to for help. It can be any combination of an issue tracker, a chat room, an email address, etc.
+> **[user]:** describe the task that you have
 
-## Roadmap
-If you have ideas for releases in the future, it is a good idea to list them in the README.
+> **[mle_frontdoor_agent]:** The task I have is the California Housing Task. This task involves predicting the median house value in California districts, given various features about those districts. It's a regression problem where the goal is to build a model that can accurately estimate house prices based on factors like population, median income, and housing age within a district.
 
-## Contributing
-State if you are open to contributions and what your requirements are for accepting them.
+> **[user]:** execute the task
 
-For people who want to make changes to your project, it's helpful to have some documentation on how to get started. Perhaps there is a script that they should run or some environment variables that they need to set. Make these steps explicit. These instructions could also be useful to your future self.
+> **[mle_frontdoor_agent]:** *intermediate output snipped*.
+>
+>
+> \# Save the submission file to CSV without the index print(f"Submission file saved successfully to {submission_file_path}")
 
-You can also document commands to lint the code or run tests. These steps help to ensure high code quality and reduce the likelihood that the changes inadvertently break something. Having instructions for running tests is especially helpful if it requires external setup, such as starting a Selenium server for testing in a browser.
+## Appendix
 
-## Authors and acknowledgment
-Show your appreciation to those who have contributed to the project.
+### Required Config Parameters
 
-## License
-For open source projects, say how it is licensed.
+This document describes the required configuration parameters in the `DefaultConfig` dataclass.
 
-## Project status
-If you have run out of energy or time for your project, put a note at the top of the README saying that development has slowed down or stopped completely. Someone may choose to fork your project or volunteer to step in as a maintainer or owner, allowing your project to keep going. You can also make an explicit request for maintainers.
+---
+
+#### `data_dir`
+
+- **Description:** Specifies the directory path where the machine learning tasks and their data are stored.
+- **Type:** `str`
+- **Default:** `"./machine_learning_engineering/tasks/"`
+
+---
+
+#### `task_name`
+
+- **Description:** The name of the specific task to be loaded and processed.
+- **Type:** `str`
+- **Default:** `"california-housing-prices"`
+
+---
+
+#### `task_type`
+
+- **Description:** Defines the type of machine learning problem.
+- **Type:** `str`
+- **Default:** `"Tabular Regression"`
+
+---
+
+#### `lower`
+
+- **Description:** A boolean flag, indicating whether a lower value of the metric is better.
+- **Type:** `bool`
+- **Default:** `True`
+
+---
+
+#### `workspace_dir`
+
+- **Description:** The directory path used for saving intermediate outputs, results, logs, or any other artifacts generated during the task execution.
+- **Type:** `str`
+- **Default:** `"./machine_learning_engineering/workspace/"`
+
+---
+
+#### `agent_model`
+
+- **Description:** Specifies the identifier for the LLM model to be used by the agent. It defaults to the value of the environment variable `ROOT_AGENT_MODEL` or `"gemini-2.0-flash-001"` if the variable is not set.
+- **Type:** `str`
+- **Default:** `os.environ.get("ROOT_AGENT_MODEL", "gemini-2.0-flash-001")`

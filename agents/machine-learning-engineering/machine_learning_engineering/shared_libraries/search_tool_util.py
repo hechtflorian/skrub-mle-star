@@ -23,7 +23,7 @@ from google.adk.utils.model_name_utils import is_gemini_model
 def ddg_web_search(query: str, max_results: int = 5) -> str:
     """Searches the web with DuckDuckGo and returns compact citation text."""
     try:
-        from ddgs import DDGS   # use ddgs instead of duckduckgo_search, newer and more reliable
+        from ddgs import DDGS
 
         results = DDGS().text(query, max_results=max_results)
         if not results:

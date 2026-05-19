@@ -189,7 +189,7 @@ def create_workspace(
 
 
 init_ensemble_plan_agent = agents.Agent(
-    model=config.get_agent_model(),
+    model=config.CONFIG.agent_model,
     name="init_ensemble_plan_agent",
     description="Generate an initial plan to ensemble solutions.",
     instruction=get_init_ensemble_plan_agent_instruction,
@@ -208,7 +208,7 @@ init_ensemble_plan_implement_agent = debug_util.get_run_and_debug_agent(
     before_model_callback=check_ensemble_plan_implement_finish,
 )
 ensemble_plan_refine_agent = agents.Agent(
-    model=config.get_agent_model(),
+    model=config.CONFIG.agent_model,
     name="ensemble_plan_refine_agent",
     description="Refine the ensemble plan.",
     instruction=get_ensemble_plan_refinement_instruction,

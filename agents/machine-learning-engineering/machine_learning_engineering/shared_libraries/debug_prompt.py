@@ -20,6 +20,7 @@ BUG_REFINE_INSTR = """# Task description
 - Please revise the code to fix the error.
 - If the error is a 'module not found` error, then install the necessary module. You can use `pip install <module>`, where `<module>` is the name of the module to install.
 - Do not remove subsampling if exists.
+- If you hit a `skrub` argument/API issue, fix it by consulting current `skrub` docs and keep the solution in `skrub` DataOps (do not switch to sklearn-only fallback).
 - Provide the improved, self-contained Python script again.
 - There should be no additional headings or text in your response.
 - All the provided input data is stored in \"./input\" directory.

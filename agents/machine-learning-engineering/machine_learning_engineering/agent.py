@@ -22,7 +22,6 @@ from google.adk.agents import callback_context as callback_context_module
 from google.genai import types
 
 from machine_learning_engineering import prompt
-from machine_learning_engineering.shared_libraries import config
 from machine_learning_engineering.sub_agents.ensemble import (
     agent as ensemble_agent_module,
 )
@@ -63,7 +62,7 @@ mle_pipeline_agent = agents.SequentialAgent(
 
 # For ADK tools compatibility, the root agent must be named `root_agent`
 root_agent = agents.Agent(
-    model=config.get_agent_model(),
+    model=os.getenv("ROOT_AGENT_MODEL", "gemini-2.5-flash"),
     name="mle_frontdoor_agent",
     instruction=prompt.FRONTDOOR_INSTRUCTION,
     global_instruction=prompt.SYSTEM_INSTRUCTION,

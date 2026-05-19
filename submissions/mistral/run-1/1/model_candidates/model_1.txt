@@ -1,0 +1,26 @@
+## Model name
+XGBoost (Gradient Boosting)
+
+## Example Python code
+import xgboost as xgb
+import pandas as pd
+from sklearn.model_selection import train_test_split
+
+# Load data
+train = pd.read_csv("train.csv")
+test = pd.read_csv("test.csv")
+
+# Features and target
+X = train.drop(columns=["median_house_value"])
+y = train["median_house_value"]
+X_test = test.copy()
+
+# Split data
+X_train, X_val, y_train, y_val = train_test_split(X, y, test_size=0.2, random_state=42)
+
+# Train model
+model = xgb.XGBRegressor(objective="reg:squarederror", n_estimators=1000, learning_rate=0.05)
+model.fit(X_train, y_train, eval_set=[(X_val, y_val)], early_stopping_rounds=50, verbose=False)
+
+# Predict
+preds = model.predict(X_test)

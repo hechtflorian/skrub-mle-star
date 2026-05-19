@@ -190,7 +190,7 @@ def get_data_leakage_checker_agent(
 ) -> agents.SequentialAgent:
     """Gets the data leakage checker agent."""
     check_leakage_agent = agents.Agent(
-        model=config.get_agent_model(),
+        model=config.CONFIG.agent_model,
         name=code_util.get_name_with_prefix_and_suffix(
             base_name="check_leakage_agent",
             prefix=prefix,
@@ -224,7 +224,7 @@ def get_data_leakage_checker_agent(
         max_iterations=config.CONFIG.max_retry,
     )
     refine_leakage_agent = agents.Agent(
-        model=config.get_agent_model(),
+        model=config.CONFIG.agent_model,
         name=code_util.get_name_with_prefix_and_suffix(
             base_name="refine_leakage_agent",
             prefix=prefix,
