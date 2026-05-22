@@ -396,7 +396,9 @@ task_summarization_agent = agents.Agent(
     instruction=prompt.SUMMARIZATION_AGENT_INSTR,
     after_model_callback=get_task_summary,
     generate_content_config=types.GenerateContentConfig(
-        temperature=0.0,
+        temperature=config.get_compatible_temperature(
+            config.CONFIG.agent_model, 0.0
+        ),
     ),
     include_contents="none",
 )
@@ -413,7 +415,9 @@ for k in range(config.CONFIG.num_solutions):
         before_model_callback=check_model_finish,
         after_model_callback=get_model_candidates,
         generate_content_config=types.GenerateContentConfig(
-            temperature=1.0,
+            temperature=config.get_compatible_temperature(
+                config.CONFIG.agent_model, 1.0
+            ),
         ),
         include_contents="none",
     )

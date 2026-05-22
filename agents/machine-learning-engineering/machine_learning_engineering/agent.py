@@ -22,6 +22,7 @@ from google.adk.agents import callback_context as callback_context_module
 from google.genai import types
 
 from machine_learning_engineering import prompt
+from machine_learning_engineering.shared_libraries import config
 from machine_learning_engineering.sub_agents.ensemble import (
     agent as ensemble_agent_module,
 )
@@ -61,11 +62,14 @@ mle_pipeline_agent = agents.SequentialAgent(
 )
 
 # For ADK tools compatibility, the root agent must be named `root_agent`
+root_model = os.getenv("ROOT_AGENT_MODEL", "gemini-2.5-flash")
 root_agent = agents.Agent(
-    model=os.getenv("ROOT_AGENT_MODEL", "gemini-2.5-flash"),
+    model=root_model,
     name="mle_frontdoor_agent",
     instruction=prompt.FRONTDOOR_INSTRUCTION,
     global_instruction=prompt.SYSTEM_INSTRUCTION,
     sub_agents=[mle_pipeline_agent],
-    generate_content_config=types.GenerateContentConfig(temperature=0.01),
+    generate_content_config=types.GenerateContentConfig(
+        temperature=config.get_compatible_temperature(root_model, 0.01),    # set temperature=1.0 for GPT-5 models to fix litellm error
+    ),
 )

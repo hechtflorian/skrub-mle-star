@@ -207,7 +207,9 @@ def get_data_leakage_checker_agent(
             prefix=prefix,
         ),
         generate_content_config=types.GenerateContentConfig(
-            temperature=0.0,
+            temperature=config.get_compatible_temperature(
+                config.CONFIG.agent_model, 0.0
+            ),
         ),
         include_contents="none",
     )
@@ -238,7 +240,9 @@ def get_data_leakage_checker_agent(
         ),
         after_model_callback=replace_leakage_code,
         generate_content_config=types.GenerateContentConfig(
-            temperature=0.0,
+            temperature=config.get_compatible_temperature(
+                config.CONFIG.agent_model, 0.0
+            ),
         ),
         include_contents="none",
     )

@@ -41,3 +41,23 @@ class DefaultConfig:
 
 
 CONFIG = DefaultConfig()
+
+# Helper functions to run GPT-5 models with litellm by setting temperature=1.0
+def is_gpt5_family_model(model_name: str) -> bool:
+    """Returns True for OpenAI GPT-5 family models only."""
+    if not model_name:
+        return False
+    normalized = model_name.strip().lower()
+    if "/" in normalized:
+        normalized = normalized.split("/", 1)[1]
+    return normalized.startswith("gpt-5")
+
+
+def get_compatible_temperature(model_name: str, requested_temp: float) -> float:
+    """
+    Normalizes temperature only for model families with strict requirements.
+    GPT-5 family models require temperature=1.0 to fix litellm error, other models use the requested temperature.
+    """
+    if is_gpt5_family_model(model_name):
+        return 1.0
+    return requested_temp

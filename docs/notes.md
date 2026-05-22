@@ -7,9 +7,9 @@ uv run adk web # option 1: web UI
 uv run adk run machine_learning_engineering # Option 2: CLI
 ```
 
-Run these cmds too just in case:
+Run these cmds too just to make sure all is setup:
 ```bash
-uv add ddgs # DDG-search
+uv add ddgs # IMPORTANT: DDG-search
 uv add litellm
 gcloud auth application-default login
 ```

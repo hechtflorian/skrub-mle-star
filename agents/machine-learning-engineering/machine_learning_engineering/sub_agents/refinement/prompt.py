@@ -77,6 +77,7 @@ EXTRACT_BLOCK_AND_PLAN_INSTR = """# Introduction
 - Given the ablation study results, suggest an effective next plan to improve the above Python script.
 - The plan should be a brief outline/sketch of your proposed solution in natural language (3-5 sentences).
 - Please avoid plan which can make the solution's running time too long (e.g., searching hyperparameters in a very large search space).
+- Prefer plans that improve high-impact DataOps graph parts first (table assembly, `.skb.apply(...)` learner path, and `choose_*` choices) rather than replacing the architecture.
 - Also extract the code block from the above Python script that need to be improved according to the proposed plan.
 
 # Response format
@@ -110,6 +111,7 @@ EXTRACT_BLOCK_AND_PLAN_SEQ_INSTR = """# Introduction
 - The plan should be a brief outline/sketch of your proposed solution in natural language (3-5 sentences).
 - Please avoid plan which can make the solution's running time too long (e.g., searching hyperparameters in a very large search space).
 - Try to improve the other part which was not considered before.
+- Prefer plans that improve untried high-impact DataOps graph parts first (table assembly, `.skb.apply(...)` learner path, and `choose_*` choices).
 - Also extract the code block from the above Python script that need to be improved according to the proposed plan. You should try to extract the code block which was not improved before.
 
 # Response format
@@ -163,6 +165,8 @@ IMPLEMENT_PLAN_INSTR = """# Introduction
 - Implement the improvement plan on the above code block. But do not remove subsampling if exists.
 - The code block should be improved according to the proposed plan.
 - Note that all the variable including actual data is defined earlier (since you are just seeing a code block), therefore do not introduce dummy variables.
+- Keep the refined block compatible with the existing DataOps pipeline structure (`skrub.var`/`skrub.X`/`skrub.y` / `.skb.mark_as_X()`/`.skb.mark_as_y()` + `.skb.apply(...)`).
+- Do not convert or replace the main pipeline with sklearn-only `Pipeline`/`ColumnTransformer` orchestration.
 
 # Response format
 - Your response should be a single markdown code block (wrapped in ```) which is the improved code block.

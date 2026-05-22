@@ -21,6 +21,7 @@ ADD_TEST_FINAL_INSTR = """# Introduction
 - Save the test predictions in a `submission.csv` file. Put the `submission.csv` into `./final` directory.
 - You should not drop any test samples. Predict the target value for all test samples.
 - This is a very easy task because the only thing to do is to load test samples and then replace the validation samples with the test samples. Then you can even use the full training set!
+- Keep the existing training/preprocessing DataOps workflow unchanged (`skrub.var`/`skrub.X`/`skrub.y` / `.skb.mark_as_X()`/`.skb.mark_as_y()` + `.skb.apply(...)`); only add minimal test-time inference and submission generation.
 
 # Required
 - Do not modify the given Python solution code too much. Try to integarte test submission with minimal changes.
@@ -28,5 +29,6 @@ ADD_TEST_FINAL_INSTR = """# Introduction
 - The code should be a single-file Python program that is self-contained and can be executed as-is.
 - Your response should only contain a single code block.
 - Do not forget the ./final/submission.csv file.
+- Do not rewrite the core pipeline into sklearn-only architecture during submission integration.
 - Do not use exit() function in the Python code.
 - Do not use try: and except: or if else to ignore unintended behavior."""

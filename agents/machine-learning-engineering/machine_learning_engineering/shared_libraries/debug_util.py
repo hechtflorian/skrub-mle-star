@@ -246,7 +246,9 @@ def get_debug_inner_loop_agent(
             prefix=prefix,
         ),
         generate_content_config=types.GenerateContentConfig(
-            temperature=0.0,
+            temperature=config.get_compatible_temperature(
+                config.CONFIG.agent_model, 0.0
+            ),
         ),
         include_contents="none",
     )
@@ -268,7 +270,9 @@ def get_debug_inner_loop_agent(
         before_model_callback=check_bug_existence,
         after_model_callback=get_code_from_response,
         generate_content_config=types.GenerateContentConfig(
-            temperature=1.0,
+            temperature=config.get_compatible_temperature(
+                config.CONFIG.agent_model, 1.0
+            ),
         ),
         include_contents="none",
     )
@@ -325,7 +329,9 @@ def get_run_and_debug_agent(
             do_eval=not use_data_leakage_checker,
         ),
         generate_content_config=types.GenerateContentConfig(
-            temperature=1.0,
+            temperature=config.get_compatible_temperature(
+                config.CONFIG.agent_model, 1.0
+            ),
         ),
         include_contents="none",
     )

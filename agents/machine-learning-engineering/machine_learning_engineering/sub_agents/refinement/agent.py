@@ -356,7 +356,9 @@ for k in range(config.CONFIG.num_solutions):
             do_eval=not use_data_leakage_checker,
         ),
         generate_content_config=types.GenerateContentConfig(
-            temperature=1.0,
+            temperature=config.get_compatible_temperature(
+                config.CONFIG.agent_model, 1.0
+            ),
         ),
         include_contents="none",
     )
@@ -399,7 +401,9 @@ for k in range(config.CONFIG.num_solutions):
         instruction=get_ablation_summary_agent_instruction,
         after_model_callback=get_ablation_summary,
         generate_content_config=types.GenerateContentConfig(
-            temperature=0.0,
+            temperature=config.get_compatible_temperature(
+                config.CONFIG.agent_model, 0.0
+            ),
         ),
         include_contents="none",
     )
@@ -411,7 +415,9 @@ for k in range(config.CONFIG.num_solutions):
         before_model_callback=check_init_plan_finish,
         after_model_callback=get_plan_and_code_block,
         generate_content_config=types.GenerateContentConfig(
-            temperature=1.0,
+            temperature=config.get_compatible_temperature(
+                config.CONFIG.agent_model, 1.0
+            ),
         ),
         include_contents="none",
     )
@@ -438,7 +444,9 @@ for k in range(config.CONFIG.num_solutions):
         instruction=get_plan_refinement_instruction,
         after_model_callback=get_refined_plan,
         generate_content_config=types.GenerateContentConfig(
-            temperature=1.0,
+            temperature=config.get_compatible_temperature(
+                config.CONFIG.agent_model, 1.0
+            ),
         ),
         include_contents="none",
     )
