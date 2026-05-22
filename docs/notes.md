@@ -14,6 +14,50 @@ uv add litellm
 gcloud auth application-default login
 ```
 
+Run these cmds if adk web process gets stall (e.g. not updating new .env)
+```bash
+unset ROOT_AGENT_MODEL OPENAI_API_BASE OPENAI_API_KEY
+set -a
+source .env
+set +a
+echo "$ROOT_AGENT_MODEL"
+echo "$OPENAI_API_BASE"
+uv run adk web
+```
+
+If any web process still running to kill:
+```bash
+# 1) Check if anything is still running
+ps aux | rg "adk web|uv run.*adk web"
+kill <PID>  # placeholder, use actual PID                                   
+```
+
+If .venv bleeds over from other repos (using wrong repo):
+```bash
+cd ~/uni/mle-star-skrub/mle-star_improved/agents/machine-learning-engineering
+
+# hard-reset env influence
+unset VIRTUAL_ENV PYTHONPATH PYTHONHOME
+hash -r
+
+# rebuild this project's venv cleanly
+rm -rf .venv
+uv sync
+
+# Verify: All paths must be correct repo
+uv run python -c "import sys, machine_learning_engineering.agent as a, google.adk as g; print('python=', sys.executable); print('agent=', a.__file__); print('adk=', g.__file__)"
+
+# Then restart
+set -a; source .env; set +a
+uv run adk web
+```
+
+Git problems:
+```bash
+# Get auth popup
+GIT_ASKPASS= git -c core.askPass= -c credential.helper= push origin flo-dev
+```
+
 ---
 
 ## Strategy A — Chat AI + OpenAI-compat web search

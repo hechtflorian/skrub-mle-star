@@ -1,0 +1,26 @@
+## Model name
+DataOps pipeline with inline hyperparameter tuning + HistGradientBoostingRegressor
+
+## Example Python code
+import pandas as pd
+import skrub
+from sklearn.compose import ColumnTransformer
+from sklearn.pipeline import make_pipeline
+from sklearn.preprocessing import StandardScaler
+
+train = pd.read_csv('train.csv')
+test = pd.read_csv('test.csv')
+
+X = skrub.X(train.drop(columns=['median_house_value'])).skb.mark_as_X()
+y = skrub.y(train['median_house_value']).skb.mark_as_y()
+
+# concise DataOps pattern: tune model params inline, then fit on all data
+reg = skrub.choose_from([
+    skrub.tabular_learner('regression', random_state=0),
+    skrub.tabular_learner('regression', random_state=42),
+])
+
+learner = X.skb.apply(reg).skb.make_learner()
+learner.fit({X: X, y: y})
+preds = learner.predict({X: test})
+pd.DataFrame({'median_house_value': preds}).to_csv('submission.csv', index=False)
