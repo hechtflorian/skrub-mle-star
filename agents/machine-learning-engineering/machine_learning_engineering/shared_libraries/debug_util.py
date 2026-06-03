@@ -15,7 +15,7 @@ from machine_learning_engineering.shared_libraries import (
     common_util,
     config,
     debug_prompt,
-    search_tool_util,
+    skill_tool_util,
 )
 
 
@@ -264,9 +264,10 @@ def get_debug_inner_loop_agent(
             get_debug_agent_instruction,
             prefix=prefix,
         ),
-        #tools=[google_search],
-        # Replaced direct google_search with model-aware search tools.
-        tools=search_tool_util.get_search_tools(config.CONFIG.agent_model),
+        # Attach skrub DataOps SkillToolset + model-aware search tools.
+        tools=skill_tool_util.get_skill_and_search_tools(
+            config.CONFIG.agent_model
+        ),
         before_model_callback=check_bug_existence,
         after_model_callback=get_code_from_response,
         generate_content_config=types.GenerateContentConfig(
@@ -308,6 +309,7 @@ def get_run_and_debug_agent(
     agent_description: str,
     instruction_func: agents.llm_agent.InstructionProvider,
     before_model_callback: agents.llm_agent.BeforeModelCallback | None,
+    tools: list | None = None,
 ) -> agents.LoopAgent:
     """Gets the run and debug agent."""
     if prefix.startswith("ensemble_plan_implement"):
@@ -324,6 +326,7 @@ def get_run_and_debug_agent(
         description=f"{agent_description}.",
         instruction=instruction_func,
         before_model_callback=before_model_callback,
+        tools=tools or [],
         after_model_callback=functools.partial(
             get_code_from_response,
             do_eval=not use_data_leakage_checker,

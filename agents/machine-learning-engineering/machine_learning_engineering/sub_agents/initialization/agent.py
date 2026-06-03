@@ -17,7 +17,7 @@ from machine_learning_engineering.shared_libraries import (
     common_util,
     config,
     debug_util,
-    search_tool_util,
+    skill_tool_util,
 )
 from machine_learning_engineering.sub_agents.initialization import prompt
 
@@ -409,9 +409,10 @@ for k in range(config.CONFIG.num_solutions):
         name=f"model_retriever_agent_{k + 1}",
         description="Retrieve effective models for solving a given task.",
         instruction=get_model_retriever_agent_instruction,
-        #tools=[google_search],
-        # Replaced direct google_search with model-aware search tools.
-        tools=search_tool_util.get_search_tools(config.CONFIG.agent_model),
+        # Attach skrub DataOps SkillToolset + model-aware search tools.
+        tools=skill_tool_util.get_skill_and_search_tools(
+            config.CONFIG.agent_model
+        ),
         before_model_callback=check_model_finish,
         after_model_callback=get_model_candidates,
         generate_content_config=types.GenerateContentConfig(
@@ -437,6 +438,7 @@ for k in range(config.CONFIG.num_solutions):
             agent_description="Generate a code using the given model",
             instruction_func=get_model_eval_agent_instruction,
             before_model_callback=check_model_eval_finish,
+            tools=[skill_tool_util.get_skill_toolset()],
         )
         init_solution_gen_sub_agents.append(model_eval_and_debug_loop_agent)
     rank_agent = agents.SequentialAgent(
@@ -452,6 +454,7 @@ for k in range(config.CONFIG.num_solutions):
             agent_description="Integrate two solutions into a single solution",
             instruction_func=get_merger_agent_instruction,
             before_model_callback=check_merger_finish,
+            tools=[skill_tool_util.get_skill_toolset()],
         )
         merger_states_update_agent = agents.SequentialAgent(
             name=f"merger_states_update_agent_{k + 1}_{merge_idx}",
@@ -477,6 +480,7 @@ for k in range(config.CONFIG.num_solutions):
             agent_description="Check if all the provided information is used",
             instruction_func=get_check_data_use_instruction,
             before_model_callback=skip_data_use_check,
+            tools=[skill_tool_util.get_skill_toolset()],
         )
         init_solution_gen_sub_agents.append(check_data_use_and_debug_loop_agent)
     init_solution_gen_agent = agents.SequentialAgent(

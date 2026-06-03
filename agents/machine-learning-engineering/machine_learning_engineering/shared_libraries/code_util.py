@@ -166,6 +166,13 @@ def get_run_code_condition(
 ) -> bool:
     """Gets the condition for running the code."""
     if agent_name.startswith("ensemble_plan_implement"):
+        # Tool calls may be returned before code; only run real Python code.
+        if not raw_code.strip():
+            return False
+        try:
+            compile(raw_code, "<ensemble_plan_implement>", "exec")
+        except SyntaxError:
+            return False
         if "debug_agent" not in agent_name:
             return True
         if (
@@ -174,6 +181,26 @@ def get_run_code_condition(
         ):
             return True
     elif agent_name.startswith("ablation"):
+        # With tool-enabled ablation agents, responses can contain tool/prose output which will be empty.
+        # Run only when we have non-empty, syntactically valid Python code.
+        if not raw_code.strip():
+            return False
+        try:
+            compile(raw_code, "<ablation>", "exec")
+        except SyntaxError:
+            return False
+        if "debug_agent" not in agent_name:
+            return True
+        if "exit()" not in raw_code:
+            return True
+    elif agent_name.startswith("plan_implement"):
+        # Tool calls may be returned before code; only run real Python code.
+        if not raw_code.strip():
+            return False
+        try:
+            compile(raw_code, "<plan_implement>", "exec")
+        except SyntaxError:
+            return False
         if "debug_agent" not in agent_name:
             return True
         if "exit()" not in raw_code:

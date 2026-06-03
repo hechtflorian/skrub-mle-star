@@ -15,6 +15,7 @@ from machine_learning_engineering.shared_libraries import (
     common_util,
     config,
     debug_util,
+    skill_tool_util,
 )
 from machine_learning_engineering.sub_agents.refinement import prompt
 
@@ -46,17 +47,27 @@ def update_outer_loop_states(
         f"train_code_exec_result_{step}_{task_id}", {}
     )
     improvements = []
+    improvement_indices = []
     for inner_iter in range(inner_loop_round):
         exec_result = callback_context.state.get(
             f"train_code_improve_exec_result_{inner_iter}_{step}_{task_id}", {}
         )
+        if "score" not in prev_exec_result or "score" not in exec_result:
+            continue
         if lower:
             improvement = prev_exec_result["score"] - exec_result["score"]
         else:
             improvement = exec_result["score"] - prev_exec_result["score"]
         improvements.append(improvement)
-    best_improvement = max(improvements)
-    best_idx = improvements.index(best_improvement)
+        improvement_indices.append(inner_iter)
+    # new check: if no improvements, don't advance loop and keep previous solution
+    if not improvements:
+        best_improvement = 0.0
+        best_idx = -1
+    else:
+        best_improvement = max(improvements)
+        best_pos = improvements.index(best_improvement)
+        best_idx = improvement_indices[best_pos]
     output_filepath = os.path.join(run_cwd, f"train{step + 1}.py")
     if best_improvement <= 0.0:
         callback_context.state[f"train_code_{step + 1}_{task_id}"] = (
@@ -196,12 +207,16 @@ def get_plan_refinement_instruction(
         exec_result = context.state.get(
             f"train_code_improve_exec_result_{inner_iter}_{step}_{task_id}", {}
         )
+        # new check: if no improvements, don't advance loop and keep previous solution
+        if "score" not in prev_exec_result or "score" not in exec_result:
+            continue
+        execution_time = exec_result.get("execution_time", 0.0)
         if lower:
             improvement = prev_exec_result["score"] - exec_result["score"]
         else:
             improvement = exec_result["score"] - prev_exec_result["score"]
         score_plan_time_list.append(
-            (improvement, curr_plan, exec_result["execution_time"])
+            (improvement, curr_plan, execution_time)
         )
     num_top_plans = context.state.get("num_top_plans", 3)
     score_plan_time_list.sort(key=lambda x: x[0], reverse=True)
@@ -284,7 +299,8 @@ def check_plan_implement_finish(
     callback_context.state[
         f"plan_implement_skip_data_leakage_check_{suffix}"
     ] = True
-    if result_dict:
+    # new check: if no improvements, don't advance loop and keep previous solution
+    if result_dict.get("returncode", 1) == 0 and "score" in result_dict:
         return llm_response_module.LlmResponse()
     callback_context.state[
         f"plan_implement_skip_data_leakage_check_{suffix}"
@@ -334,6 +350,8 @@ def get_refined_plan(
 ) -> llm_response_module.LlmResponse | None:
     """Gets the refined plan from the response."""
     response_text = common_util.get_text_from_response(llm_response)
+    if not response_text.strip():
+        return None
     task_id = callback_context.agent_name.split("_")[-1]
     step = callback_context.state.get(f"refine_step_{task_id}", 0)
     callback_context.state[f"refine_plans_{step}_{task_id}"].append(
@@ -350,9 +368,10 @@ for k in range(config.CONFIG.num_solutions):
         name=f"ablation_agent_{k + 1}",
         description="Perform ablation studies to improve the solution.",
         instruction=get_ablation_agent_instruction,
-        before_model_callback=check_ablation_finish,
+        tools=[skill_tool_util.get_skill_toolset()],    # this may overwrite python script output and gets evaluated to 0 instead of returning actual code. didnt have tools before, hence it may fail due to overwrite (or expeciting code first)
+        before_model_callback=check_ablation_finish,    # will return 0 if no code to evaluate
         after_model_callback=functools.partial(
-            debug_util.get_code_from_response,
+            debug_util.get_code_from_response,  # fails if model returns only tool output (no ablation code, only 'load_skills()' used). Empty code evaluated and returns 0.
             do_eval=not use_data_leakage_checker,
         ),
         generate_content_config=types.GenerateContentConfig(
@@ -412,6 +431,7 @@ for k in range(config.CONFIG.num_solutions):
         name=f"init_plan_agent_{k + 1}",
         description="Generate an initial plan and a code block.",
         instruction=get_init_plan_agent_instruction,
+        tools=[skill_tool_util.get_skill_toolset()],
         before_model_callback=check_init_plan_finish,
         after_model_callback=get_plan_and_code_block,
         generate_content_config=types.GenerateContentConfig(
@@ -436,12 +456,14 @@ for k in range(config.CONFIG.num_solutions):
         agent_description="Implement the initial plan to generate a solution.",
         instruction_func=get_plan_implement_agent_instruction,
         before_model_callback=check_plan_implement_finish,
+        tools=[skill_tool_util.get_skill_toolset()],
     )
     plan_refine_agent = agents.Agent(
         model=config.CONFIG.agent_model,
         name=f"plan_refine_agent_{k + 1}",
         description="Refine the plan.",
         instruction=get_plan_refinement_instruction,
+        tools=[skill_tool_util.get_skill_toolset()],
         after_model_callback=get_refined_plan,
         generate_content_config=types.GenerateContentConfig(
             temperature=config.get_compatible_temperature(
@@ -456,6 +478,7 @@ for k in range(config.CONFIG.num_solutions):
         agent_description="Implement the plan to generate a solution.",
         instruction_func=get_plan_implement_agent_instruction,
         before_model_callback=check_plan_implement_finish,
+        tools=[skill_tool_util.get_skill_toolset()],
     )
     plan_refine_and_implement_agent = agents.SequentialAgent(
         name=f"plan_refine_and_implement_agent_{k + 1}",

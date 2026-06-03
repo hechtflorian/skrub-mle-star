@@ -14,6 +14,7 @@ from machine_learning_engineering.shared_libraries import (
     common_util,
     config,
     debug_util,
+    skill_tool_util,
 )
 from machine_learning_engineering.sub_agents.ensemble import prompt
 
@@ -56,7 +57,7 @@ def check_ensemble_plan_implement_finish(
     callback_context.state[
         f"ensemble_plan_implement_skip_data_leakage_check_{ensemble_iter}"
     ] = True
-    if result_dict:
+    if result_dict.get("returncode", 1) == 0 and "score" in result_dict:
         return llm_response_module.LlmResponse()
     callback_context.state[
         f"ensemble_plan_implement_skip_data_leakage_check_{ensemble_iter}"
@@ -208,6 +209,7 @@ init_ensemble_plan_implement_agent = debug_util.get_run_and_debug_agent(
     agent_description="Implement the initial plan to ensemble solutions.",
     instruction_func=get_ensemble_plan_implement_agent_instruction,
     before_model_callback=check_ensemble_plan_implement_finish,
+    tools=[skill_tool_util.get_skill_toolset()],
 )
 ensemble_plan_refine_agent = agents.Agent(
     model=config.CONFIG.agent_model,
@@ -228,6 +230,7 @@ ensemble_plan_implement_agent = debug_util.get_run_and_debug_agent(
     agent_description="Implement the plan to ensemble solutions.",
     instruction_func=get_ensemble_plan_implement_agent_instruction,
     before_model_callback=check_ensemble_plan_implement_finish,
+    tools=[skill_tool_util.get_skill_toolset()],
 )
 ensemble_plan_refine_and_implement_agent = agents.SequentialAgent(
     name="ensemble_plan_refine_and_implement_agent",

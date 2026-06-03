@@ -36,6 +36,15 @@ ENSEMBLE_PLAN_IMPLEMENT_INSTR = """# Introduction
 - Keep DataOps-based preprocessing/feature workflows from source solutions intact unless the plan explicitly improves them.
 - The merged solution must keep a DataOps pipeline as the main structure (`skrub.var`/`skrub.X`/`skrub.y` / `.skb.mark_as_X()`/`.skb.mark_as_y()` + `.skb.apply(...)`), not sklearn-only orchestration.
 
+# Requirements
+- Before editing the ensemble code, call `list_skills` -> `load_skill` -> `load_skill_resource` for `skrub-dataops-pipeline`.
+- Required first reference call: `load_skill_resource` with `references/dataops_api_quickmap.md`.
+- Optional second reference call (only if tuning logic is modified): `load_skill_resource` with `references/choices_hparam_pattern.md`.
+- If your ensemble implementation is intended to be tuned with `choose_*` / `choose_from(...)`, run real search (`.skb.make_randomized_search(...)`, `.skb.make_grid_search(...)`, or Optuna trial flow) and use the best searched model.
+- If only minor non-hparam edits are made and upstream strong params already exist, prefer reusing those params instead of rerunning full search.
+- Do not present default-choice `.skb.make_learner(...)` behavior as tuned.
+- Tool calls are preparation only; you must finish by returning the final executable Python code in the same turn.
+
 # Response format required
 - Your response should be a single markdown code block (wrapped in ```) which is the ensemble of {num_solutions} Python Solutions.
 - There should be no additional headings or text in your response.

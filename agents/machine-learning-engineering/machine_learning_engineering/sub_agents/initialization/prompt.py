@@ -21,10 +21,8 @@ MODEL_RETRIEVAL_INSTR = """# Competition
 # Requirement
 - The example code should be concise and simple.
 - You must provide an example code, i.e., do not just mention GitHubs or papers.
-- Prefer examples that explicitly use DataOps primitives (`skrub.var` or `skrub.X`/`skrub.y` or `DataOp.skb.mark_as_X()`/`DataOp.skb.mark_as_y()`, `DataOp.skb.apply(...)`).
-- Avoid examples where `skrub` is only incidental (e.g., just `TableVectorizer`) while the main pipeline is sklearn-only orchestration.
-- If any DataOps call is uncertain, you must use the web search tool before finalizing and prefer official sources with `site:skrub-data.org`.
-- Use targeted queries such as: `site:skrub-data.org DataOp.skb.apply`, `site:skrub-data.org DataOp.skb.mark_as_X`, `site:skrub-data.org DataOp.skb.mark_as_y`, `site:skrub-data.org skrub.choose_from`.
+- Use the Skrub DataOps skill: call `list_skills` -> `load_skill` for `skrub-dataops-pipeline` and call `load_skill_resource` for the reference 'references/dataops_api_quickmap.md' before finalizing.
+- Tool calls are preparation only; you must additionally use at least three web searches to find the example code for effective models.
 
 Use this JSON schema:
 Model = {{'model_name': str, 'example_code': str}}
@@ -52,6 +50,8 @@ MODEL_EVAL_INSTR = """# Introduction
 - Use PyTorch rather than TensorFlow. Use CUDA if you need. All the necessary libraries are installed.
 - The full ML pipeline must be implemented as a `skrub` DataOps workflow, not as sklearn-only orchestration.
 - Use DataOps primitives for pipeline structure: variables (`skrub.var` or `skrub.X`/`skrub.y`), dataframe/table transforms, and estimator application via `.skb.apply(...)`.
+- Use the Skrub DataOps skill: call `list_skills` -> `load_skill` for `skrub-dataops-pipeline` before changing uncertain DataOps parts.
+- If API details are unclear, call one focused `load_skill_resource` before editing.
 - If multiple related tables exist, assemble them in the same DataOps workflow (join/aggregate/select before learner application), consistent with official multi-table DataOps usage.
 - Keep the model in the model description, but integrate its preprocessing/training path inside the DataOps workflow.
 - The code should implement the proposed solution and print the value of the evaluation metric computed on a hold-out validation set.
@@ -87,8 +87,9 @@ BUG_REFINE_INSTR = """# Task description
 # Your task
 - Please revise the code to fix the error.
 - Do not remove subsampling if exists.
-- If you hit a `skrub` argument/API issue, fix it by consulting current `skrub` docs and keep the solution in `skrub` DataOps.
-- When a skrub/DataOps API call is uncertain, first use the web search tool with `site:skrub-data.org` queries (for example: `site:skrub-data.org DataOp.skb.apply` or `site:skrub-data.org <symbol_name>`) and patch only that call.
+- Use the Skrub DataOps skill: call `list_skills` -> `load_skill` for `skrub-dataops-pipeline` before major changes.
+- If DataOps API usage is uncertain, make focused `load_skill_resource` calls first.
+- If uncertainty remains, use `site:skrub-data.org` web search and patch only the uncertain call.
 - Preserve the existing `skrub` DataOps architecture while fixing the error (do not rewrite into sklearn-only pipeline code).
 - Provide the improved, self-contained Python script again.
 - There should be no additional headings or text in your response.
@@ -121,6 +122,8 @@ CODE_INTEGRATION_INSTR = """# Introduction
 - When integrating, try to keep code with similar functionality in the same place (e.g., all preprocessing should be done and then all training).
 - When integrating, ensemble the models.
 - The solution design should be relatively simple.
+- Use the Skrub DataOps skill: call `list_skills` -> `load_skill` for `skrub-dataops-pipeline` before changing uncertain DataOps parts.
+- If API details are unclear, call one focused `load_skill_resource` before editing.
 - The integrated solution must keep a `skrub` DataOps pipeline as the main workflow (`skrub.var`/`skrub.X`/`skrub.y` / `.skb.mark_as_X()`/`.skb.mark_as_y()` + `.skb.apply(...)`).
 - Do not merge by replacing the base with sklearn-only pipeline orchestration or by reducing `skrub` usage to incidental components only.
 - The code should implement the proposed solution and print the value of the evaluation metric computed on a hold-out validation set.
@@ -147,6 +150,8 @@ CHECK_DATA_USE_INSTR = """I have provided Python code for a machine learning tas
 If the above solution code does not use the information provided, try to incorporate all. Do not bypass using try-except.
 DO NOT USE TRY and EXCEPT; just occur error so we can debug it!
 See the task description carefully, to know how to extract unused information effectively.
+Use the Skrub DataOps skill: call `list_skills` -> `load_skill` for `skrub-dataops-pipeline` before changing uncertain DataOps parts.
+If API details are unclear, make focused `load_skill_resource` calls before editing.
 When improving the solution code by incorporating unused information, DO NOT FORGET to print out 'Final Validation Performance: {{final_validation_score}}' as in original solution code.
 
 Response format:

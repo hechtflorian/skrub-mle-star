@@ -20,8 +20,8 @@ ADD_TEST_FINAL_INSTR = """# Introduction
 - Test data is available in the `./input` directory.
 - Save the test predictions in a `submission.csv` file. Put the `submission.csv` into `./final` directory.
 - You should not drop any test samples. Predict the target value for all test samples.
-- This is a very easy task because the only thing to do is to load test samples and then replace the validation samples with the test samples. Then you can even use the full training set!
-- Keep the existing training/preprocessing DataOps workflow unchanged (`skrub.var`/`skrub.X`/`skrub.y` / `.skb.mark_as_X()`/`.skb.mark_as_y()` + `.skb.apply(...)`); only add minimal test-time inference and submission generation.
+- This is a very easy task because the only thing to do is to load test samples and then replace the validation samples with the test samples. Then you should use the full training set for the final model!
+- Keep the existing skrub DataOps pipeline unchanged (`skrub.var`/`skrub.X`/`skrub.y` / `.skb.mark_as_X()`/`.skb.mark_as_y()` + `.skb.apply(...)`); only add minimal test-time inference and submission generation.
 
 # Required
 - Do not modify the given Python solution code too much. Try to integarte test submission with minimal changes.
@@ -29,6 +29,12 @@ ADD_TEST_FINAL_INSTR = """# Introduction
 - The code should be a single-file Python program that is self-contained and can be executed as-is.
 - Your response should only contain a single code block.
 - Do not forget the ./final/submission.csv file.
-- Do not rewrite the core pipeline into sklearn-only architecture during submission integration.
+- Do not rewrite the core skrub DataOps pipeline into sklearn-only architecture during submission integration.
 - Do not use exit() function in the Python code.
-- Do not use try: and except: or if else to ignore unintended behavior."""
+- Do not use try: and except: or if else to ignore unintended behavior.
+- The final test predictions must be generated from model(s) trained on the full training set.
+- The code must print a final validation metric line with the exact format: `Final Validation Performance: {final_validation_score}` before finishing.
+- If you modify `choose_*` / `choose_from(...)` logic, call `list_skills` -> `load_skill` -> `load_skill_resource` for `skrub-dataops-pipeline` and load `references/choices_hparam_pattern.md` first (`references/dataops_tuning_optuna.md` only when using Optuna).
+- If final training is intended to be tuned with `choose_*` / `choose_from(...)`, run real search (`.skb.make_randomized_search(...)`, `.skb.make_grid_search(...)`, or Optuna trial flow) and use the best searched model for final retraining/prediction.
+- Only if minor non-hparam changes were made and previously strong params are available, prefer reusing those params instead of rerunning full search.
+- Do not claim tuned hyperparameters from default-choice `.skb.make_learner(...)` behavior."""

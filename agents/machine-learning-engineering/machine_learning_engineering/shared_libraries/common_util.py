@@ -12,7 +12,7 @@ from google.adk.models import llm_response
 def get_text_from_response(
     response: llm_response.LlmResponse,
 ) -> str:
-    """Extracts text from response."""
+    """Extracts text from response. Will ignore (empty) tool-call results due to gates in code_util.py."""
     final_text = ""
     #if response.content and response.content.parts:
         #num_parts = len(response.content.parts)
