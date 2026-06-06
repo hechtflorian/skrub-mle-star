@@ -1,159 +1,101 @@
 
-import os
 import pandas as pd
-import numpy as np
 import skrub
-
-from sklearn.ensemble import HistGradientBoostingRegressor
+from catboost import CatBoostRegressor
 from sklearn.metrics import mean_squared_error
+from sklearn.model_selection import train_test_split
 
-INPUT_DIR = "./input"
-TRAIN_PATH = os.path.join(INPUT_DIR, "train.csv")
-TEST_PATH = os.path.join(INPUT_DIR, "test.csv")
-SUBMISSION_PATH = "submission.csv"
-
-# Load data
-train_df = pd.read_csv(TRAIN_PATH)
-test_df = pd.read_csv(TEST_PATH)
+train_df = pd.read_csv("./input/train.csv")
+test_df = pd.read_csv("./input/test.csv")
 
 target_col = "median_house_value"
 
-# ---------------------------
-# Solution 1 pipeline
-# ---------------------------
-data_1 = skrub.var("data", train_df)
-X_1 = data_1.drop(columns=target_col, errors="ignore").skb.mark_as_X()
-y_1 = data_1[target_col].skb.mark_as_y()
+train_part, valid_part = train_test_split(train_df, test_size=0.2, random_state=42)
 
-vectorizer_1 = skrub.TableVectorizer()
-regressor_1 = HistGradientBoostingRegressor(random_state=0)
+# -------------------------
+# Base learner 1
+# -------------------------
+data1 = skrub.var("data1", train_part)
+X1 = data1.drop(columns=target_col, errors="ignore").skb.mark_as_X()
+y1 = data1[target_col].skb.mark_as_y()
 
-pred_1 = X_1.skb.apply(vectorizer_1).skb.apply(regressor_1, y=y_1)
+# Structural refinement from ablation: remove redundant households before vectorization.
+X1 = X1.skb.apply(skrub.DropCols(cols=["households"]))
 
-search_1 = pred_1.skb.make_randomized_search(
-    scoring="neg_root_mean_squared_error",
-    n_iter=8,
-    n_jobs=4,
-    random_state=0,
-    fitted=True,
-)
+vectorizer1 = skrub.TableVectorizer()
+X1_vec = X1.skb.apply(vectorizer1)
 
-if hasattr(search_1, "best_learner_") and search_1.best_learner_ is not None:
-    final_learner_1 = search_1.best_learner_
-elif hasattr(search_1, "best_estimator_") and search_1.best_estimator_ is not None:
-    final_learner_1 = search_1.best_estimator_
-else:
-    final_learner_1 = pred_1.skb.make_learner(fitted=True)
-
-# Quick holdout/preview evaluation for weighting
-preview_n = min(5000, len(train_df))
-preview_df = train_df.sample(n=preview_n, random_state=0) if len(train_df) > preview_n else train_df.copy()
-preview_target = preview_df[target_col].to_numpy()
-
-try:
-    preview_data_1 = skrub.var("data", preview_df)
-    preview_X_1 = preview_data_1.drop(columns=target_col, errors="ignore").skb.mark_as_X()
-    preview_y_1 = preview_data_1[target_col].skb.mark_as_y()
-    quick_pred_1 = preview_X_1.skb.apply(vectorizer_1).skb.apply(regressor_1, y=preview_y_1)
-    quick_learner_1 = quick_pred_1.skb.make_learner(fitted=True)
-    cv_pred_1 = quick_learner_1.predict({"data": preview_df})
-    rmse_1 = float(mean_squared_error(preview_target, cv_pred_1) ** 0.5)
-except Exception:
-    rmse_1 = float("nan")
-
-# Predict test for solution 1
-test_preds_1 = np.asarray(final_learner_1.predict({"data": test_df})).ravel()
-
-# ---------------------------
-# Solution 2 pipeline
-# Kept mostly intact but independent DataOps flow
-# ---------------------------
-data_2 = skrub.var("data", train_df)
-X_2 = data_2.drop(columns=target_col, errors="ignore").skb.mark_as_X()
-y_2 = data_2[target_col].skb.mark_as_y()
-
-# Slightly different inductive bias while preserving DataOps structure
-vectorizer_2 = skrub.TableVectorizer()
-regressor_2 = HistGradientBoostingRegressor(
-    random_state=42,
+model1 = CatBoostRegressor(
+    depth=8,
     learning_rate=0.05,
-    max_depth=6,
-    max_iter=300,
-    min_samples_leaf=20,
+    iterations=4000,
+    loss_function="RMSE",
+    random_seed=42,
+    verbose=0,
 )
 
-pred_2 = X_2.skb.apply(vectorizer_2).skb.apply(regressor_2, y=y_2)
+pred1 = X1_vec.skb.apply(model1, y=y1)
+learner1 = pred1.skb.make_learner(fitted=True)
+learner1.fit({"data1": train_part})
 
-search_2 = pred_2.skb.make_randomized_search(
-    scoring="neg_root_mean_squared_error",
-    n_iter=8,
-    n_jobs=4,
-    random_state=42,
-    fitted=True,
+# -------------------------
+# Base learner 2
+# -------------------------
+# Keep the second pipeline separate and end-to-end, with the same preprocessing
+# structure but a slightly different CatBoost configuration to provide diversity.
+data2 = skrub.var("data2", train_part)
+X2 = data2.drop(columns=target_col, errors="ignore").skb.mark_as_X()
+y2 = data2[target_col].skb.mark_as_y()
+
+X2 = X2.skb.apply(skrub.DropCols(cols=["households"]))
+
+vectorizer2 = skrub.TableVectorizer()
+X2_vec = X2.skb.apply(vectorizer2)
+
+model2 = CatBoostRegressor(
+    depth=10,
+    learning_rate=0.03,
+    iterations=5000,
+    loss_function="RMSE",
+    random_seed=123,
+    verbose=0,
 )
 
-if hasattr(search_2, "best_learner_") and search_2.best_learner_ is not None:
-    final_learner_2 = search_2.best_learner_
-elif hasattr(search_2, "best_estimator_") and search_2.best_estimator_ is not None:
-    final_learner_2 = search_2.best_estimator_
-else:
-    final_learner_2 = pred_2.skb.make_learner(fitted=True)
+pred2 = X2_vec.skb.apply(model2, y=y2)
+learner2 = pred2.skb.make_learner(fitted=True)
+learner2.fit({"data2": train_part})
 
-try:
-    preview_data_2 = skrub.var("data", preview_df)
-    preview_X_2 = preview_data_2.drop(columns=target_col, errors="ignore").skb.mark_as_X()
-    preview_y_2 = preview_data_2[target_col].skb.mark_as_y()
-    quick_pred_2 = preview_X_2.skb.apply(vectorizer_2).skb.apply(regressor_2, y=preview_y_2)
-    quick_learner_2 = quick_pred_2.skb.make_learner(fitted=True)
-    cv_pred_2 = quick_learner_2.predict({"data": preview_df})
-    rmse_2 = float(mean_squared_error(preview_target, cv_pred_2) ** 0.5)
-except Exception:
-    rmse_2 = float("nan")
+# -------------------------
+# Validation predictions
+# -------------------------
+valid_pred1 = learner1.predict({"data1": valid_part})
+valid_pred2 = learner2.predict({"data2": valid_part})
 
-# Predict test for solution 2
-test_preds_2 = np.asarray(final_learner_2.predict({"data": test_df})).ravel()
+# Small merge layer: tune a weighted average on the validation split.
+best_rmse = float("inf")
+best_w = 0.5
+best_valid_pred = None
 
-# ---------------------------
-# Ensemble layer
-# ---------------------------
-# Inverse-RMSE weighting if possible; otherwise equal weights
-valid_rmse_1 = np.isfinite(rmse_1) and rmse_1 > 0
-valid_rmse_2 = np.isfinite(rmse_2) and rmse_2 > 0
+for i in range(11):
+    w2 = i / 10.0
+    w1 = 1.0 - w2
+    blended_valid = w1 * valid_pred1 + w2 * valid_pred2
+    rmse = mean_squared_error(valid_part[target_col], blended_valid) ** 0.5
+    if rmse < best_rmse:
+        best_rmse = rmse
+        best_w = w2
+        best_valid_pred = blended_valid
 
-if valid_rmse_1 and valid_rmse_2:
-    inv_1 = 1.0 / rmse_1
-    inv_2 = 1.0 / rmse_2
-    w_1 = inv_1 / (inv_1 + inv_2)
-    w_2 = inv_2 / (inv_1 + inv_2)
-elif valid_rmse_1:
-    w_1, w_2 = 0.7, 0.3
-elif valid_rmse_2:
-    w_1, w_2 = 0.3, 0.7
-else:
-    w_1, w_2 = 0.5, 0.5
-
-# Clipped average for robustness before final blend
-pred_1_clip = np.clip(test_preds_1, -1e9, 1e9)
-pred_2_clip = np.clip(test_preds_2, -1e9, 1e9)
-
-pred_matrix = np.vstack([pred_1_clip, pred_2_clip]).T
-ensemble_preds = np.average(pred_matrix, axis=1, weights=[w_1, w_2])
-
-# Validation performance on preview set using the same weighted ensemble logic
-try:
-    preview_preds_1 = np.asarray(final_learner_1.predict({"data": preview_df})).ravel()
-    preview_preds_2 = np.asarray(final_learner_2.predict({"data": preview_df})).ravel()
-    preview_ensemble = np.average(
-        np.vstack([np.clip(preview_preds_1, -1e9, 1e9), np.clip(preview_preds_2, -1e9, 1e9)]).T,
-        axis=1,
-        weights=[w_1, w_2],
-    )
-    final_validation_score = float(mean_squared_error(preview_target, preview_ensemble) ** 0.5)
-except Exception:
-    final_validation_score = float("nan")
-
+final_validation_score = best_rmse
 print(f"Final Validation Performance: {final_validation_score}")
 
-# Write submission
-submission = pd.DataFrame({"median_house_value": np.asarray(ensemble_preds).ravel()})
-submission.to_csv(SUBMISSION_PATH, index=False)
+# -------------------------
+# Test predictions
+# -------------------------
+test_pred1 = learner1.predict({"data1": test_df})
+test_pred2 = learner2.predict({"data2": test_df})
+
+final_test_pred = (1.0 - best_w) * test_pred1 + best_w * test_pred2
+
+submission = pd.DataFrame({"median_house_value": final_test_pred})
+submission.to_csv("submission.csv", index=False)

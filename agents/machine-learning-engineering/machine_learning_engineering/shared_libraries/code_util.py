@@ -164,7 +164,7 @@ def get_run_code_condition(
     agent_name: str,
     raw_code: str,
 ) -> bool:
-    """Gets the condition for running the code."""
+    """Gets the condition for running the code. Will ignore (empty) tool-call results."""
     if agent_name.startswith("ensemble_plan_implement"):
         # Tool calls may be returned before code; only run real Python code.
         if not raw_code.strip():

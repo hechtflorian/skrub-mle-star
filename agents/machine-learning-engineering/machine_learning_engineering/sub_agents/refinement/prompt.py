@@ -9,18 +9,26 @@ ABLATION_INSTR = """# Introduction
 ```python
 {code}
 ```
+
+# Data profile (precomputed on train.csv)
+{data_profile}
+
 # Instructions
 - You need to generate a simple Python code that performs an ablation study on the above Python solution script.
 - The generated code should create variations by modifying or disabling parts (1-2 simple parts) of the training process.
 - For each ablation, print out how the modification affects the model's performance.
 
 # Requirements
-- You must call `list_skills` -> `load_skill` -> `load_skill_resource` for `skrub-dataops-pipeline` before editing.
-- Use focused `load_skill_resource` reference calls for uncertain skrub API details.
-- You must call at least one of the following references with `load_skill_resource` before editing: `references/choices_hparam_pattern.md` for DataOps/choice hyperparameter tuning; `references/dataops_tuning_optuna.md` when the plan explicitly uses Optuna.
-- If you intend to report a variant as tuned, run real search (`.skb.make_randomized_search(...)`, `.skb.make_grid_search(...)`, or Optuna trial flow) and evaluate the searched model.
-- For quick ablation checks or minor non-hparam changes, prefer fixed values or previously strong params instead of rerunning full search.
-- Do not treat `.skb.make_learner(...)` / `.skb.eval(...)` default-choice behavior as tuned results.
+- You must call `list_skills` -> `load_skill` for `skrub-dataops-pipeline` before editing and load relevant references via `load_skill_resource` if you see fit. 
+- If an ablation variant changes feature encoding/preprocessing/column routing, load `references/encoding_skrub.md` and/or `references/selectors_routing_skrub.md` via `load_skill_resource` before finalizing code.
+- If the data profile suggests redundant columns, ratios, cleaning, or derived features, load `references/feature_engineering_skrub.md` via `load_skill_resource` before finalizing code.
+- If you want to perform parameter search (e.g. model family, encoders, specific values), load `references/choices_hparam_pattern.md` via `load_skill_resource` before finalizing code.
+- Use the data profile to choose focused ablations if useful.
+- Keep ablation search budget small when used (`n_iter <= 5`).
+- Keep the same model family and validation split as the current solution; unless changing the model is the explicit hypothesis.
+- If the profile shows string/categorical complexity or missingness, include at least one preprocessing/encoding structural ablation.
+- If the profile shows highly correlated feature pairs, include at least one redundancy/ratio/drop-one ablation.
+- Do not claim tuning from default-choice `.skb.make_learner(...)` / `.skb.eval(...)` behavior.
 - Tool calls are preparation only; you must finish by returning executable Python code for the ablation study in the same turn.
 
 # Response format
@@ -44,19 +52,26 @@ ABLATION_SEQ_INSTR = """# Introduction
 
 {prev_ablations}
 
+# Data profile (precomputed on train.csv)
+{data_profile}
+
 # Instructions
-- You need you to generate a simple Python code that performs an ablation study on the train.py script.
+- You need to generate simple Python code that performs an ablation study on the train.py script.
 - The generated code should create variations by modifying or disabling parts (2-3 parts) of the training process.
 - Your ablation study should concentrate on the other parts that have not been previously considered.
 - For each ablation, print out how the modification affects the model's performance.
 
 # Requirements
-- You must call `list_skills` -> `load_skill` -> `load_skill_resource` for `skrub-dataops-pipeline` before editing.
-- Use focused `load_skill_resource` reference calls for uncertain skrub API details.
-- You must call at least one of the following references with `load_skill_resource` before editing: `references/choices_hparam_pattern.md` for DataOps/choice hyperparameter tuning; `references/dataops_tuning_optuna.md` when the plan explicitly uses Optuna.
-- If you intend to report a variant as tuned, run real search (`.skb.make_randomized_search(...)`, `.skb.make_grid_search(...)`, or Optuna trial flow) and evaluate the searched model.
-- For quick ablation checks or minor non-hparam changes, prefer fixed values or previously strong params instead of rerunning full search.
-- Do not treat `.skb.make_learner(...)` / `.skb.eval(...)` default-choice behavior as tuned results.
+- You must call `list_skills` -> `load_skill` for `skrub-dataops-pipeline` before editing and load relevant references via `load_skill_resource` if you see fit.
+- If an ablation variant changes feature encoding/preprocessing/column routing, load `references/encoding_skrub.md` and/or `references/selectors_routing_skrub.md` via `load_skill_resource` before finalizing code.
+- If the data profile suggests redundant columns, ratios, cleaning, or derived features, load `references/feature_engineering_skrub.md` via `load_skill_resource` before finalizing code.
+- If you want to perform parameter search (e.g. model family, encoders, specific values), load `references/choices_hparam_pattern.md` via `load_skill_resource` before finalizing code.
+- Keep ablation search budget small when used (`n_iter <= 5`).
+- Use the data profile to choose focused ablations if useful.
+- Keep the same model family and validation split as the current solution; unless changing the model is the explicit hypothesis.
+- If the profile shows string/categorical complexity or missingness, include at least one preprocessing/encoding structural ablation.
+- If the profile shows highly correlated feature pairs, include at least one redundancy/ratio/drop-one ablation.
+- Do not claim tuning from default-choice `.skb.make_learner(...)` / `.skb.eval(...)` behavior.
 - Tool calls are preparation only; you must finish by returning executable Python code for the ablation study in the same turn.
 
 # Response format
@@ -97,21 +112,21 @@ EXTRACT_BLOCK_AND_PLAN_INSTR = """# Introduction
 - Given the ablation study results, suggest an effective next plan to improve the above Python script.
 - The plan should be a brief outline/sketch of your proposed solution in natural language (3-5 sentences).
 - Please avoid plan which can make the solution's running time too long (e.g., searching hyperparameters in a very large search space).
-- Prefer plans that improve high-impact DataOps graph parts first (table assembly, `.skb.apply(...)` learner path, and `choose_*` choices) rather than replacing the architecture.
-- Also extract the code block from the above Python script that need to be improved according to the proposed plan.
+- Also extract the code block from the above Python script that needs to be improved according to the proposed plan.
 
 # Requirements
-- You must call `list_skills` -> `load_skill` -> `load_skill_resource` for `skrub-dataops-pipeline` before finalizing the plan.
-- Use focused `load_skill_resource` reference calls for uncertain skrub API details; preserve DataOps architecture.
-- You must call at least one of the following references with `load_skill_resource` before editing: `references/choices_hparam_pattern.md` for DataOps/choice hyperparameter tuning; `references/dataops_tuning_optuna.md` when the plan explicitly uses Optuna.
-- If your proposed plan claims tuning with `choose_*` / `choose_from(...)`, include real search execution and best-result model selection.
-- If changes are minor and search-sensitive parts are unchanged, prefer reusing previously strong params or explicit fixed values.
-- Do not describe default-choice execution as tuned.
-- Tool calls are preparation only; you must finish by returning your proposed solution.
+- You must call `list_skills` -> `load_skill` for `skrub-dataops-pipeline` before finalizing the plan and load relevant references via `load_skill_resource` if you see fit.
+- If your plan changes feature encoding/preprocessing or column routing, load `references/encoding_skrub.md` and/or `references/selectors_routing_skrub.md` via `load_skill_resource` before finalizing the plan.
+- If your plan adds derived features, drops redundant columns, or applies cleaning/scaling from the data profile, load `references/feature_engineering_skrub.md` via `load_skill_resource` before finalizing the plan.
+- If you want to perform hyperparameter search (e.g. over model family, encoding, or specific values), load `references/choices_hparam_pattern.md` via `load_skill_resource` before finalizing.
+- If tuning is proposed, state a focused bounded search budget (`n_iter <= 8`) and a compact targeted search space.
+- Do not call a plan tuned unless search is actually executed in implementation.
+- You must always finish by returning your proposed solution, even if you call `list_skills`/`load_skill`/`load_skill_resource`.
 
 # Response format
 - Your response should be a brief outline/sketch of your proposed solution in natural language (3-5 sentences) and a single markdown code block which is the code block that need to be improved.
 - The code block can be long but should be exactly extracted from the Python script provided above.
+- Tool calls are preparation only; you must finish by returning your proposed solution.
 
 Use this JSON schema:
 
@@ -140,21 +155,21 @@ EXTRACT_BLOCK_AND_PLAN_SEQ_INSTR = """# Introduction
 - The plan should be a brief outline/sketch of your proposed solution in natural language (3-5 sentences).
 - Please avoid plan which can make the solution's running time too long (e.g., searching hyperparameters in a very large search space).
 - Try to improve the other part which was not considered before.
-- Prefer plans that improve untried high-impact DataOps graph parts first (table assembly, `.skb.apply(...)` learner path, and `choose_*` choices).
-- Also extract the code block from the above Python script that need to be improved according to the proposed plan. You should try to extract the code block which was not improved before.
+- Also extract the code block from the above Python script that needs to be improved according to the proposed plan. You should try to extract a code block that was not improved before.
 
 # Requirements
-- You must call `list_skills` -> `load_skill` -> `load_skill_resource` for `skrub-dataops-pipeline` before finalizing the plan.
-- Use focused `load_skill_resource` reference calls for uncertain skrub API details; preserve DataOps architecture.
-- You must call at least one of the following references with `load_skill_resource` before editing: `references/choices_hparam_pattern.md` for DataOps/choice hyperparameter tuning; `references/dataops_tuning_optuna.md` when the plan explicitly uses Optuna.
-- If your proposed plan claims tuning with `choose_*` / `choose_from(...)`, include real search execution and best-result model selection.
-- If changes are minor and search-sensitive parts are unchanged, prefer reusing previously strong params or explicit fixed values.
-- Do not describe default-choice execution as tuned.
-- Tool calls are preparation only; you must finish by returning your proposed solution.
+- You must call `list_skills` -> `load_skill` for `skrub-dataops-pipeline` and load relevant references via `load_skill_resource` before finalizing the plan.
+- If your plan changes feature encoding/preprocessing or column routing, load `references/encoding_skrub.md` and/or `references/selectors_routing_skrub.md` via `load_skill_resource` before finalizing the plan.
+- If your plan adds derived features, drops redundant columns, or applies cleaning/scaling from the data profile, load `references/feature_engineering_skrub.md` via `load_skill_resource` before finalizing the plan.
+- If you want to perform hyperparameter search (e.g. over model family, encoding, or specific values), load `references/choices_hparam_pattern.md` via `load_skill_resource` before finalizing the plan.
+- If tuning is proposed, state a focused bounded search budget (`n_iter <= 8`) and a compact targeted search space.
+- Do not call a plan tuned unless search is actually executed in implementation.
+- You must always finish by returning your proposed solution, even if you call `list_skills`/`load_skill`/`load_skill_resource`.
 
 # Response format
 - Your response should be a brief outline/sketch of your proposed solution in natural language (3-5 sentences) and a single markdown code block which is the code block that need to be improved.
 - The code block can be long but should be exactly extracted from the Python script provided above.
+- Tool calls are preparation only; you must finish by returning your proposed solution.
 
 Use this JSON schema:
 
@@ -179,20 +194,22 @@ PLAN_REFINEMENT_INSTR = """# Introduction
 - Suggest a better plan to improve the above code block.
 - The suggested plan must be novel and effective.
 - Please avoid plans which can make the solution's running time too long (e.g., searching hyperparameters in a very large search space).
-- The suggested plan should be differ from the previous plans you have tried and should receive a higher score.
+- The suggested plan should differ from the previous plans you have tried and should receive a higher score.
 
 # Requirements
-- You must call `list_skills` -> `load_skill` -> `load_skill_resource` for `skrub-dataops-pipeline` before finalizing the plan.
-- Use focused `load_skill_resource` reference calls for uncertain skrub API details; preserve DataOps architecture.
-- You must call both of the following references with `load_skill_resource` before finalizing the plan: `references/choices_hparam_pattern.md` and`references/dataops_tuning_optuna.md`.
-- If the plan claims tuned `choose_*` / `choose_from(...)`, it must include real search execution and best-result selection.
-- Prefer reuse/fixed params when only minor non-hparam edits are proposed; avoid redundant full searches.
-- Do not call a plan tuned unless search is executed; default-choice learners are baseline behavior only.
-- Tool calls are preparation only; you must finish by returning your proposed solution plan.
+- You must call `list_skills` -> `load_skill` for `skrub-dataops-pipeline` and load relevant references via `load_skill_resource`before finalizing the plan.
+- If your plan changes feature encoding/preprocessing or column routing, load `references/encoding_skrub.md` and/or `references/selectors_routing_skrub.md` via `load_skill_resource` before finalizing the plan.
+- If your plan adds derived features, drops redundant columns, or applies cleaning/scaling from the data profile, load `references/feature_engineering_skrub.md` via `load_skill_resource` before finalizing the plan.
+- If you want to perform parameter search (e.g. model family, encoders, specific values), load `references/choices_hparam_pattern.md` via `load_skill_resource` before finalizing the plan.
+- Prefer fixed/reused params when edits are minor and search-sensitive parts are unchanged.
+- If proposing tuning, keep it bounded (`n_iter <= 8`) with a compact targeted search space.
+- Do not describe default-choice `.skb.make_learner(...)` / `.skb.eval(...)` runs as tuned.
+- You must always finish by returning your proposed solution, even if you call `list_skills`/`load_skill`/`load_skill_resource`.
 
 # Response format
 - Your response should be a brief outline/sketch of your proposed solution in natural language (3-5 sentences).
 - There should be no additional headings or text in your response.
+- Tool calls are preparation only; you must finish by returning your proposed solution plan.
 """
 
 IMPLEMENT_PLAN_INSTR = """# Introduction
@@ -212,19 +229,24 @@ IMPLEMENT_PLAN_INSTR = """# Introduction
 - Implement the improvement plan on the above code block. But do not remove subsampling if exists.
 - The code block should be improved according to the proposed plan.
 - Note that all the variable including actual data is defined earlier (since you are just seeing a code block), therefore do not introduce dummy variables.
-- Keep the refined block compatible with the existing DataOps pipeline structure (`skrub.var`/`skrub.X`/`skrub.y` / `.skb.mark_as_X()`/`.skb.mark_as_y()` + `.skb.apply(...)`).
-- Do not convert or replace the main pipeline with sklearn-only `Pipeline`/`ColumnTransformer` orchestration.
 
 # Requirements
-- For skrub DataOps, you must load `list_skills` -> `load_skill` -> `load_skill_resource` for `skrub-dataops-pipeline` first.
-- Use `load_skill_resource` calls with the most relevant references for uncertain parts before editing.
-- You must call at least one of the following references with `load_skill_resource` before editing: `references/choices_hparam_pattern.md` for DataOps/choice hyperparameter tuning; `references/dataops_tuning_optuna.md` when the plan explicitly uses Optuna.
-- If the improved block is intended to be tuned with `choose_*` / `choose_from(...)`, implement real search (`.skb.make_randomized_search(...)`, `.skb.make_grid_search(...)`, or Optuna trial flow) and use the best result in training/inference.
-- If only minor non-hparam changes are made, prefer reusing previous strong params or fixed values instead of rerunning full search.
-- Do not label default-choice execution as tuned.
-- Tool calls are preparation only; you must finish by returning executable Python code for the improved code block.
+- You must call `list_skills` -> `load_skill` for `skrub-dataops-pipeline` and load relevant references via `load_skill_resource` before editing.
+- If implementation changes feature encoding/preprocessing or column routing, load `references/encoding_skrub.md` and/or `references/selectors_routing_skrub.md` via `load_skill_resource` before finalizing code.
+- If implementation adds derived features, drops redundant columns, or applies cleaning/scaling, load `references/feature_engineering_skrub.md` via `load_skill_resource` before finalizing code.
+- If you want to perform hyperparameter search (e.g. over model family, encoding, or search-space nodes), load `references/choices_hparam_pattern.md` and `references/dataops_tuning_optuna.md` via `load_skill_resource` before finalizing code.
+- If the plan is non-tuning or the change is minor, prefer reusing previous strong parameters or explicit fixed values.
+- If the plan indicates hyperparameter tuning is valuable, you must run real search (`.skb.make_randomized_search(...)`, `.skb.make_grid_search(...)`, or Optuna trial flow), keep it tightly bounded (`n_iter <= 8`), and use the best result.
+- Do not label default-choice `.skb.make_learner(...)` / `.skb.eval(...)` behavior as tuned.
+- Keep search localized to the selected impactful block, preserve existing DataOps architecture, and keep the search space compact.
+- The printed `Final Validation Performance` must be computed from a direct holdout RMSE (`mean_squared_error(y_val, y_pred) ** 0.5`) on a real validation split.
+- Do not use transformed generic CV scores (e.g., `sqrt(mean(test_score))`) as the final refinement score line.
+- You must always return your final runnable Python code block in the same response, even if you call tools via `list_skills`/`load_skill`/`load_skill_resource`.
 
 # Response format
 - Your response should be a single markdown code block (wrapped in ```) which is the improved code block.
 - There should be no additional headings or text in your response.
+- You must finish by returning executable Python code for the improved code block in this same response.
+- Tool calls are preparation only; you must always finish by returning runnable Python code.
+- Never return plain text such as "No more outputs are needed."; always return a runnable Python code block for this step.
 """

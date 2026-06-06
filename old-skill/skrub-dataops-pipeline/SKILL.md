@@ -44,7 +44,6 @@ Refer to these files for foundational knowledge on skrub and skrub DataOps:
    - joining/multi-table: `references/joining_across_columns.md`
    - fast iteration: `references/skrub_subsampling.md`
    - debugging/failures: `references/common_failure_fixes.md`
-3. If uncertainty remains, use focused web search on `site:skrub-data.org` and patch only the uncertain call.
 
 ## Output contract
 - Return runnable single-file Python code when code is requested.

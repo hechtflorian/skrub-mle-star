@@ -80,3 +80,43 @@ Use this during debugging. Keep DataOps architecture unchanged.
   - Treat tool calls as prep only.
   - Always end with executable ablation code.
   - Ensure ablation code prints per-variant metric and final best-variant summary.
+
+## 11) Stuck at plain `TableVectorizer()` baseline
+- Symptom: repeated runs only use `TableVectorizer()` defaults despite ablation indicating encoding/preprocessing impact.
+- Root cause: plan focuses only on model hyperparameters and ignores encoding routing choices.
+- Fix:
+  - Load `references/encoding_skrub.md` and `references/selectors_routing_skrub.md` for routing choices.
+  - Load `references/feature_engineering_skrub.md` if ablation should test ratios, drops, or cleaning.
+  - Explicitly decide low/high-cardinality handling based on model family and data.
+  - Keep the encoding changes in the DataOps path and validate with direct holdout RMSE.
+
+## 12) Redundant target-column drop (`KeyError: '[target_col]' not found in axis`)
+- Symptom: script crashes near prediction/inference with a pandas `KeyError` when doing something like `df.drop(columns=target_col)`.
+- Root cause:
+  - dropping `target_col` on a dataframe that already had it removed, or
+  - dropping `target_col` on test data that never had a target column, or
+  - applying multiple inconsistent train/test feature-prep branches.
+- Fast fix:
+  - Prefer one canonical feature split once: `X = data.drop(columns=target_col, errors="ignore")`.
+  - For prediction, pass raw table environments to the learner (no extra ad-hoc drop): `learner.predict({"data": test_df})`.
+  - If a drop is unavoidable in shared code, use `errors="ignore"` and keep the same helper for train/val/test.
+- Prevention:
+  - Do not re-drop target columns at inference time.
+  - Keep train/validation/test feature preparation in one reusable function/path.
+
+## 13) Ablation uses a different model than the solution under refinement
+- Symptom: ablation RMSE (~56k HGB) does not match solution RMSE (~54k CatBoost); planner picks variants that regress.
+- Root cause: ablation script swaps backbone model or split while testing feature blocks.
+- Fix:
+  - Reload `references/feature_engineering_skrub.md` and keep the same model family/params as `train_code`.
+  - Ablate only the feature/preprocessing block; compare holdout RMSE on the same split.
+- Prevention: ablation prompt requires same backbone unless model swap is the explicit hypothesis.
+
+## When to load other references
+- Load `dataops_api_quickmap.md` when rebuilding a broken DataOps path from a known-good template.
+- Load `encoding_skrub.md` if failures are tied to weak/default encoding strategy.
+- Load `selectors_routing_skrub.md` for split/concat routing or selector mistakes.
+- Load `feature_engineering_skrub.md` for ratios, redundancy drops, cleaning, or ablation alignment.
+- Load `choices_hparam_pattern.md` for `choose_*` semantics, fake-tuning prevention, or grid/randomized search fixes.
+- Load `dataops_tuning_optuna.md` for Optuna-specific search/debug patterns.
+- Load `joining_across_columns.md` for multi-table merge/aggregation correctness.

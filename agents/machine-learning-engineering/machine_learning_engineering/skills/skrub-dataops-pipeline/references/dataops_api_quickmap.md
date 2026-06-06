@@ -11,18 +11,17 @@ Use this file as the canonical reference for DataOps-first pipeline structure.
 - Learner: `.skb.make_learner(...)`
 - Diagnostics: `.skb.describe_param_grid()`
 
-## `choose_from` key-type safety
+## `skrub.choose_from(...)` key-type safety
 - When using dictionary-form `choose_from`, keys are names and must be strings.
 - Valid: `skrub.choose_from({"small": 6, "medium": 8}, name="max_depth")`
 - Invalid: `skrub.choose_from({6: 6, 8: 8}, name="max_depth")`
-- Numeric range fallback: `skrub.choose_int(low, high, name="...")`
+- Numeric range fallback: `skrub.choose_int(low, high, name="...")` or `skrub.choose_float(low, high, name="...")`
 
 ## Minimum DataOps pipeline shape
 ```python
 import skrub
-from sklearn.ensemble import HistGradientBoostingClassifier # example model, choose best model depending on task
 
-X = skrub.X(train_df.drop(columns=target_col))
+X = skrub.X(train_df.drop(columns=target_col, errors="ignore"))
 y = skrub.y(train_df[target_col])
 
 n_components = skrub.choose_int(5, 15, name="n_components")
@@ -36,7 +35,7 @@ encoder = skrub.TableVectorizer(
     )
 )
 
-clf = HistGradientBoostingClassifier(
+clf = YourModel(
     learning_rate=skrub.choose_float(0.01, 0.9, log=True, name="learning_rate")
 )
 
@@ -51,6 +50,9 @@ cv_results = pred.skb.cross_validate()
 # Option B: compile learner and predict with environment dict
 learner = pred.skb.make_learner(fitted=True)
 pred_test = learner.predict({"data": test_df})
+
+# Avoid redundant target drops at inference time:
+# do not call test_df.drop(columns=target_col) unless truly needed.
 ```
 
 ## Never do this
@@ -62,7 +64,6 @@ pred_test = learner.predict({"data": test_df})
 ```python
 import pandas as pd
 import skrub
-from sklearn.ensemble import HistGradientBoostingClassifier # example model, choose best model depending on task
 
 dataset = skrub.datasets.fetch_credit_fraud(split="train")
 baskets = skrub.var("baskets", pd.read_csv(dataset.baskets_path))
@@ -93,7 +94,7 @@ augmented_baskets = basket_ids.merge(
 ).drop(columns=["ID", "basket_ID"])
 
 pred = augmented_baskets.skb.apply(
-    HistGradientBoostingClassifier(
+    YourModel(
         learning_rate=skrub.choose_float(0.01, 0.9, log=True, name="learning_rate")
     ),
     y=fraud_flags,
@@ -109,3 +110,11 @@ search = pred.skb.make_randomized_search(
 - Tunables are embedded with `choose_*`/`choose_from`.
 - Search runs from DataOp (`make_randomized_search` or `make_grid_search`).
 - Prediction uses dict environments keyed by source variable names.
+
+## When to load other references
+- Load `choices_hparam_pattern.md` when adding `skrub.choose_*` / `skrub.choose_from(...)` or randomized/grid search for hyperparameter tuning.
+- Load `dataops_tuning_optuna.md` when using Optuna backend or trial-based search flows for tuning.
+- Load `encoding_skrub.md` when changing feature encoding, preprocessing, or selector-based routing.
+- Load `joining_across_columns.md` for multi-table merge/aggregation pipelines.
+- Load `common_failure_fixes.md` when runtime errors appear or metric parsing fails.
+- Load `skrub_subsampling.md` when iteration speed is the bottleneck and subsampling is required.

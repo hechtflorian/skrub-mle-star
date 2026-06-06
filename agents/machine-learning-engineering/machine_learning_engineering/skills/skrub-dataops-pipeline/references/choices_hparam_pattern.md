@@ -36,7 +36,6 @@ max_depth = skrub.choose_float(6.0, 10.0, name="max_depth")
 ```python
 import pandas as pd
 import skrub
-from sklearn.ensemble import HistGradientBoostingClassifier
 
 data = pd.read_csv(skrub.datasets.fetch_toxicity().path).sample(frac=1.0, random_state=1)
 X = skrub.X(data[["text"]])
@@ -45,7 +44,7 @@ y = skrub.y(data["is_toxic"])
 encoder = skrub.MinHashEncoder(
     n_components=skrub.choose_int(5, 15, n_steps=5, name="N components")
 )
-classifier = HistGradientBoostingClassifier(
+classifier = YourClassifier(
     learning_rate=skrub.choose_float(0.01, 0.9, log=True, name="lr")
 )
 
@@ -68,13 +67,12 @@ encoder = skrub.choose_from(
 ## Pattern 3: choose between model families
 ```python
 from sklearn.linear_model import RidgeClassifier
-from sklearn.ensemble import HistGradientBoostingClassifier
 
-hgb = HistGradientBoostingClassifier(
+model1 = YourModel1(
     learning_rate=skrub.choose_float(0.01, 0.9, log=True, name="lr")
 )
-ridge = RidgeClassifier(alpha=skrub.choose_float(0.01, 100, log=True, name="alpha"))
-classifier = skrub.choose_from({"hgb": hgb, "ridge": ridge}, name="classifier")
+model2 = YourModel2(alpha=skrub.choose_float(0.01, 100, log=True, name="alpha"))
+classifier = skrub.choose_from({"model1": model1, "model2": model2}, name="classifier")
 pred = X.skb.apply(encoder).skb.apply(classifier, y=y)
 ```
 
@@ -97,3 +95,10 @@ best_learner = search.best_learner_
 - Search object comes from the final prediction DataOp.
 - For `choose_from({...})`, dictionary keys are readable outcome names and must be strings.
 - If `choose_*` appears in final code, search execution is present and best search output is used.
+
+## When to load other references
+- Load `dataops_api_quickmap.md` for canonical DataOps pipeline shape and safe fit/predict patterns.
+- Load `dataops_tuning_optuna.md` when using Optuna backend or trial-based search flows for tuning.
+- Load `common_failure_fixes.md` when runtime errors appear, for fake-tuning, `choose_from` key-type, or scoring/debug issues.
+- Load `encoding_skrub.md` when tuning scope includes encoding/preprocessing choices.
+- Load `skrub_subsampling.md` when iteration speed is the bottleneck and subsampling is required.

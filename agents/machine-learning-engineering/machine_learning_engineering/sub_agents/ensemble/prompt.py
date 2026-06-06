@@ -11,7 +11,7 @@ INIT_ENSEMBLE_PLAN_INSTR = """# Introduction
 - Suggest a plan to ensemble the {num_solutions} solutions. You should concentrate how to merge, not the other parts like hyperparameters.
 - The suggested plan should be easy to novel, effective, and easy to implement.
 - All the provided data is already prepared and available in the `./input` directory. There is no need to unzip any files.
-- Favor plans that preserve and combine existing DataOps workflows instead of rewriting from scratch.
+- Keep each solution's DataOps pipeline structure intact; treat ensembling as a merge layer on top of existing predictions/models rather than rewriting preprocessing/modeling flows.
 
 # Respone format
 - Your response should be an outline/sketch of your proposed solution in natural language.
@@ -33,17 +33,7 @@ ENSEMBLE_PLAN_IMPLEMENT_INSTR = """# Introduction
 - Unless mentioned in the ensemble plan, do not modify the origianl Python Solutions too much.
 - All the provided data is already prepared and available in the `./input` directory. There is no need to unzip any files.
 - The code should implement the proposed solution and print the value of the evaluation metric computed on a hold-out validation set.
-- Keep DataOps-based preprocessing/feature workflows from source solutions intact unless the plan explicitly improves them.
-- The merged solution must keep a DataOps pipeline as the main structure (`skrub.var`/`skrub.X`/`skrub.y` / `.skb.mark_as_X()`/`.skb.mark_as_y()` + `.skb.apply(...)`), not sklearn-only orchestration.
-
-# Requirements
-- Before editing the ensemble code, call `list_skills` -> `load_skill` -> `load_skill_resource` for `skrub-dataops-pipeline`.
-- Required first reference call: `load_skill_resource` with `references/dataops_api_quickmap.md`.
-- Optional second reference call (only if tuning logic is modified): `load_skill_resource` with `references/choices_hparam_pattern.md`.
-- If your ensemble implementation is intended to be tuned with `choose_*` / `choose_from(...)`, run real search (`.skb.make_randomized_search(...)`, `.skb.make_grid_search(...)`, or Optuna trial flow) and use the best searched model.
-- If only minor non-hparam edits are made and upstream strong params already exist, prefer reusing those params instead of rerunning full search.
-- Do not present default-choice `.skb.make_learner(...)` behavior as tuned.
-- Tool calls are preparation only; you must finish by returning the final executable Python code in the same turn.
+- Keep the original DataOps pipeline(s) intact while implementing the ensemble logic. Do not refactor core preprocessing/modeling flows unless the ensemble plan explicitly requires a minimal compatibility fix.
 
 # Response format required
 - Your response should be a single markdown code block (wrapped in ```) which is the ensemble of {num_solutions} Python Solutions.
@@ -52,7 +42,8 @@ ENSEMBLE_PLAN_IMPLEMENT_INSTR = """# Introduction
 - Do not subsample or introduce dummy variables. You have to provide full new Python Solution using the {num_solutions} provided solutions.
 - Print out or return a final performance metric in your answer in a clear format with the exact words: 'Final Validation Performance: {{final_validation_score}}'.
 - The code should be a single-file Python program that is self-contained and can be executed as-is.
-- Do not modify the original codes too much and implement the plan since new errors can occur."""
+- Do not modify the original codes too much and implement the plan since new errors can occur.
+- Tool calls are preparation only; you must finish by returning the final executable Python code in the same turn."""
 
 ENSEMBLE_PLAN_REFINE_INSTR = """# Introduction
 - You are a Kaggle grandmaster attending a competition.
@@ -69,7 +60,7 @@ ENSEMBLE_PLAN_REFINE_INSTR = """# Introduction
 - Suggest a better plan to ensemble the {num_solutions} solutions. You should concentrate how to merge, not the other parts like hyperparameters.
 - The suggested plan must be easy to implement, novel, and effective.
 - The suggested plan should be differ from the previous plans you have tried and should receive a {criteria} score.
-- Favor plans that preserve and combine existing DataOps workflows instead of rewriting from scratch.
+- Keep each solution's DataOps pipeline structure intact; propose refinements in ensembling logic rather than rewriting preprocessing/modeling internals.
 
 # Response format
 - Your response should be an outline/sketch of your proposed solution in natural language.

@@ -28,8 +28,9 @@ uv run adk web
 If any web process still running to kill:
 ```bash
 # 1) Check if anything is still running
-ps aux | rg "adk web|uv run.*adk web"
-kill <PID>  # placeholder, use actual PID                                   
+ps aux | rg "adk web|uv run.*adk web|uvicorn"
+kill 18775 18778 22701 22704
+# kill -9 18775 18778 22701 22704                          
 ```
 
 If .venv bleeds over from other repos (using wrong repo):

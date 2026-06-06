@@ -20,10 +20,11 @@ BUG_REFINE_INSTR = """# Task description
 - Please revise the code to fix the error.
 - If the error is a 'module not found` error, then install the necessary module. You can use `pip install <module>`, where `<module>` is the name of the module to install.
 - Do not remove subsampling if exists.
-- Skrub DataOps skill usage: call `list_skills` -> `load_skill` for `skrub-dataops-pipeline` before major edits.
-- If DataOps API usage is uncertain, make focused `load_skill_resource` calls first.
-- Preserve the existing DataOps pipeline structure while fixing errors (`skrub.var`/`skrub.X`/`skrub.y` / `.skb.mark_as_X()`/`.skb.mark_as_y()` + `.skb.apply(...)`); correct API usage but do not rewrite the main workflow as sklearn-only orchestration.
-- If skrub DataOps usage uncertainty remains, use `site:skrub-data.org` web search and patch only the uncertain call.
+- Only for skrub-related errors: call `list_skills` -> `load_skill` for `skrub-dataops-pipeline` and load relevant references via `load_skill_resource` before major edits (not for errors unrelated to skrub).
+- Preserve the existing DataOps pipeline structure while fixing errors (`skrub.var`/`skrub.X`/`skrub.y` / `.skb.mark_as_X()`/`.skb.mark_as_y()` + `.skb.apply(...)`) and do not rewrite the main workflow as sklearn-only orchestration.
+- If unsure about skrub DataOps usage to keep the pipeline structure, make focused `load_skill_resource` and load at least `references/dataops_api_quickmap.md` and `references/skrub_general_api.md` before major edits.
+- Only if skrub DataOps usage uncertainty remains even after skill tool calls, use `site:skrub-data.org` web search and patch only the uncertain call.
+- You must preserve the existing model in the solution code; only change it if absolutely necessary.
 - Provide the improved, self-contained Python script again.
 - There should be no additional headings or text in your response.
 - All the provided input data is stored in \"./input\" directory.

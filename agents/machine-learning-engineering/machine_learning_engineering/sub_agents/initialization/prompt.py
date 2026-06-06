@@ -16,13 +16,12 @@ MODEL_RETRIEVAL_INSTR = """# Competition
 
 # Your task
 - List {num_model_candidates} recent effective models and their example codes to win the above competition.
-- Prefer model/code patterns that are directly implementable as `skrub` DataOps pipelines.
 
 # Requirement
 - The example code should be concise and simple.
 - You must provide an example code, i.e., do not just mention GitHubs or papers.
 - Use the Skrub DataOps skill: call `list_skills` -> `load_skill` for `skrub-dataops-pipeline` and call `load_skill_resource` for the reference 'references/dataops_api_quickmap.md' before finalizing.
-- Tool calls are preparation only; you must additionally use at least three web searches to find the example code for effective models.
+- Tool calls are preparation only; you must additionally use web searches to find the example code for effective models.
 
 Use this JSON schema:
 Model = {{'model_name': str, 'example_code': str}}

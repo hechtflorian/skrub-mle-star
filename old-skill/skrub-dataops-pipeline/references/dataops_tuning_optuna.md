@@ -79,3 +79,10 @@ best_learner = pred.skb.make_learner(choose=study.best_trial)
 best_learner.fit(env)
 #print(best_learner.describe_params())
 ```
+
+## When to load other references
+- Load `dataops_api_quickmap.md` for canonical DataOps pipeline shape and safe fit/predict patterns.
+- Load `choices_hparam_pattern.md` for non-Optuna choice/search conventions and tuning rules, and details on hyperparam search with `skrub.choose_*`
+- Load `common_failure_fixes.md` for search-space/runtime failures and fast remediation.
+- Load `encoding_skrub.md` when trials include encoder or column-routing decisions.
+- Load `skrub_subsampling.md` when iteration speed is the bottleneck and subsampling is required.

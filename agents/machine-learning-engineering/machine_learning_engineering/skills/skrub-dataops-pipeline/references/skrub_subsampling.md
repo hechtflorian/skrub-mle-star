@@ -12,7 +12,6 @@ evaluation on full data.
 ```python
 import pandas as pd
 import skrub
-from sklearn.ensemble import HistGradientBoostingRegressor
 
 dataset = pd.read_csv(skrub.datasets.fetch_employee_salaries().path)
 full_data = skrub.var("data", dataset)
@@ -24,7 +23,7 @@ X = data.drop(columns="current_annual_salary", errors="ignore").skb.mark_as_X()
 y = data["current_annual_salary"].skb.mark_as_y()
 
 pred = X.skb.apply(skrub.TableVectorizer()).skb.apply(
-    HistGradientBoostingRegressor(), y=y
+    YourModel(), y=y
 )
 
 # Quick debug check on subsample:
@@ -38,3 +37,9 @@ full_cv = pred.skb.cross_validate()
 - Keep subsampling for fast iteration only.
 - Do not report final quality metrics from subsampled CV.
 - Run final search/evaluation on full data.
+
+## When to load other references
+- Load `dataops_api_quickmap.md` to keep subsampling within a correct DataOps flow.
+- Load `encoding_skrub.md` if subsampling is used to evaluate encoding/preprocessing hypotheses quickly.
+- Load `choices_hparam_pattern.md` when preview tuning is needed before larger search.
+- Load `common_failure_fixes.md` if preview/final score behavior is inconsistent and runtime errors occur.

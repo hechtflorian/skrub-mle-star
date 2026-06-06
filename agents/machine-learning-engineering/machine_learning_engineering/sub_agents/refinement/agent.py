@@ -16,6 +16,7 @@ from machine_learning_engineering.shared_libraries import (
     config,
     debug_util,
     skill_tool_util,
+    table_report_util,
 )
 from machine_learning_engineering.sub_agents.refinement import prompt
 
@@ -122,6 +123,32 @@ def init_outer_loop_states(
     callback_context.state[f"refine_step_{task_id}"] = 0
     callback_context.state[f"prev_ablations_{task_id}"] = []
     callback_context.state[f"prev_code_blocks_{task_id}"] = []
+    profile_key = f"ablation_table_report_profile_{task_id}"
+    workspace_dir = callback_context.state.get("workspace_dir", "")
+    task_name = callback_context.state.get("task_name", "")
+    run_cwd = os.path.join(workspace_dir, task_name, task_id)
+    train_path = os.path.join(run_cwd, "input", "train.csv")
+    task_workspace = os.path.join(workspace_dir, task_name)
+    if not os.path.exists(train_path):
+        callback_context.state[profile_key] = ""
+        return None
+    try:
+        report_dict = table_report_util.load_table_report_dict(train_path)
+        target_col = table_report_util.extract_target_from_code(
+            callback_context.state.get(f"train_code_0_{task_id}", "")
+        )
+        callback_context.state[profile_key] = (
+            table_report_util.format_ablation_profile(
+                report_dict,
+                target_col=target_col,
+            )
+        )
+        os.makedirs(task_workspace, exist_ok=True)
+        report_path = os.path.join(task_workspace, "table_report.json")
+        with open(report_path, "w", encoding="utf-8") as report_file:
+            json.dump(report_dict, report_file, indent=2)
+    except (OSError, ValueError, TypeError, json.JSONDecodeError):
+        callback_context.state[profile_key] = ""
     return None
 
 
@@ -137,14 +164,22 @@ def get_ablation_agent_instruction(
     for i, ablation_result in enumerate(prev_ablations):
         prev_ablations_str += f"## Previous ablation study result {i + 1}\n"
         prev_ablations_str += f"{ablation_result}\n\n"
+    data_profile = context.state.get(
+        f"ablation_table_report_profile_{task_id}",
+        "",
+    )
+    if not data_profile:
+        data_profile = "Data profile unavailable."
     if prev_ablations_str:
         instruction = prompt.ABLATION_SEQ_INSTR.format(
             code=code,
             prev_ablations=prev_ablations_str,
+            data_profile=data_profile,
         )
     else:
         instruction = prompt.ABLATION_INSTR.format(
             code=code,
+            data_profile=data_profile,
         )
     return instruction
 

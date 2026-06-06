@@ -4,26 +4,66 @@ High-level reference for building declarative tabular data preprocessing pipelin
 
 ## Agent Verification Checklist (Skrub)
 Use this checklist when generating data preprocessing code:
-- [ ] **No Pandas Engineering**: Did you replace manual `pd.get_dummies()`, `.fillna()`, and `.apply()` with `skrub.TableVectorizer`?
-- [ ] **DataOps Graph**: If building a tunable model, did you define inputs using `skrub.var()` or `skrub.X()`, `skrub.y()` and export via `.skb.make_learner()`?
+- [ ] **No Pandas Engineering**: Did you use `skrub.TableVectorizer` to transform the dataframe to a vectorized representation?
+- [ ] **DataOps Graph**: Did you define inputs using `skrub.X()`, `skrub.y()` or `skrub.var()` and `skrub.DataOp.skb.mark_as_X()`, `skrub.DataOp.skb.mark_as_y()`?
 - [ ] **Relational Data**: If given multiple tables, did you use `skrub.Joiner` or `skrub.AggJoiner` instead of `pd.merge()`?
-
-## Quick Reference
-- **Core Pipeline**: `skrub.tabular_pipeline(estimator)`
-- **Auto-Encoder**: `TableVectorizer(high_cardinality="minhash")`
-- **Fuzzy Joining**: `Joiner(aux_table, main_key="id", aux_key="id")`
-- **DataOps Tuning**: `skrub.choose_from(["minhash", "one_hot"], name="encoder")`
 
 ---
 
-## 1. DataOps Graph (Building & Tuning)
+## 1. DataOps
 Use these tools to build complex, declarative, and hyperparameter-tunable DAGs.
-* **`skrub.var(name: str, Optional[value: object])`**: Create a skrub variable, representing inputs to DataOps plan and the corresponding learner.
+
+### 1.1 Generalizing scikit-learn pipeline:
+* **`skrub.var()`**: Create a skrub variable.
+* **`skrub.X()`**: Create a skrub variable and mark it as being X (shortcut for `.skb.mark_as_X()`)
+* **`skrub.y()`**: Create a skrub variable and mark it as being y (shortcut for `.skb.mark_as_y()`)
+* **`skrub.as_data_op()`**: Create a DataOp that evaluates to the given value, wraps any object.
+* **`skrub.deferred()`**: Wrap function calls in a DataOp, call is executed when DataOp is evaluated.
+
+### 1.2 Inline hyperparameter selection in DataOps plan:
+* **`skrub.choose_bool()`**: Choice between `True` and `False`.
+* **`skrub.choose_float()`**: Choice of floating-point numbers from a numeric range.
+* **`skrub.choose_int()`**: Choice of integers from a numeric range.
+* **`skrub.choose_from()`**: Choice among several possible outcomes.
+* **`skrub.optional()`**: Choice between `value` and `None`.
+
+### 1.3 Evaluate DataOps plan:
+* **`skrub.cross_validate()`**: Cross-validate a learner built from a DataOp.
+* **`skrub.eval_mode()`**: Return the mode in which the DataOp is currently being evaluated.
+
+### 1.4 The `skb` accessor exposes all DataOps methods and attributes:
+* **`skrub.DataOp.skb.apply()`**: Apply an estimator that follows the scikit-learn API to a dataframe or numpy array.
+* **`skrub.DataOp.skb.apply_func()`**: Apply the given function.
+* **`skrub.DataOp.skb.clone()`**: Get an independent clone of the DataOp.
+* **`skrub.DataOp.skb.concat()`**: Concatenate dataframes vertically or horizontally.
+* **`skrub.DataOp.skb.cross_validate()`**: Cross-validate the DataOp plan.
+* **`skrub.DataOp.skb.describe_defaults()`**: Describe the hyper-parameters used by the default learner.
+* **`skrub.DataOp.skb.describe_param_grid()`**: Describe the hyper-parameters extracted from choices in the DataOp.
+* **`skrub.DataOp.skb.describe_steps()`**: Get a text representation of the computation graph.
+* **`skrub.DataOp.skb.draw_graph()`**: Get an SVG string representing the computation graph.
+* **`skrub.DataOp.skb.drop()`**: Drop some columns.
+* **`skrub.DataOp.skb.eval()`**: Evaluate the DataOp.
+* **`skrub.DataOp.skb.freeze_after_fit()`**: Freeze the result during learner fitting.
+* **`skrub.DataOp.skb.full_report()`**: Generate a full report of the DataOp's evaluation.
+* **`skrub.DataOp.skb.get_data()`**: Collect the values of the variables contained in the DataOp.
+* **`skrub.DataOp.skb.get_vars()`**: Get all the variables used in the DataOp.
+* **`skrub.DataOp.skb.make_learner()`**: Get a skrub learner for this DataOp.
+* **`skrub.DataOp.skb.make_grid_search()`**: Find the best parameters with grid search.
+* **`skrub.DataOp.skb.make_randomized_search()`**: Find the best parameters with randomized search.
+* **`skrub.DataOp.skb.if_else()`**: Create a conditional DataOp.
+* **`skrub.DataOp.skb.iter_cv_splits()`**: Yield splits of an environment into training and testing environments.
+* **`skrub.DataOp.skb.iter_learners_randomized()`**: Get learners with different parameter combinations.
 * **`skrub.DataOp.skb.mark_as_X()`**: Mark this DataOp as being the X table.
-* **`skrub.DataOp.skb.make_learner()`**: Compiles the DataOps operations into a standard scikit-learn estimator.
-* **`skrub.choose_from(outcomes, name="...")`**: Defines a categorical hyperparameter search space directly inline.
-* **`skrub.choose_int(lower, upper)`**: Defines an integer hyperparameter search space.
-* **`skrub.choose_float(lower, upper)`**: Defines a float hyperparameter search space.
+* **`skrub.DataOp.skb.mark_as_y()`**: Mark this DataOp as being the y table.
+* **`skrub.DataOp.skb.match()`**: Select based on the value of a DataOp.
+* **`skrub.DataOp.skb.preview()`**: Get the value computed for previews (shown when printing the DataOp).
+* **`skrub.DataOp.skb.subsample()`**: Configure subsampling of a dataframe or numpy array.
+* **`skrub.DataOp.skb.train_test_split()`**: Split an environment into training and testing environments.
+* **`skrub.DataOp.skb.with_scoring()`**: Attach a scoring method to this DataOp.
+* **`skrub.DataOp.skb.find()`**: Find a node (DataOp or choice) in the computational graph.
+* **`skrub.DataOp.skb.find_X_y()`**: Find the nodes that have been marked with `mark_as_X()` and `mark_as_y()`.
+* **`skrub.DataOp.skb.applied_estimator()`**: Retrieve the estimator applied in the previous step, as a DataOp.
+
 
 
 ## 2. Example multi-table ML pipeline using skrub DataOps
@@ -93,8 +133,6 @@ probabilities = search.best_learner_.predict_proba(
     {"baskets": new_baskets, "products": new_products}
 )
 ```
-
-
 
 ## When to load deeper references
 - Multi-table joins/aggregations/entity relationships: load `multi_table_pipeline_pattern.md`.

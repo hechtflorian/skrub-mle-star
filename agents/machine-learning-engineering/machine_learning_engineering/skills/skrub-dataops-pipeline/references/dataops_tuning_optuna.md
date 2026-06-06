@@ -10,7 +10,7 @@ Use this reference when the task requires Optuna-backed search for `choose_*` no
 
 ## Critical rule: no fake tuning with Optuna
 - `choose_*` and `choose_from(...)` only become tuned hyperparameters when an Optuna search/study is actually executed.
-- A plain `.skb.make_learner(...)` call on a graph containing `choose_*` still uses defaults and is not tuned.
+- A plain `.skb.make_learner(...)` call on a graph containing `choose_*` still uses defaults and is not tuned; it should only serve as a quick baseline validation.
 - Always produce the final model from the best search result (`search.best_learner_`) or best trial (`pred.skb.make_learner(choose=study.best_trial)`).
 
 ## Pattern A: Optuna as backend for DataOps randomized search
@@ -64,3 +64,10 @@ best_learner.fit(env)
 - Optuna is used either through `backend="optuna"` or explicit `trial` workflow.
 - Final model is created from best trial and fit on full environment.
 - If no search is run, remove `choose_*` and switch to fixed values instead of leaving pseudo-tunable placeholders.
+
+## When to load other references
+- Load `dataops_api_quickmap.md` for canonical DataOps pipeline shape and safe fit/predict patterns.
+- Load `choices_hparam_pattern.md` for non-Optuna choice/search conventions and tuning rules, and details on hyperparam search with `skrub.choose_*`
+- Load `common_failure_fixes.md` for search-space/runtime failures and fast remediation.
+- Load `encoding_skrub.md` when trials include encoder or column-routing decisions.
+- Load `skrub_subsampling.md` when iteration speed is the bottleneck and subsampling is required.

@@ -1,9 +1,8 @@
 # Multi-table DataOps pattern (groupby + merge)
 
-This reference is based on the local `1120_multiple_tables` DataOps example.
-Use it when features and targets come from related tables.
+Use this reference when features and targets come from related tables.
 
-## Verified APIs (from local docs)
+## APIs quickmap
 - `skrub.var(...)`
 - `.skb.mark_as_X()`, `.skb.mark_as_y()`
 - Dataframe operations inside DataOps expressions (`assign`, `groupby`, `agg`, `merge`, `drop`)

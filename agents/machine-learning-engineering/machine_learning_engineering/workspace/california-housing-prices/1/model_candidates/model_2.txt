@@ -1,29 +1,30 @@
 ## Model name
-RandomForestRegressor + TableVectorizer
+CatBoost Regressor
 
 ## Example Python code
 import pandas as pd
-import skrub
-from sklearn.ensemble import RandomForestRegressor
+from catboost import CatBoostRegressor
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import mean_squared_error
 
-train_df = pd.read_csv('train.csv')
-test_df = pd.read_csv('test.csv')
-target = 'median_house_value'
+train = pd.read_csv('train.csv')
+test = pd.read_csv('test.csv')
+X = train.drop(columns=['median_house_value'])
+y = train['median_house_value']
 
-X = skrub.X(train_df.drop(columns=[target]))
-y = skrub.y(train_df[target])
-
-model = RandomForestRegressor(
-    n_estimators=600,
-    max_depth=None,
-    min_samples_leaf=2,
-    random_state=0,
-    n_jobs=-1,
+X_tr, X_va, y_tr, y_va = train_test_split(X, y, test_size=0.2, random_state=42)
+model = CatBoostRegressor(
+    depth=8,
+    learning_rate=0.05,
+    iterations=4000,
+    loss_function='RMSE',
+    random_seed=42,
+    verbose=200,
 )
+model.fit(X_tr, y_tr, eval_set=(X_va, y_va), use_best_model=True)
+pred_va = model.predict(X_va)
+rmse = mean_squared_error(y_va, pred_va) ** 0.5
+print('RMSE:', rmse)
 
-pred = X.skb.apply(skrub.TableVectorizer()).skb.apply(model, y=y)
-learner = pred.skb.make_learner(fitted=True)
-
-test_pred = learner.predict({'data': test_df})
-submission = pd.DataFrame({target: test_pred})
-submission.to_csv('submission.csv', index=False)
+pred_test = model.predict(test)
+pd.DataFrame({'median_house_value': pred_test}).to_csv('submission.csv', index=False)

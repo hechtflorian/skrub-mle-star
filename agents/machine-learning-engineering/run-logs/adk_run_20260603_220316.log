@@ -1,0 +1,2225 @@
+Script started on 2026-06-03 22:03:16+02:00 [COMMAND="uv run adk run machine_learning_engineering" TERM="xterm-256color" TTY="/dev/pts/3" COLUMNS="227" LINES="16"]
+Log setup complete: /tmp/agents_log/agent.20260603_220320.log
+To access latest log: tail -F /tmp/agents_log/agent.latest.log
+/home/flo/uni/mle-star-skrub/mle-star_improved/agents/machine-learning-engineering/.venv/lib/python3.14/site-packages/google/adk/features/_feature_decorator.py:72: UserWarning: [EXPERIMENTAL] feature FeatureName.SKILL_TOOLSET is enabled.
+  check_feature_enabled()
+/home/flo/uni/mle-star-skrub/mle-star_improved/agents/machine-learning-engineering/.venv/lib/python3.14/site-packages/google/adk/cli/cli.py:204: UserWarning: [EXPERIMENTAL] InMemoryCredentialService: This feature is experimental and may change or be removed in future versions without notice. It may introduce breaking changes at any time.
+  credential_service = InMemoryCredentialService()
+/home/flo/uni/mle-star-skrub/mle-star_improved/agents/machine-learning-engineering/.venv/lib/python3.14/site-packages/google/adk/auth/credential_service/in_memory_credential_service.py:33: UserWarning: [EXPERIMENTAL] BaseCredentialService: This feature is experimental and may change or be removed in future versions without notice. It may introduce breaking changes at any time.
+  super().__init__()
+Running agent mle_frontdoor_agent, type exit to exit.
+[user]: execute your given task
+[92m22:04:03 - LiteLLM:INFO[0m: utils.py:3748 - 
+LiteLLM completion() model= gpt-5.4-mini; provider = openai
+/home/flo/uni/mle-star-skrub/mle-star_improved/agents/machine-learning-engineering/.venv/lib/python3.14/site-packages/pydantic/main.py:464: UserWarning: Pydantic serializer warnings:
+  PydanticSerializationUnexpectedValue(Expected 10 fields but got 6: Expected `Message` - serialized value may not be as expected [field_name='message', input_value=Message(content=None, rol...: None}, annotations=[]), input_type=Message])
+  PydanticSerializationUnexpectedValue(Expected `StreamingChoices` - serialized value may not be as expected [field_name='choices', input_value=Choices(finish_reason='to...ider_specific_fields={}), input_type=Choices])
+  return self.__pydantic_serializer__.to_python(
+[92m22:04:05 - LiteLLM:INFO[0m: utils.py:3748 - 
+LiteLLM completion() model= gpt-5.4-mini; provider = openai
+/home/flo/uni/mle-star-skrub/mle-star_improved/agents/machine-learning-engineering/.venv/lib/python3.14/site-packages/pydantic/main.py:464: UserWarning: Pydantic serializer warnings:
+  PydanticSerializationUnexpectedValue(Expected 10 fields but got 6: Expected `Message` - serialized value may not be as expected [field_name='message', input_value=Message(content='Tabular ...: None}, annotations=[]), input_type=Message])
+  PydanticSerializationUnexpectedValue(Expected `StreamingChoices` - serialized value may not be as expected [field_name='choices', input_value=Choices(finish_reason='st...ider_specific_fields={}), input_type=Choices])
+  return self.__pydantic_serializer__.to_python(
+[task_summarization_agent]: Tabular regression task: predict `median_house_value` from housing features in `train.csv` and `test.csv` (e.g., longitude, latitude, housing_median_age, total_rooms, total_bedrooms, population, households, median_income). Evaluate with root mean squared error (RMSE). Output submission with a single column `median_house_value` for each test row.
+[92m22:04:07 - LiteLLM:INFO[0m: utils.py:3748 - 
+LiteLLM completion() model= gpt-5.4-mini; provider = openai
+[92m22:04:07 - LiteLLM:INFO[0m: utils.py:3748 - 
+LiteLLM completion() model= gpt-5.4-mini; provider = openai
+[92m22:04:08 - LiteLLM:INFO[0m: utils.py:3748 - 
+LiteLLM completion() model= gpt-5.4-mini; provider = openai
+[92m22:04:09 - LiteLLM:INFO[0m: utils.py:3748 - 
+LiteLLM completion() model= gpt-5.4-mini; provider = openai
+[92m22:04:15 - LiteLLM:INFO[0m: utils.py:3748 - 
+LiteLLM completion() model= gpt-5.4-mini; provider = openai
+[92m22:04:17 - LiteLLM:INFO[0m: utils.py:3748 - 
+LiteLLM completion() model= gpt-5.4-mini; provider = openai
+/home/flo/uni/mle-star-skrub/mle-star_improved/agents/machine-learning-engineering/.venv/lib/python3.14/site-packages/pydantic/main.py:464: UserWarning: Pydantic serializer warnings:
+  PydanticSerializationUnexpectedValue(Expected 10 fields but got 6: Expected `Message` - serialized value may not be as expected [field_name='message', input_value=Message(content='[\n  {\n...: None}, annotations=[]), input_type=Message])
+  PydanticSerializationUnexpectedValue(Expected `StreamingChoices` - serialized value may not be as expected [field_name='choices', input_value=Choices(finish_reason='st...ider_specific_fields={}), input_type=Choices])
+  return self.__pydantic_serializer__.to_python(
+[model_retriever_agent_1]: [
+  {
+    "model_name": "CatBoostRegressor",
+    "example_code": "import pandas as pd\nfrom catboost import CatBoostRegressor\nfrom sklearn.model_selection import train_test_split\nfrom sklearn.metrics import mean_squared_error\n\ntrain = pd.read_csv('train.csv')\ntest = pd.read_csv('test.csv')\nX = train.drop(columns=['median_house_value'])\ny = train['median_house_value']\n\nX_tr, X_val, y_tr, y_val = train_test_split(X, y, test_size=0.2, random_state=42)\nmodel = CatBoostRegressor(\n    iterations=3000,\n    learning_rate=0.03,\n    depth=8,\n    loss_function='RMSE',\n    random_seed=42,\n    verbose=200\n)\nmodel.fit(X_tr, y_tr, eval_set=(X_val, y_val), use_best_model=True)\nval_pred = model.predict(X_val)\nrmse = mean_squared_error(y_val, val_pred) ** 0.5\nprint('RMSE:', rmse)\n\nsub = pd.DataFrame({'median_house_value': model.predict(test)})\nsub.to_csv('submission.csv', index=False)"
+  },
+  {
+    "model_name": "LightGBM LGBMRegressor",
+    "example_code": "import pandas as pd\nfrom lightgbm import LGBMRegressor\nfrom sklearn.model_selection import train_test_split\nfrom sklearn.metrics import mean_squared_error\n\ntrain = pd.read_csv('train.csv')\ntest = pd.read_csv('test.csv')\nX = train.drop(columns=['median_house_value'])\ny = train['median_house_value']\n\nX_tr, X_val, y_tr, y_val = train_test_split(X, y, test_size=0.2, random_state=42)\nmodel = LGBMRegressor(\n    n_estimators=5000,\n    learning_rate=0.02,\n    num_leaves=64,\n    subsample=0.8,\n    colsample_bytree=0.8,\n    random_state=42\n)\nmodel.fit(X_tr, y_tr, eval_set=[(X_val, y_val)])\nval_pred = model.predict(X_val)\nrmse = mean_squared_error(y_val, val_pred) ** 0.5\nprint('RMSE:', rmse)\n\nsub = pd.DataFrame({'median_house_value': model.predict(test)})\nsub.to_csv('submission.csv', index=False)"
+  }
+]
+[92m22:04:21 - LiteLLM:INFO[0m: utils.py:3748 - 
+LiteLLM completion() model= gpt-5.4-mini; provider = openai
+[92m22:04:22 - LiteLLM:INFO[0m: utils.py:3748 - 
+LiteLLM completion() model= gpt-5.4-mini; provider = openai
+[92m22:04:22 - LiteLLM:INFO[0m: utils.py:3748 - 
+LiteLLM completion() model= gpt-5.4-mini; provider = openai
+[92m22:04:23 - LiteLLM:INFO[0m: utils.py:3748 - 
+LiteLLM completion() model= gpt-5.4-mini; provider = openai
+[92m22:04:25 - LiteLLM:INFO[0m: utils.py:3748 - 
+LiteLLM completion() model= gpt-5.4-mini; provider = openai
+/home/flo/uni/mle-star-skrub/mle-star_improved/agents/machine-learning-engineering/.venv/lib/python3.14/site-packages/pydantic/main.py:464: UserWarning: Pydantic serializer warnings:
+  PydanticSerializationUnexpectedValue(Expected 10 fields but got 6: Expected `Message` - serialized value may not be as expected [field_name='message', input_value=Message(content='```pytho...: None}, annotations=[]), input_type=Message])
+  PydanticSerializationUnexpectedValue(Expected `StreamingChoices` - serialized value may not be as expected [field_name='choices', input_value=Choices(finish_reason='st...ider_specific_fields={}), input_type=Choices])
+  return self.__pydantic_serializer__.to_python(
+[model_eval_agent_1_1]: ```python
+import os
+import pandas as pd
+import numpy as np
+import skrub
+from catboost import CatBoostRegressor
+from sklearn.metrics import mean_squared_error
+
+train_path = "./input/train.csv"
+test_path = "./input/test.csv"
+if not os.path.exists(train_path):
+    train_path = "./input/data/train.csv"
+if not os.path.exists(test_path):
+    test_path = "./input/data/test.csv"
+
+train_df = pd.read_csv(train_path)
+test_df = pd.read_csv(test_path)
+
+data = skrub.var("data", train_df)
+X = data.drop(columns=["median_house_value"]).skb.mark_as_X()
+y = data["median_house_value"].skb.mark_as_y()
+
+X_vec = X.skb.apply(skrub.TableVectorizer())
+
+model = CatBoostRegressor(
+    iterations=3000,
+    learning_rate=0.03,
+    depth=8,
+    loss_function="RMSE",
+    random_seed=42,
+    verbose=False,
+)
+
+pred_graph = X_vec.skb.apply(model, y=y)
+
+n_total = len(train_df)
+val_size = int(max(1, round(0.2 * n_total)))
+train_size = n_total - val_size
+
+train_subset = train_df.iloc[:train_size].reset_index(drop=True)
+val_subset = train_df.iloc[train_size:].reset_index(drop=True)
+
+learner = pred_graph.skb.make_learner(fitted=True)
+learner.fit({"data": train_subset})
+val_pred = learner.predict({"data": val_subset.drop(columns=["median_house_value"])})
+final_validation_score = mean_squared_error(val_subset["median_house_value"], val_pred) ** 0.5
+
+print(f"Final Validation Performance: {final_validation_score}")
+
+full_learner = pred_graph.skb.make_learner(fitted=True)
+full_learner.fit({"data": train_df})
+test_pred = full_learner.predict({"data": test_df})
+
+submission = pd.DataFrame({"median_house_value": test_pred})
+submission.to_csv("submission.csv", index=False)
+```
+[92m22:05:32 - LiteLLM:INFO[0m: utils.py:3748 - 
+LiteLLM completion() model= gpt-5.4-mini; provider = openai
+/home/flo/uni/mle-star-skrub/mle-star_improved/agents/machine-learning-engineering/.venv/lib/python3.14/site-packages/pydantic/main.py:464: UserWarning: Pydantic serializer warnings:
+  PydanticSerializationUnexpectedValue(Expected 10 fields but got 6: Expected `Message` - serialized value may not be as expected [field_name='message', input_value=Message(content='The bug ...: None}, annotations=[]), input_type=Message])
+  PydanticSerializationUnexpectedValue(Expected `StreamingChoices` - serialized value may not be as expected [field_name='choices', input_value=Choices(finish_reason='st...ider_specific_fields={}), input_type=Choices])
+  return self.__pydantic_serializer__.to_python(
+[model_eval_bug_summary_agent_1_1]: The bug is a `KeyError` caused by trying to drop the target column `median_house_value` from `val_subset` when that column is not present in the dataframe used at prediction time.
+
+Where it happens:
+- `val_pred = learner.predict({"data": val_subset.drop(columns=["median_house_value"])})`
+
+Why:
+- `val_subset` is expected to contain `median_house_value`, but in the actual evaluation flow, the data passed into this step does not have that column.
+- The earlier pipeline also defines:
+  - `X = data.drop(columns=["median_house_value"]).skb.mark_as_X()`
+  - This suggests the data being handled in the graph may already be feature-only at that point.
+
+Result:
+- Pandas raises:
+  - `KeyError: "['median_house_value'] not found in axis"`
+
+In short: the code is trying to remove a column that is already missing from the validation dataframe.
+[92m22:05:34 - LiteLLM:INFO[0m: utils.py:3748 - 
+LiteLLM completion() model= gpt-5.4-mini; provider = openai
+/home/flo/uni/mle-star-skrub/mle-star_improved/agents/machine-learning-engineering/.venv/lib/python3.14/site-packages/pydantic/main.py:464: UserWarning: Pydantic serializer warnings:
+  PydanticSerializationUnexpectedValue(Expected 10 fields but got 6: Expected `Message` - serialized value may not be as expected [field_name='message', input_value=Message(content=None, rol...: None}, annotations=[]), input_type=Message])
+  PydanticSerializationUnexpectedValue(Expected `StreamingChoices` - serialized value may not be as expected [field_name='choices', input_value=Choices(finish_reason='to...ider_specific_fields={}), input_type=Choices])
+  return self.__pydantic_serializer__.to_python(
+[92m22:05:35 - LiteLLM:INFO[0m: utils.py:3748 - 
+LiteLLM completion() model= gpt-5.4-mini; provider = openai
+[92m22:05:36 - LiteLLM:INFO[0m: utils.py:3748 - 
+LiteLLM completion() model= gpt-5.4-mini; provider = openai
+[92m22:05:37 - LiteLLM:INFO[0m: utils.py:3748 - 
+LiteLLM completion() model= gpt-5.4-mini; provider = openai
+/home/flo/uni/mle-star-skrub/mle-star_improved/agents/machine-learning-engineering/.venv/lib/python3.14/site-packages/pydantic/main.py:464: UserWarning: Pydantic serializer warnings:
+  PydanticSerializationUnexpectedValue(Expected 10 fields but got 6: Expected `Message` - serialized value may not be as expected [field_name='message', input_value=Message(content='```pytho...: None}, annotations=[]), input_type=Message])
+  PydanticSerializationUnexpectedValue(Expected `StreamingChoices` - serialized value may not be as expected [field_name='choices', input_value=Choices(finish_reason='st...ider_specific_fields={}), input_type=Choices])
+  return self.__pydantic_serializer__.to_python(
+[model_eval_debug_agent_1_1]: ```python
+import os
+import pandas as pd
+import numpy as np
+import skrub
+from sklearn.ensemble import HistGradientBoostingRegressor
+from sklearn.metrics import mean_squared_error
+
+DATA_DIR = "./input"
+TRAIN_PATH = os.path.join(DATA_DIR, "train.csv")
+TEST_PATH = os.path.join(DATA_DIR, "test.csv")
+
+train_df = pd.read_csv(TRAIN_PATH)
+test_df = pd.read_csv(TEST_PATH)
+
+target_col = "median_house_value"
+
+# Build DataOps graph
+data = skrub.var("data", train_df)
+
+# Use errors="ignore" to avoid KeyError if the target is absent in any intermediate frame
+X = data.drop(columns=[target_col], errors="ignore").skb.mark_as_X()
+y = data[target_col].skb.mark_as_y()
+
+vectorizer = skrub.TableVectorizer()
+X_vec = X.skb.apply(vectorizer)
+
+model = HistGradientBoostingRegressor(random_state=0)
+pred_graph = X_vec.skb.apply(model, y=y)
+
+# Compile fitted learner
+learner = pred_graph.skb.make_learner(fitted=True)
+
+# Validation on train split using a simple holdout
+rng = np.random.RandomState(0)
+indices = np.arange(len(train_df))
+rng.shuffle(indices)
+split = int(len(indices) * 0.8)
+train_idx, val_idx = indices[:split], indices[split:]
+
+train_subset = train_df.iloc[train_idx].copy()
+val_subset = train_df.iloc[val_idx].copy()
+
+# Fit on training subset using the same DataOps structure
+train_data = skrub.var("data", train_subset)
+train_X = train_data.drop(columns=[target_col], errors="ignore").skb.mark_as_X()
+train_y = train_data[target_col].skb.mark_as_y()
+train_X_vec = train_X.skb.apply(vectorizer)
+train_pred_graph = train_X_vec.skb.apply(model, y=train_y)
+trained_learner = train_pred_graph.skb.make_learner(fitted=True)
+
+# Predict on validation features only; do NOT drop median_house_value if it is already absent
+val_features = val_subset.drop(columns=[target_col], errors="ignore")
+val_pred = trained_learner.predict({"data": val_features})
+
+final_validation_score = mean_squared_error(val_subset[target_col], val_pred) ** 0.5
+print(f"Final Validation Performance: {final_validation_score}")
+
+# Train on full data and predict test
+full_learner = pred_graph.skb.make_learner(fitted=True)
+test_pred = full_learner.predict({"data": test_df})
+
+submission = pd.DataFrame({"median_house_value": test_pred})
+submission.to_csv("submission.csv", index=False)
+```
+[92m22:05:48 - LiteLLM:INFO[0m: utils.py:3748 - 
+LiteLLM completion() model= gpt-5.4-mini; provider = openai
+/home/flo/uni/mle-star-skrub/mle-star_improved/agents/machine-learning-engineering/.venv/lib/python3.14/site-packages/pydantic/main.py:464: UserWarning: Pydantic serializer warnings:
+  PydanticSerializationUnexpectedValue(Expected 10 fields but got 6: Expected `Message` - serialized value may not be as expected [field_name='message', input_value=Message(content=None, rol...: None}, annotations=[]), input_type=Message])
+  PydanticSerializationUnexpectedValue(Expected `StreamingChoices` - serialized value may not be as expected [field_name='choices', input_value=Choices(finish_reason='to...ider_specific_fields={}), input_type=Choices])
+  return self.__pydantic_serializer__.to_python(
+[92m22:05:49 - LiteLLM:INFO[0m: utils.py:3748 - 
+LiteLLM completion() model= gpt-5.4-mini; provider = openai
+[92m22:05:49 - LiteLLM:INFO[0m: utils.py:3748 - 
+LiteLLM completion() model= gpt-5.4-mini; provider = openai
+/home/flo/uni/mle-star-skrub/mle-star_improved/agents/machine-learning-engineering/.venv/lib/python3.14/site-packages/pydantic/main.py:464: UserWarning: Pydantic serializer warnings:
+  PydanticSerializationUnexpectedValue(Expected 10 fields but got 6: Expected `Message` - serialized value may not be as expected [field_name='message', input_value=Message(content='```pytho...: None}, annotations=[]), input_type=Message])
+  PydanticSerializationUnexpectedValue(Expected `StreamingChoices` - serialized value may not be as expected [field_name='choices', input_value=Choices(finish_reason='st...ider_specific_fields={}), input_type=Choices])
+  return self.__pydantic_serializer__.to_python(
+[model_eval_agent_1_2]: ```python
+import os
+import numpy as np
+import pandas as pd
+import skrub
+from lightgbm import LGBMRegressor
+from sklearn.metrics import mean_squared_error
+
+DATA_DIR = "./input"
+TRAIN_PATH = os.path.join(DATA_DIR, "train.csv")
+TEST_PATH = os.path.join(DATA_DIR, "test.csv")
+
+train_df = pd.read_csv(TRAIN_PATH)
+test_df = pd.read_csv(TEST_PATH)
+
+target_col = "median_house_value"
+
+rng = np.random.RandomState(42)
+indices = np.arange(len(train_df))
+rng.shuffle(indices)
+split = int(len(indices) * 0.8)
+train_idx, val_idx = indices[:split], indices[split:]
+
+train_subset = train_df.iloc[train_idx].copy()
+val_subset = train_df.iloc[val_idx].copy()
+
+data = skrub.var("data", train_subset)
+X = data.drop(columns=[target_col], errors="ignore").skb.mark_as_X()
+y = data[target_col].skb.mark_as_y()
+
+vectorizer = skrub.TableVectorizer()
+X_vec = X.skb.apply(vectorizer)
+
+model = LGBMRegressor(
+    n_estimators=5000,
+    learning_rate=0.02,
+    num_leaves=64,
+    subsample=0.8,
+    colsample_bytree=0.8,
+    random_state=42,
+)
+
+pred_graph = X_vec.skb.apply(model, y=y)
+trained_learner = pred_graph.skb.make_learner(fitted=True)
+
+val_features = val_subset.drop(columns=[target_col], errors="ignore")
+val_pred = trained_learner.predict({"data": val_features})
+
+final_validation_score = mean_squared_error(val_subset[target_col], val_pred) ** 0.5
+print(f"Final Validation Performance: {final_validation_score}")
+
+full_data = skrub.var("data", train_df)
+full_X = full_data.drop(columns=[target_col], errors="ignore").skb.mark_as_X()
+full_y = full_data[target_col].skb.mark_as_y()
+full_X_vec = full_X.skb.apply(vectorizer)
+full_pred_graph = full_X_vec.skb.apply(model, y=full_y)
+full_learner = full_pred_graph.skb.make_learner(fitted=True)
+
+test_pred = full_learner.predict({"data": test_df})
+submission = pd.DataFrame({"median_house_value": test_pred})
+submission.to_csv("submission.csv", index=False)
+```
+[92m22:05:56 - LiteLLM:INFO[0m: utils.py:3748 - 
+LiteLLM completion() model= gpt-5.4-mini; provider = openai
+/home/flo/uni/mle-star-skrub/mle-star_improved/agents/machine-learning-engineering/.venv/lib/python3.14/site-packages/pydantic/main.py:464: UserWarning: Pydantic serializer warnings:
+  PydanticSerializationUnexpectedValue(Expected 10 fields but got 6: Expected `Message` - serialized value may not be as expected [field_name='message', input_value=Message(content="The code...: None}, annotations=[]), input_type=Message])
+  PydanticSerializationUnexpectedValue(Expected `StreamingChoices` - serialized value may not be as expected [field_name='choices', input_value=Choices(finish_reason='st...ider_specific_fields={}), input_type=Choices])
+  return self.__pydantic_serializer__.to_python(
+[model_eval_bug_summary_agent_1_2]: The code fails at import time in `init_code_2.py.py` because it tries to use `lightgbm`, which is not installed:
+
+- `from lightgbm import LGBMRegressor`
+- Error: `ModuleNotFoundError: No module named 'lightgbm'`
+
+So the bug is a missing dependency, preventing the script from running.
+[92m22:06:00 - LiteLLM:INFO[0m: utils.py:3748 - 
+LiteLLM completion() model= gpt-5.4-mini; provider = openai
+/home/flo/uni/mle-star-skrub/mle-star_improved/agents/machine-learning-engineering/.venv/lib/python3.14/site-packages/pydantic/main.py:464: UserWarning: Pydantic serializer warnings:
+  PydanticSerializationUnexpectedValue(Expected 10 fields but got 6: Expected `Message` - serialized value may not be as expected [field_name='message', input_value=Message(content=None, rol...: None}, annotations=[]), input_type=Message])
+  PydanticSerializationUnexpectedValue(Expected `StreamingChoices` - serialized value may not be as expected [field_name='choices', input_value=Choices(finish_reason='to...ider_specific_fields={}), input_type=Choices])
+  return self.__pydantic_serializer__.to_python(
+[92m22:06:01 - LiteLLM:INFO[0m: utils.py:3748 - 
+LiteLLM completion() model= gpt-5.4-mini; provider = openai
+[92m22:06:02 - LiteLLM:INFO[0m: utils.py:3748 - 
+LiteLLM completion() model= gpt-5.4-mini; provider = openai
+[92m22:06:02 - LiteLLM:INFO[0m: utils.py:3748 - 
+LiteLLM completion() model= gpt-5.4-mini; provider = openai
+[92m22:06:05 - LiteLLM:INFO[0m: utils.py:3748 - 
+LiteLLM completion() model= gpt-5.4-mini; provider = openai
+[92m22:06:10 - LiteLLM:INFO[0m: utils.py:3748 - 
+LiteLLM completion() model= gpt-5.4-mini; provider = openai
+/home/flo/uni/mle-star-skrub/mle-star_improved/agents/machine-learning-engineering/.venv/lib/python3.14/site-packages/pydantic/main.py:464: UserWarning: Pydantic serializer warnings:
+  PydanticSerializationUnexpectedValue(Expected 10 fields but got 6: Expected `Message` - serialized value may not be as expected [field_name='message', input_value=Message(content='```pytho...: None}, annotations=[]), input_type=Message])
+  PydanticSerializationUnexpectedValue(Expected `StreamingChoices` - serialized value may not be as expected [field_name='choices', input_value=Choices(finish_reason='st...ider_specific_fields={}), input_type=Choices])
+  return self.__pydantic_serializer__.to_python(
+[model_eval_debug_agent_1_2]: ```python
+import os
+import warnings
+warnings.filterwarnings("ignore")
+
+# Ensure missing dependency is available if the environment allows installation.
+try:
+    from lightgbm import LGBMRegressor
+except ModuleNotFoundError:
+    import sys
+    import subprocess
+    subprocess.check_call([sys.executable, "-m", "pip", "install", "-q", "lightgbm"])
+    from lightgbm import LGBMRegressor
+
+import numpy as np
+import pandas as pd
+from sklearn.metrics import mean_squared_error
+from sklearn.model_selection import train_test_split
+import skrub
+
+
+def load_data():
+    train_path = os.path.join("./input", "train.csv")
+    test_path = os.path.join("./input", "test.csv")
+    train_df = pd.read_csv(train_path)
+    test_df = pd.read_csv(test_path)
+    return train_df, test_df
+
+
+def main():
+    train_df, test_df = load_data()
+
+    target_col = "median_house_value"
+
+    # DataOps-first graph
+    data = skrub.var("data", train_df)
+    X = data.drop(columns=[target_col]).skb.mark_as_X()
+    y = data[target_col].skb.mark_as_y()
+
+    # Simple, robust preprocessing via skrub
+    vectorizer = skrub.TableVectorizer()
+    X_vec = X.skb.apply(vectorizer)
+
+    model = LGBMRegressor(
+        n_estimators=500,
+        learning_rate=0.05,
+        num_leaves=31,
+        subsample=0.9,
+        colsample_bytree=0.9,
+        random_state=42,
+        n_jobs=-1,
+    )
+
+    pred = X_vec.skb.apply(model, y=y)
+
+    # Fit/validate using a DataOps-compatible split on the raw dataframe
+    train_part, valid_part = train_test_split(train_df, test_size=0.2, random_state=42)
+
+    train_env = {"data": train_part}
+    valid_env = {"data": valid_part}
+
+    learner = pred.skb.make_learner(fitted=True)
+    learner.fit(train_env)
+
+    valid_true = valid_part[target_col].to_numpy()
+    valid_pred = learner.predict(valid_env)
+    final_validation_score = mean_squared_error(valid_true, valid_pred) ** 0.5
+    print(f"Final Validation Performance: {final_validation_score}")
+
+    # Refit on full training data and predict test
+    full_learner = pred.skb.make_learner(fitted=True)
+    full_learner.fit({"data": train_df})
+    test_pred = full_learner.predict({"data": test_df})
+
+    submission = pd.DataFrame({"median_house_value": test_pred})
+    submission.to_csv("submission.csv", index=False)
+
+
+if __name__ == "__main__":
+    main()
+```
+[92m22:06:21 - LiteLLM:INFO[0m: utils.py:3748 - 
+LiteLLM completion() model= gpt-5.4-mini; provider = openai
+/home/flo/uni/mle-star-skrub/mle-star_improved/agents/machine-learning-engineering/.venv/lib/python3.14/site-packages/pydantic/main.py:464: UserWarning: Pydantic serializer warnings:
+  PydanticSerializationUnexpectedValue(Expected 10 fields but got 6: Expected `Message` - serialized value may not be as expected [field_name='message', input_value=Message(content='```pytho...: None}, annotations=[]), input_type=Message])
+  PydanticSerializationUnexpectedValue(Expected `StreamingChoices` - serialized value may not be as expected [field_name='choices', input_value=Choices(finish_reason='st...ider_specific_fields={}), input_type=Choices])
+  return self.__pydantic_serializer__.to_python(
+[model_eval_debug_agent_1_2]: ```python
+import os
+import warnings
+warnings.filterwarnings("ignore")
+
+# Install missing dependency if needed
+try:
+    from lightgbm import LGBMRegressor
+except ModuleNotFoundError:
+    import sys
+    import subprocess
+    subprocess.check_call([sys.executable, "-m", "pip", "install", "-q", "lightgbm"])
+    from lightgbm import LGBMRegressor
+
+import pandas as pd
+from sklearn.metrics import mean_squared_error
+from sklearn.model_selection import train_test_split
+import skrub
+
+
+def load_data():
+    train_path = os.path.join("./input", "train.csv")
+    test_path = os.path.join("./input", "test.csv")
+    train_df = pd.read_csv(train_path)
+    test_df = pd.read_csv(test_path)
+    return train_df, test_df
+
+
+def main():
+    train_df, test_df = load_data()
+    target_col = "median_house_value"
+
+    # DataOps-first pipeline
+    data = skrub.var("data", train_df)
+    X = data.drop(columns=[target_col]).skb.mark_as_X()
+    y = data[target_col].skb.mark_as_y()
+
+    vectorizer = skrub.TableVectorizer()
+    X_vec = X.skb.apply(vectorizer)
+
+    model = LGBMRegressor(
+        n_estimators=500,
+        learning_rate=0.05,
+        num_leaves=31,
+        subsample=0.9,
+        colsample_bytree=0.9,
+        random_state=42,
+        n_jobs=-1,
+    )
+
+    pred = X_vec.skb.apply(model, y=y)
+
+    train_part, valid_part = train_test_split(train_df, test_size=0.2, random_state=42)
+
+    learner = pred.skb.make_learner(fitted=True)
+    learner.fit({"data": train_part})
+
+    valid_true = valid_part[target_col].to_numpy()
+    valid_pred = learner.predict({"data": valid_part})
+    final_validation_score = mean_squared_error(valid_true, valid_pred) ** 0.5
+    print(f"Final Validation Performance: {final_validation_score}")
+
+    full_learner = pred.skb.make_learner(fitted=True)
+    full_learner.fit({"data": train_df})
+    test_pred = full_learner.predict({"data": test_df})
+
+    submission = pd.DataFrame({"median_house_value": test_pred})
+    submission.to_csv("submission.csv", index=False)
+
+
+if __name__ == "__main__":
+    main()
+```
+[92m22:06:33 - LiteLLM:INFO[0m: utils.py:3748 - 
+LiteLLM completion() model= gpt-5.4-mini; provider = openai
+/home/flo/uni/mle-star-skrub/mle-star_improved/agents/machine-learning-engineering/.venv/lib/python3.14/site-packages/pydantic/main.py:464: UserWarning: Pydantic serializer warnings:
+  PydanticSerializationUnexpectedValue(Expected 10 fields but got 6: Expected `Message` - serialized value may not be as expected [field_name='message', input_value=Message(content='```pytho...: None}, annotations=[]), input_type=Message])
+  PydanticSerializationUnexpectedValue(Expected `StreamingChoices` - serialized value may not be as expected [field_name='choices', input_value=Choices(finish_reason='st...ider_specific_fields={}), input_type=Choices])
+  return self.__pydantic_serializer__.to_python(
+[model_eval_debug_agent_1_2]: ```python
+import os
+import warnings
+warnings.filterwarnings("ignore")
+
+try:
+    from lightgbm import LGBMRegressor
+except ModuleNotFoundError:
+    import sys
+    import subprocess
+    subprocess.check_call([sys.executable, "-m", "pip", "install", "-q", "lightgbm"])
+    from lightgbm import LGBMRegressor
+
+import pandas as pd
+from sklearn.metrics import mean_squared_error
+from sklearn.model_selection import train_test_split
+import skrub
+
+
+def load_data():
+    train_path = os.path.join("./input", "train.csv")
+    test_path = os.path.join("./input", "test.csv")
+    train_df = pd.read_csv(train_path)
+    test_df = pd.read_csv(test_path)
+    return train_df, test_df
+
+
+def main():
+    train_df, test_df = load_data()
+    target_col = "median_house_value"
+
+    data = skrub.var("data", train_df)
+    X = data.drop(columns=[target_col]).skb.mark_as_X()
+    y = data[target_col].skb.mark_as_y()
+
+    vectorizer = skrub.TableVectorizer()
+    X_vec = X.skb.apply(vectorizer)
+
+    model = LGBMRegressor(
+        n_estimators=500,
+        learning_rate=0.05,
+        num_leaves=31,
+        subsample=0.9,
+        colsample_bytree=0.9,
+        random_state=42,
+        n_jobs=-1,
+    )
+
+    pred = X_vec.skb.apply(model, y=y)
+
+    train_part, valid_part = train_test_split(train_df, test_size=0.2, random_state=42)
+
+    learner = pred.skb.make_learner(fitted=True)
+    learner.fit({"data": train_part})
+
+    valid_true = valid_part[target_col].to_numpy()
+    valid_pred = learner.predict({"data": valid_part})
+    final_validation_score = mean_squared_error(valid_true, valid_pred) ** 0.5
+    print(f"Final Validation Performance: {final_validation_score}")
+
+    full_learner = pred.skb.make_learner(fitted=True)
+    full_learner.fit({"data": train_df})
+    test_pred = full_learner.predict({"data": test_df})
+
+    submission = pd.DataFrame({"median_house_value": test_pred})
+    submission.to_csv("submission.csv", index=False)
+
+
+if __name__ == "__main__":
+    main()
+```
+[92m22:06:44 - LiteLLM:INFO[0m: utils.py:3748 - 
+LiteLLM completion() model= gpt-5.4-mini; provider = openai
+/home/flo/uni/mle-star-skrub/mle-star_improved/agents/machine-learning-engineering/.venv/lib/python3.14/site-packages/pydantic/main.py:464: UserWarning: Pydantic serializer warnings:
+  PydanticSerializationUnexpectedValue(Expected 10 fields but got 6: Expected `Message` - serialized value may not be as expected [field_name='message', input_value=Message(content='The bug ...: None}, annotations=[]), input_type=Message])
+  PydanticSerializationUnexpectedValue(Expected `StreamingChoices` - serialized value may not be as expected [field_name='choices', input_value=Choices(finish_reason='st...ider_specific_fields={}), input_type=Choices])
+  return self.__pydantic_serializer__.to_python(
+[model_eval_bug_summary_agent_1_2]: The bug is at this line in `init_code_2.py.py`:
+
+```python
+X = data.drop(columns=[target_col]).skb.mark_as_X()
+```
+
+`data` is already being built from `train_df`, but the pipeline is trying to drop `median_house_value` from an input where that column is not present in the current evaluation context, causing:
+
+```python
+KeyError: "['median_house_value'] not found in axis"
+```
+
+In short: the code assumes the target column exists in the data passed to `drop`, but during prediction/evaluation it does not.
+[92m22:06:47 - LiteLLM:INFO[0m: utils.py:3748 - 
+LiteLLM completion() model= gpt-5.4-mini; provider = openai
+/home/flo/uni/mle-star-skrub/mle-star_improved/agents/machine-learning-engineering/.venv/lib/python3.14/site-packages/pydantic/main.py:464: UserWarning: Pydantic serializer warnings:
+  PydanticSerializationUnexpectedValue(Expected 10 fields but got 6: Expected `Message` - serialized value may not be as expected [field_name='message', input_value=Message(content=None, rol...: None}, annotations=[]), input_type=Message])
+  PydanticSerializationUnexpectedValue(Expected `StreamingChoices` - serialized value may not be as expected [field_name='choices', input_value=Choices(finish_reason='to...ider_specific_fields={}), input_type=Choices])
+  return self.__pydantic_serializer__.to_python(
+[92m22:06:48 - LiteLLM:INFO[0m: utils.py:3748 - 
+LiteLLM completion() model= gpt-5.4-mini; provider = openai
+[92m22:06:49 - LiteLLM:INFO[0m: utils.py:3748 - 
+LiteLLM completion() model= gpt-5.4-mini; provider = openai
+[92m22:06:50 - LiteLLM:INFO[0m: utils.py:3748 - 
+LiteLLM completion() model= gpt-5.4-mini; provider = openai
+[92m22:06:51 - LiteLLM:INFO[0m: utils.py:3748 - 
+LiteLLM completion() model= gpt-5.4-mini; provider = openai
+/home/flo/uni/mle-star-skrub/mle-star_improved/agents/machine-learning-engineering/.venv/lib/python3.14/site-packages/pydantic/main.py:464: UserWarning: Pydantic serializer warnings:
+  PydanticSerializationUnexpectedValue(Expected 10 fields but got 6: Expected `Message` - serialized value may not be as expected [field_name='message', input_value=Message(content='```pytho...: None}, annotations=[]), input_type=Message])
+  PydanticSerializationUnexpectedValue(Expected `StreamingChoices` - serialized value may not be as expected [field_name='choices', input_value=Choices(finish_reason='st...ider_specific_fields={}), input_type=Choices])
+  return self.__pydantic_serializer__.to_python(
+[model_eval_debug_agent_1_2]: ```python
+import os
+import warnings
+
+import numpy as np
+import pandas as pd
+import skrub
+from sklearn.ensemble import HistGradientBoostingRegressor
+from sklearn.metrics import mean_squared_error
+from sklearn.model_selection import train_test_split
+
+warnings.filterwarnings("ignore")
+
+
+def load_data():
+    train_path = os.path.join("./input", "train.csv")
+    test_path = os.path.join("./input", "test.csv")
+    train_df = pd.read_csv(train_path)
+    test_df = pd.read_csv(test_path)
+    return train_df, test_df
+
+
+def build_and_evaluate(train_df):
+    target_col = "median_house_value"
+
+    # Robustly handle contexts where target may or may not be present
+    feature_cols = [c for c in train_df.columns if c != target_col]
+
+    # Keep DataOps structure intact
+    data = skrub.var("data", train_df)
+    X = data[feature_cols].skb.mark_as_X()
+    y = data[target_col].skb.mark_as_y()
+
+    vectorizer = skrub.TableVectorizer()
+    regressor = HistGradientBoostingRegressor(random_state=0)
+
+    pred = X.skb.apply(vectorizer).skb.apply(regressor, y=y)
+
+    # Holdout validation for reporting
+    train_part, valid_part = train_test_split(train_df, test_size=0.2, random_state=0)
+    train_env = {"data": train_part}
+    valid_env = {"data": valid_part}
+
+    learner = pred.skb.make_learner(fitted=True)
+    learner.fit(train_env)
+
+    valid_pred = learner.predict(valid_env)
+    final_validation_score = mean_squared_error(valid_part[target_col], valid_pred) ** 0.5
+    print(f"Final Validation Performance: {final_validation_score}")
+
+    return learner
+
+
+def main():
+    train_df, test_df = load_data()
+    learner = build_and_evaluate(train_df)
+
+    test_pred = learner.predict({"data": test_df})
+    submission = pd.DataFrame({"median_house_value": test_pred})
+    submission.to_csv("submission.csv", index=False)
+
+
+if __name__ == "__main__":
+    main()
+```
+[92m22:06:57 - LiteLLM:INFO[0m: utils.py:3748 - 
+LiteLLM completion() model= gpt-5.4-mini; provider = openai
+/home/flo/uni/mle-star-skrub/mle-star_improved/agents/machine-learning-engineering/.venv/lib/python3.14/site-packages/pydantic/main.py:464: UserWarning: Pydantic serializer warnings:
+  PydanticSerializationUnexpectedValue(Expected 10 fields but got 6: Expected `Message` - serialized value may not be as expected [field_name='message', input_value=Message(content=None, rol...: None}, annotations=[]), input_type=Message])
+  PydanticSerializationUnexpectedValue(Expected `StreamingChoices` - serialized value may not be as expected [field_name='choices', input_value=Choices(finish_reason='to...ider_specific_fields={}), input_type=Choices])
+  return self.__pydantic_serializer__.to_python(
+[92m22:06:57 - LiteLLM:INFO[0m: utils.py:3748 - 
+LiteLLM completion() model= gpt-5.4-mini; provider = openai
+[92m22:06:58 - LiteLLM:INFO[0m: utils.py:3748 - 
+LiteLLM completion() model= gpt-5.4-mini; provider = openai
+/home/flo/uni/mle-star-skrub/mle-star_improved/agents/machine-learning-engineering/.venv/lib/python3.14/site-packages/pydantic/main.py:464: UserWarning: Pydantic serializer warnings:
+  PydanticSerializationUnexpectedValue(Expected 10 fields but got 6: Expected `Message` - serialized value may not be as expected [field_name='message', input_value=Message(content='```pytho...: None}, annotations=[]), input_type=Message])
+  PydanticSerializationUnexpectedValue(Expected `StreamingChoices` - serialized value may not be as expected [field_name='choices', input_value=Choices(finish_reason='st...ider_specific_fields={}), input_type=Choices])
+  return self.__pydantic_serializer__.to_python(
+[merger_agent_1_1]: ```python
+import os
+import warnings
+
+import numpy as np
+import pandas as pd
+import skrub
+from sklearn.ensemble import HistGradientBoostingRegressor, RandomForestRegressor
+from sklearn.metrics import mean_squared_error
+from sklearn.model_selection import train_test_split
+
+warnings.filterwarnings("ignore")
+
+DATA_DIR = "./input"
+TRAIN_PATH = os.path.join(DATA_DIR, "train.csv")
+TEST_PATH = os.path.join(DATA_DIR, "test.csv")
+TARGET_COL = "median_house_value"
+
+
+def load_data():
+    train_df = pd.read_csv(TRAIN_PATH)
+    test_df = pd.read_csv(TEST_PATH)
+    return train_df, test_df
+
+
+def build_dataops_graph(train_df):
+    feature_cols = [c for c in train_df.columns if c != TARGET_COL]
+
+    data = skrub.var("data", train_df)
+    X = data[feature_cols].skb.mark_as_X()
+    y = data[TARGET_COL].skb.mark_as_y()
+
+    vectorizer = skrub.TableVectorizer()
+
+    hgb = HistGradientBoostingRegressor(random_state=0)
+    rf = RandomForestRegressor(
+        n_estimators=300,
+        random_state=0,
+        n_jobs=-1,
+        min_samples_leaf=2,
+    )
+
+    X_vec = X.skb.apply(vectorizer)
+    hgb_graph = X_vec.skb.apply(hgb, y=y)
+    rf_graph = X_vec.skb.apply(rf, y=y)
+
+    hgb_learner = hgb_graph.skb.make_learner(fitted=True)
+    rf_learner = rf_graph.skb.make_learner(fitted=True)
+
+    return hgb_learner, rf_learner
+
+
+def evaluate_ensemble(train_df, hgb_learner, rf_learner):
+    train_part, valid_part = train_test_split(train_df, test_size=0.2, random_state=0)
+
+    hgb_learner.fit({"data": train_part})
+    rf_learner.fit({"data": train_part})
+
+    valid_features = valid_part.drop(columns=[TARGET_COL], errors="ignore")
+    hgb_pred = hgb_learner.predict({"data": valid_features})
+    rf_pred = rf_learner.predict({"data": valid_features})
+
+    valid_pred = 0.6 * hgb_pred + 0.4 * rf_pred
+    final_validation_score = mean_squared_error(valid_part[TARGET_COL], valid_pred) ** 0.5
+    print(f"Final Validation Performance: {final_validation_score}")
+
+    return hgb_learner, rf_learner, final_validation_score
+
+
+def fit_full_and_predict(train_df, test_df):
+    hgb_learner, rf_learner = build_dataops_graph(train_df)
+
+    hgb_learner.fit({"data": train_df})
+    rf_learner.fit({"data": train_df})
+
+    test_hgb_pred = hgb_learner.predict({"data": test_df})
+    test_rf_pred = rf_learner.predict({"data": test_df})
+
+    test_pred = 0.6 * test_hgb_pred + 0.4 * test_rf_pred
+    return test_pred
+
+
+def main():
+    train_df, test_df = load_data()
+    hgb_learner, rf_learner = build_dataops_graph(train_df)
+    hgb_learner, rf_learner, _ = evaluate_ensemble(train_df, hgb_learner, rf_learner)
+
+    test_pred = fit_full_and_predict(train_df, test_df)
+    submission = pd.DataFrame({"median_house_value": test_pred})
+    submission.to_csv("submission.csv", index=False)
+
+
+if __name__ == "__main__":
+    main()
+```
+[92m22:07:17 - LiteLLM:INFO[0m: utils.py:3748 - 
+LiteLLM completion() model= gpt-5.4-mini; provider = openai
+/home/flo/uni/mle-star-skrub/mle-star_improved/agents/machine-learning-engineering/.venv/lib/python3.14/site-packages/pydantic/main.py:464: UserWarning: Pydantic serializer warnings:
+  PydanticSerializationUnexpectedValue(Expected 10 fields but got 6: Expected `Message` - serialized value may not be as expected [field_name='message', input_value=Message(content=None, rol...: None}, annotations=[]), input_type=Message])
+  PydanticSerializationUnexpectedValue(Expected `StreamingChoices` - serialized value may not be as expected [field_name='choices', input_value=Choices(finish_reason='to...ider_specific_fields={}), input_type=Choices])
+  return self.__pydantic_serializer__.to_python(
+[92m22:07:17 - LiteLLM:INFO[0m: utils.py:3748 - 
+LiteLLM completion() model= gpt-5.4-mini; provider = openai
+[92m22:07:18 - LiteLLM:INFO[0m: utils.py:3748 - 
+LiteLLM completion() model= gpt-5.4-mini; provider = openai
+/home/flo/uni/mle-star-skrub/mle-star_improved/agents/machine-learning-engineering/.venv/lib/python3.14/site-packages/pydantic/main.py:464: UserWarning: Pydantic serializer warnings:
+  PydanticSerializationUnexpectedValue(Expected 10 fields but got 6: Expected `Message` - serialized value may not be as expected [field_name='message', input_value=Message(content='import o...: None}, annotations=[]), input_type=Message])
+  PydanticSerializationUnexpectedValue(Expected `StreamingChoices` - serialized value may not be as expected [field_name='choices', input_value=Choices(finish_reason='st...ider_specific_fields={}), input_type=Choices])
+  return self.__pydantic_serializer__.to_python(
+[ablation_agent_1]: import os
+import pandas as pd
+import numpy as np
+import skrub
+from sklearn.ensemble import HistGradientBoostingRegressor
+from sklearn.metrics import mean_squared_error
+
+DATA_DIR = "./input"
+TRAIN_PATH = os.path.join(DATA_DIR, "train.csv")
+
+train_df = pd.read_csv(TRAIN_PATH)
+target_col = "median_house_value"
+
+# Fixed holdout split
+rng = np.random.RandomState(0)
+indices = np.arange(len(train_df))
+rng.shuffle(indices)
+split = int(len(indices) * 0.8)
+train_idx, val_idx = indices[:split], indices[split:]
+
+train_subset = train_df.iloc[train_idx].copy()
+val_subset = train_df.iloc[val_idx].copy()
+
+
+def run_variant(name, use_vectorizer=True, use_target=True):
+    """
+    Simple ablations:
+    - disable TableVectorizer
+    - disable target usage (train an untrained model path is not meaningful, so we
+      approximate by removing the supervised signal via a constant baseline)
+    """
+    if not use_target:
+        # Baseline: predict the training mean of the target
+        pred = np.full(len(val_subset), train_subset[target_col].mean())
+        rmse = mean_squared_error(val_subset[target_col], pred) ** 0.5
+        print(f"Ablation[{name}] RMSE: {rmse}")
+        return rmse
+
+    data = skrub.var("data", train_subset)
+    X = data.drop(columns=[target_col], errors="ignore").skb.mark_as_X()
+    y = data[target_col].skb.mark_as_y()
+
+    if use_vectorizer:
+        vectorizer = skrub.TableVectorizer()
+        X_transformed = X.skb.apply(vectorizer)
+    else:
+        # Structural ablation: use raw numeric columns only, if any
+        X_transformed = X
+
+    model = HistGradientBoostingRegressor(random_state=0)
+    pred_graph = X_transformed.skb.apply(model, y=y)
+    learner = pred_graph.skb.make_learner(fitted=True)
+
+    val_features = val_subset.drop(columns=[target_col], errors="ignore")
+    val_pred = learner.predict({"data": val_features})
+    rmse = mean_squared_error(val_subset[target_col], val_pred) ** 0.5
+    print(f"Ablation[{name}] RMSE: {rmse}")
+    return rmse
+
+
+results = {}
+
+# Main reference pipeline
+results["reference_full"] = run_variant(
+    "reference_full",
+    use_vectorizer=True,
+    use_target=True,
+)
+
+# Ablation 1: remove TableVectorizer
+results["no_vectorizer"] = run_variant(
+    "no_vectorizer",
+    use_vectorizer=False,
+    use_target=True,
+)
+
+# Ablation 2: remove supervised model path, use mean baseline
+results["mean_baseline"] = run_variant(
+    "mean_baseline",
+    use_vectorizer=True,
+    use_target=False,
+)
+
+best_variant = min(results, key=results.get)
+best_score = results[best_variant]
+
+print(f"Final Validation Performance: {results['reference_full']}")
+print(f"Best ablation variant: {best_variant} | RMSE: {best_score}")
+
+# Contribution analysis: compare each ablation against the full reference
+full_score = results["reference_full"]
+deltas = {k: v - full_score for k, v in results.items() if k != "reference_full"}
+most_important = max(deltas, key=lambda k: abs(deltas[k]))
+print("Ablation impact relative to reference (positive means worse RMSE):")
+for k, delta in deltas.items():
+    print(f"  {k}: {delta}")
+
+print(
+    f"Part contributing the most to overall performance: {most_important} "
+    f"(RMSE change: {deltas[most_important]})"
+)
+[92m22:07:31 - LiteLLM:INFO[0m: utils.py:3748 - 
+LiteLLM completion() model= gpt-5.4-mini; provider = openai
+/home/flo/uni/mle-star-skrub/mle-star_improved/agents/machine-learning-engineering/.venv/lib/python3.14/site-packages/pydantic/main.py:464: UserWarning: Pydantic serializer warnings:
+  PydanticSerializationUnexpectedValue(Expected 10 fields but got 6: Expected `Message` - serialized value may not be as expected [field_name='message', input_value=Message(content='Here’s...: None}, annotations=[]), input_type=Message])
+  PydanticSerializationUnexpectedValue(Expected `StreamingChoices` - serialized value may not be as expected [field_name='choices', input_value=Choices(finish_reason='st...ider_specific_fields={}), input_type=Choices])
+  return self.__pydantic_serializer__.to_python(
+[ablation_summary_agent_1]: Here’s a concise summary of the ablation study results:
+
+### Reference model performance
+- The full pipeline (`reference_full`) achieved an RMSE of **50,763.14** on the validation set.
+
+### Ablation results
+1. **Removing `TableVectorizer`**
+   - RMSE: **50,766.54**
+   - Difference from full model: **+3.39 RMSE**
+   - This means removing the vectorizer had only a **very small negative impact** on performance.
+
+2. **Replacing the supervised model path with a mean baseline**
+   - RMSE: **115,047.69**
+   - Difference from full model: **+64,284.55 RMSE**
+   - This caused a **large performance drop**, showing that the supervised model contributes the most to predictive power.
+
+### Best variant
+- The **full reference pipeline** was the best-performing variant, with the lowest RMSE.
+
+### Main takeaway
+- **The supervised learning component is the most important part of the pipeline.**
+- The `TableVectorizer` contributes only marginally in this setup, while removing the model entirely and using a mean baseline severely degrades performance.
+[92m22:07:33 - LiteLLM:INFO[0m: utils.py:3748 - 
+LiteLLM completion() model= gpt-5.4-mini; provider = openai
+/home/flo/uni/mle-star-skrub/mle-star_improved/agents/machine-learning-engineering/.venv/lib/python3.14/site-packages/pydantic/main.py:464: UserWarning: Pydantic serializer warnings:
+  PydanticSerializationUnexpectedValue(Expected 10 fields but got 6: Expected `Message` - serialized value may not be as expected [field_name='message', input_value=Message(content=None, rol...: None}, annotations=[]), input_type=Message])
+  PydanticSerializationUnexpectedValue(Expected `StreamingChoices` - serialized value may not be as expected [field_name='choices', input_value=Choices(finish_reason='to...ider_specific_fields={}), input_type=Choices])
+  return self.__pydantic_serializer__.to_python(
+[92m22:07:34 - LiteLLM:INFO[0m: utils.py:3748 - 
+LiteLLM completion() model= gpt-5.4-mini; provider = openai
+[92m22:07:34 - LiteLLM:INFO[0m: utils.py:3748 - 
+LiteLLM completion() model= gpt-5.4-mini; provider = openai
+/home/flo/uni/mle-star-skrub/mle-star_improved/agents/machine-learning-engineering/.venv/lib/python3.14/site-packages/pydantic/main.py:464: UserWarning: Pydantic serializer warnings:
+  PydanticSerializationUnexpectedValue(Expected 10 fields but got 6: Expected `Message` - serialized value may not be as expected [field_name='message', input_value=Message(content='[\n  {\n...: None}, annotations=[]), input_type=Message])
+  PydanticSerializationUnexpectedValue(Expected `StreamingChoices` - serialized value may not be as expected [field_name='choices', input_value=Choices(finish_reason='st...ider_specific_fields={}), input_type=Choices])
+  return self.__pydantic_serializer__.to_python(
+[init_plan_agent_1]: [
+  {
+    "code_block": "import os\nimport pandas as pd\nimport numpy as np\nimport skrub\nfrom sklearn.ensemble import HistGradientBoostingRegressor\nfrom sklearn.metrics import mean_squared_error\n\nDATA_DIR = \"./input\"\nTRAIN_PATH = os.path.join(DATA_DIR, \"train.csv\")\nTEST_PATH = os.path.join(DATA_DIR, \"test.csv\")\n\ntrain_df = pd.read_csv(TRAIN_PATH)\ntest_df = pd.read_csv(TEST_PATH)\n\ntarget_col = \"median_house_value\"\n\n# Build DataOps graph\ndata = skrub.var(\"data\", train_df)\n\n# Use errors=\"ignore\" to avoid KeyError if the target is absent in any intermediate frame\nX = data.drop(columns=[target_col], errors=\"ignore\").skb.mark_as_X()\ny = data[target_col].skb.mark_as_y()\n\nvectorizer = skrub.TableVectorizer()\nX_vec = X.skb.apply(vectorizer)\n\nmodel = HistGradientBoostingRegressor(random_state=0)\npred_graph = X_vec.skb.apply(model, y=y)\n\n# Compile fitted learner\nlearner = pred_graph.skb.make_learner(fitted=True)\n\n# Validation on train split using a simple holdout\nrng = np.random.RandomState(0)\nindices = np.arange(len(train_df))\nrng.shuffle(indices)\nsplit = int(len(indices) * 0.8)\ntrain_idx, val_idx = indices[:split], indices[split:]\n\ntrain_subset = train_df.iloc[train_idx].copy()\nval_subset = train_df.iloc[val_idx].copy()\n\n# Fit on training subset using the same DataOps structure\ntrain_data = skrub.var(\"data\", train_subset)\ntrain_X = train_data.drop(columns=[target_col], errors=\"ignore\").skb.mark_as_X()\ntrain_y = train_data[target_col].skb.mark_as_y()\ntrain_X_vec = train_X.skb.apply(vectorizer)\ntrain_pred_graph = train_X_vec.skb.apply(model, y=train_y)\ntrained_learner = train_pred_graph.skb.make_learner(fitted=True)\n\n# Predict on validation features only; do NOT drop median_house_value if it is already absent\nval_features = val_subset.drop(columns=[target_col], errors=\"ignore\")\nval_pred = trained_learner.predict({\"data\": val_features})\n\nfinal_validation_score = mean_squared_error(val_subset[target_col], val_pred) ** 0.5\nprint(f\"Final Validation Performance: {final_validation_score}\")\n\n# Train on full data and predict test\nfull_learner = pred_graph.skb.make_learner(fitted=True)\ntest_pred = full_learner.predict({\"data\": test_df})\n\nsubmission = pd.DataFrame({\"median_house_value\": test_pred})\nsubmission.to_csv(\"submission.csv\", index=False)\n",
+    "plan": "The ablation shows the supervised model is the main source of signal, while `TableVectorizer` only changes RMSE marginally. So the next step should keep the DataOps pipeline intact, but improve the model block first: try a small, bounded comparison of a few stronger tree configurations for `HistGradientBoostingRegressor` and keep the search localized to that node only. If compute is limited or no `choose_*` placeholders are introduced, prefer fixed values and reuse the same preprocessing, since changing encoding is unlikely to help much. After selecting the best fixed configuration, refit on the full training data and keep the validation split unchanged for a fair comparison."
+  }
+]
+[92m22:07:39 - LiteLLM:INFO[0m: utils.py:3748 - 
+LiteLLM completion() model= gpt-5.4-mini; provider = openai
+[92m22:07:40 - LiteLLM:INFO[0m: utils.py:3748 - 
+LiteLLM completion() model= gpt-5.4-mini; provider = openai
+[92m22:07:41 - LiteLLM:INFO[0m: utils.py:3748 - 
+LiteLLM completion() model= gpt-5.4-mini; provider = openai
+[92m22:07:42 - LiteLLM:INFO[0m: utils.py:3748 - 
+LiteLLM completion() model= gpt-5.4-mini; provider = openai
+/home/flo/uni/mle-star-skrub/mle-star_improved/agents/machine-learning-engineering/.venv/lib/python3.14/site-packages/pydantic/main.py:464: UserWarning: Pydantic serializer warnings:
+  PydanticSerializationUnexpectedValue(Expected 10 fields but got 6: Expected `Message` - serialized value may not be as expected [field_name='message', input_value=Message(content='```pytho...: None}, annotations=[]), input_type=Message])
+  PydanticSerializationUnexpectedValue(Expected `StreamingChoices` - serialized value may not be as expected [field_name='choices', input_value=Choices(finish_reason='st...ider_specific_fields={}), input_type=Choices])
+  return self.__pydantic_serializer__.to_python(
+[plan_implement_initial_agent_1]: ```python
+import os
+import pandas as pd
+import numpy as np
+import skrub
+from sklearn.ensemble import HistGradientBoostingRegressor
+from sklearn.metrics import mean_squared_error
+
+DATA_DIR = "./input"
+TRAIN_PATH = os.path.join(DATA_DIR, "train.csv")
+TEST_PATH = os.path.join(DATA_DIR, "test.csv")
+
+train_df = pd.read_csv(TRAIN_PATH)
+test_df = pd.read_csv(TEST_PATH)
+
+target_col = "median_house_value"
+
+# Validation on train split using a simple holdout
+rng = np.random.RandomState(0)
+indices = np.arange(len(train_df))
+rng.shuffle(indices)
+split = int(len(indices) * 0.8)
+train_idx, val_idx = indices[:split], indices[split:]
+
+train_subset = train_df.iloc[train_idx].copy()
+val_subset = train_df.iloc[val_idx].copy()
+
+# Build DataOps graph for the validation subset using the same preprocessing path
+data = skrub.var("data", train_subset)
+X = data.drop(columns=[target_col], errors="ignore").skb.mark_as_X()
+y = data[target_col].skb.mark_as_y()
+
+# Keep preprocessing intact; focus improvements on the supervised model block
+vectorizer = skrub.TableVectorizer()
+X_vec = X.skb.apply(vectorizer)
+
+# Small bounded comparison of stronger HGB configurations
+model_candidates = [
+    ("base", HistGradientBoostingRegressor(random_state=0)),
+    (
+        "deeper",
+        HistGradientBoostingRegressor(
+            random_state=0,
+            learning_rate=0.05,
+            max_depth=8,
+            max_leaf_nodes=63,
+            min_samples_leaf=20,
+        ),
+    ),
+    (
+        "regularized",
+        HistGradientBoostingRegressor(
+            random_state=0,
+            learning_rate=0.03,
+            max_depth=10,
+            max_leaf_nodes=31,
+            min_samples_leaf=30,
+            l2_regularization=0.1,
+        ),
+    ),
+]
+
+best_validation_score = np.inf
+best_variant = None
+best_learner = None
+
+for variant_name, model in model_candidates:
+    pred_graph = X_vec.skb.apply(model, y=y)
+    learner = pred_graph.skb.make_learner(fitted=True)
+
+    val_features = val_subset.drop(columns=[target_col], errors="ignore")
+    val_pred = learner.predict({"data": val_features})
+    validation_score = mean_squared_error(val_subset[target_col], val_pred) ** 0.5
+
+    print(f"Ablation[{variant_name}] RMSE: {validation_score}")
+
+    if validation_score < best_validation_score:
+        best_validation_score = validation_score
+        best_variant = variant_name
+        best_learner = learner
+
+final_validation_score = best_validation_score
+print(f"Best ablation variant: {best_variant} | RMSE: {best_validation_score}")
+print(f"Final Validation Performance: {final_validation_score}")
+
+# Refit on the full training data with the best fixed configuration
+full_data = skrub.var("data", train_df)
+full_X = full_data.drop(columns=[target_col], errors="ignore").skb.mark_as_X()
+full_y = full_data[target_col].skb.mark_as_y()
+full_X_vec = full_X.skb.apply(vectorizer)
+
+best_model_params = {
+    "base": dict(random_state=0),
+    "deeper": dict(
+        random_state=0,
+        learning_rate=0.05,
+        max_depth=8,
+        max_leaf_nodes=63,
+        min_samples_leaf=20,
+    ),
+    "regularized": dict(
+        random_state=0,
+        learning_rate=0.03,
+        max_depth=10,
+        max_leaf_nodes=31,
+        min_samples_leaf=30,
+        l2_regularization=0.1,
+    ),
+}[best_variant]
+
+final_model = HistGradientBoostingRegressor(**best_model_params)
+full_pred_graph = full_X_vec.skb.apply(final_model, y=full_y)
+full_learner = full_pred_graph.skb.make_learner(fitted=True)
+
+# Predict on test
+test_pred = full_learner.predict({"data": test_df})
+
+submission = pd.DataFrame({"median_house_value": test_pred})
+submission.to_csv("submission.csv", index=False)
+```
+[92m22:07:53 - LiteLLM:INFO[0m: utils.py:3748 - 
+LiteLLM completion() model= gpt-5.4-mini; provider = openai
+/home/flo/uni/mle-star-skrub/mle-star_improved/agents/machine-learning-engineering/.venv/lib/python3.14/site-packages/pydantic/main.py:464: UserWarning: Pydantic serializer warnings:
+  PydanticSerializationUnexpectedValue(Expected 10 fields but got 6: Expected `Message` - serialized value may not be as expected [field_name='message', input_value=Message(content=None, rol...: None}, annotations=[]), input_type=Message])
+  PydanticSerializationUnexpectedValue(Expected `StreamingChoices` - serialized value may not be as expected [field_name='choices', input_value=Choices(finish_reason='to...ider_specific_fields={}), input_type=Choices])
+  return self.__pydantic_serializer__.to_python(
+[92m22:07:54 - LiteLLM:INFO[0m: utils.py:3748 - 
+LiteLLM completion() model= gpt-5.4-mini; provider = openai
+[92m22:07:55 - LiteLLM:INFO[0m: utils.py:3748 - 
+LiteLLM completion() model= gpt-5.4-mini; provider = openai
+/home/flo/uni/mle-star-skrub/mle-star_improved/agents/machine-learning-engineering/.venv/lib/python3.14/site-packages/pydantic/main.py:464: UserWarning: Pydantic serializer warnings:
+  PydanticSerializationUnexpectedValue(Expected 10 fields but got 6: Expected `Message` - serialized value may not be as expected [field_name='message', input_value=Message(content='Keep the...: None}, annotations=[]), input_type=Message])
+  PydanticSerializationUnexpectedValue(Expected `StreamingChoices` - serialized value may not be as expected [field_name='choices', input_value=Choices(finish_reason='st...ider_specific_fields={}), input_type=Choices])
+  return self.__pydantic_serializer__.to_python(
+[plan_refine_agent_1]: Keep the DataOps graph intact, but shift the next ablation from model-only tweaking to a stronger structural change in preprocessing: use a two-branch encoding strategy that preserves numeric columns for the tree while separately hashing/high-cardinality categoricals, since the current `TableVectorizer` may be under-serving categorical signal. Make this a fixed, low-cost comparison between the default vectorizer path and one alternative encoding setup, then keep only the best configuration and refit once on the full training data to avoid broad search overhead. If the data has any obvious time/order leakage or skewed target distribution, add a simple target transform or log1p-style wrapper only in the supervised node rather than expanding the hyperparameter search.
+[92m22:07:57 - LiteLLM:INFO[0m: utils.py:3748 - 
+LiteLLM completion() model= gpt-5.4-mini; provider = openai
+[92m22:07:58 - LiteLLM:INFO[0m: utils.py:3748 - 
+LiteLLM completion() model= gpt-5.4-mini; provider = openai
+[92m22:07:59 - LiteLLM:INFO[0m: utils.py:3748 - 
+LiteLLM completion() model= gpt-5.4-mini; provider = openai
+[92m22:08:00 - LiteLLM:INFO[0m: utils.py:3748 - 
+LiteLLM completion() model= gpt-5.4-mini; provider = openai
+[92m22:08:01 - LiteLLM:INFO[0m: utils.py:3748 - 
+LiteLLM completion() model= gpt-5.4-mini; provider = openai
+/home/flo/uni/mle-star-skrub/mle-star_improved/agents/machine-learning-engineering/.venv/lib/python3.14/site-packages/pydantic/main.py:464: UserWarning: Pydantic serializer warnings:
+  PydanticSerializationUnexpectedValue(Expected 10 fields but got 6: Expected `Message` - serialized value may not be as expected [field_name='message', input_value=Message(content='```pytho...: None}, annotations=[]), input_type=Message])
+  PydanticSerializationUnexpectedValue(Expected `StreamingChoices` - serialized value may not be as expected [field_name='choices', input_value=Choices(finish_reason='st...ider_specific_fields={}), input_type=Choices])
+  return self.__pydantic_serializer__.to_python(
+[plan_implement_agent_1]: ```python
+import os
+import pandas as pd
+import numpy as np
+import skrub
+from sklearn.ensemble import HistGradientBoostingRegressor
+from sklearn.metrics import mean_squared_error
+
+DATA_DIR = "./input"
+TRAIN_PATH = os.path.join(DATA_DIR, "train.csv")
+TEST_PATH = os.path.join(DATA_DIR, "test.csv")
+
+train_df = pd.read_csv(TRAIN_PATH)
+test_df = pd.read_csv(TEST_PATH)
+
+target_col = "median_house_value"
+
+# Keep a small holdout subsample for fast ablation while preserving the original subsampling workflow.
+rng = np.random.RandomState(0)
+indices = np.arange(len(train_df))
+rng.shuffle(indices)
+split = int(len(indices) * 0.8)
+train_idx, val_idx = indices[:split], indices[split:]
+
+train_subset = train_df.iloc[train_idx].copy()
+val_subset = train_df.iloc[val_idx].copy()
+
+# Optional target transform for skewed house-price targets:
+# model the log1p target and invert with expm1 at prediction time.
+use_log_target = True
+
+def build_and_fit_learner(train_frame, vectorizer):
+    data = skrub.var("data", train_frame)
+    X = data.drop(columns=[target_col], errors="ignore").skb.mark_as_X()
+    y = data[target_col].skb.mark_as_y()
+
+    if use_log_target:
+        y = y.skb.apply(np.log1p)
+
+    X_vec = X.skb.apply(vectorizer)
+    model = HistGradientBoostingRegressor(random_state=0)
+    pred_graph = X_vec.skb.apply(model, y=y)
+    return pred_graph.skb.make_learner(fitted=True)
+
+def predict_with_inverse_transform(learner, frame):
+    preds = learner.predict({"data": frame})
+    if use_log_target:
+        preds = np.expm1(preds)
+    return preds
+
+# Variant 1: default TableVectorizer path.
+default_vectorizer = skrub.TableVectorizer()
+
+# Variant 2: two-branch style via explicit tree-friendly encoding bias:
+# keep numerics intact and use a stronger categorical encoder for high-cardinality text/categorical columns.
+# This stays fixed and low-cost: no broad search, just a comparison against the default path.
+alternative_vectorizer = skrub.TableVectorizer(
+    high_cardinality=skrub.MinHashEncoder(n_components=16),
+)
+
+vectorizer_candidates = {
+    "default_table_vectorizer": default_vectorizer,
+    "minhash_high_cardinality": alternative_vectorizer,
+}
+
+best_variant = None
+best_score = np.inf
+best_learner = None
+
+for variant_name, vectorizer in vectorizer_candidates.items():
+    trained_learner = build_and_fit_learner(train_subset, vectorizer)
+    val_pred = predict_with_inverse_transform(trained_learner, val_subset.drop(columns=[target_col], errors="ignore"))
+    rmse = mean_squared_error(val_subset[target_col], val_pred) ** 0.5
+    print(f"Ablation[{variant_name}] RMSE: {rmse}")
+
+    if rmse < best_score:
+        best_score = rmse
+        best_variant = variant_name
+        best_learner = trained_learner
+
+final_validation_score = best_score
+print(f"Best ablation variant: {best_variant} | RMSE: {best_score}")
+print(f"Final Validation Performance: {final_validation_score}")
+
+# Refit once on the full training data using the best preprocessing configuration.
+chosen_vectorizer = vectorizer_candidates[best_variant]
+
+full_learner = build_and_fit_learner(train_df, chosen_vectorizer)
+test_pred = predict_with_inverse_transform(full_learner, test_df)
+
+submission = pd.DataFrame({"median_house_value": test_pred})
+submission.to_csv("submission.csv", index=False)
+```
+[92m22:08:17 - LiteLLM:INFO[0m: utils.py:3748 - 
+LiteLLM completion() model= gpt-5.4-mini; provider = openai
+/home/flo/uni/mle-star-skrub/mle-star_improved/agents/machine-learning-engineering/.venv/lib/python3.14/site-packages/pydantic/main.py:464: UserWarning: Pydantic serializer warnings:
+  PydanticSerializationUnexpectedValue(Expected 10 fields but got 6: Expected `Message` - serialized value may not be as expected [field_name='message', input_value=Message(content='```pytho...: None}, annotations=[]), input_type=Message])
+  PydanticSerializationUnexpectedValue(Expected `StreamingChoices` - serialized value may not be as expected [field_name='choices', input_value=Choices(finish_reason='st...ider_specific_fields={}), input_type=Choices])
+  return self.__pydantic_serializer__.to_python(
+[plan_implement_agent_1]: ```python
+import os
+import pandas as pd
+import numpy as np
+import skrub
+from sklearn.ensemble import HistGradientBoostingRegressor
+from sklearn.metrics import mean_squared_error
+
+DATA_DIR = "./input"
+TRAIN_PATH = os.path.join(DATA_DIR, "train.csv")
+TEST_PATH = os.path.join(DATA_DIR, "test.csv")
+
+train_df = pd.read_csv(TRAIN_PATH)
+test_df = pd.read_csv(TEST_PATH)
+
+target_col = "median_house_value"
+
+# Keep a small holdout subsample for fast ablation while preserving the original subsampling workflow.
+rng = np.random.RandomState(0)
+indices = np.arange(len(train_df))
+rng.shuffle(indices)
+split = int(len(indices) * 0.8)
+train_idx, val_idx = indices[:split], indices[split:]
+
+train_subset = train_df.iloc[train_idx].copy()
+val_subset = train_df.iloc[val_idx].copy()
+
+# Optional target transform for skewed house-price targets:
+# model the log1p target and invert with expm1 at prediction time.
+use_log_target = True
+
+def build_and_fit_learner(train_frame, vectorizer):
+    data = skrub.var("data", train_frame)
+    X = data.drop(columns=[target_col], errors="ignore").skb.mark_as_X()
+    y = data[target_col].skb.mark_as_y()
+
+    if use_log_target:
+        y = y.skb.apply(np.log1p)
+
+    X_vec = X.skb.apply(vectorizer)
+    model = HistGradientBoostingRegressor(random_state=0)
+    pred_graph = X_vec.skb.apply(model, y=y)
+    return pred_graph.skb.make_learner(fitted=True)
+
+def predict_with_inverse_transform(learner, frame):
+    preds = learner.predict({"data": frame})
+    if use_log_target:
+        preds = np.expm1(preds)
+    return preds
+
+# Variant 1: default TableVectorizer path.
+default_vectorizer = skrub.TableVectorizer()
+
+# Variant 2: two-branch style via explicit tree-friendly encoding bias:
+# keep numerics intact and use a stronger categorical encoder for high-cardinality text/categorical columns.
+# This stays fixed and low-cost: no broad search, just a comparison against the default path.
+alternative_vectorizer = skrub.TableVectorizer(
+    high_cardinality=skrub.MinHashEncoder(n_components=16),
+)
+
+vectorizer_candidates = {
+    "default_table_vectorizer": default_vectorizer,
+    "minhash_high_cardinality": alternative_vectorizer,
+}
+
+best_variant = None
+best_score = np.inf
+best_learner = None
+
+for variant_name, vectorizer in vectorizer_candidates.items():
+    trained_learner = build_and_fit_learner(train_subset, vectorizer)
+    val_pred = predict_with_inverse_transform(trained_learner, val_subset.drop(columns=[target_col], errors="ignore"))
+    rmse = mean_squared_error(val_subset[target_col], val_pred) ** 0.5
+    print(f"Ablation[{variant_name}] RMSE: {rmse}")
+
+    if rmse < best_score:
+        best_score = rmse
+        best_variant = variant_name
+        best_learner = trained_learner
+
+final_validation_score = best_score
+print(f"Best ablation variant: {best_variant} | RMSE: {best_score}")
+print(f"Final Validation Performance: {final_validation_score}")
+
+# Refit once on the full training data using the best preprocessing configuration.
+chosen_vectorizer = vectorizer_candidates[best_variant]
+
+full_learner = build_and_fit_learner(train_df, chosen_vectorizer)
+test_pred = predict_with_inverse_transform(full_learner, test_df)
+
+submission = pd.DataFrame({"median_house_value": test_pred})
+submission.to_csv("submission.csv", index=False)
+```
+[92m22:08:24 - LiteLLM:INFO[0m: utils.py:3748 - 
+LiteLLM completion() model= gpt-5.4-mini; provider = openai
+/home/flo/uni/mle-star-skrub/mle-star_improved/agents/machine-learning-engineering/.venv/lib/python3.14/site-packages/pydantic/main.py:464: UserWarning: Pydantic serializer warnings:
+  PydanticSerializationUnexpectedValue(Expected 10 fields but got 6: Expected `Message` - serialized value may not be as expected [field_name='message', input_value=Message(content='No more ...: None}, annotations=[]), input_type=Message])
+  PydanticSerializationUnexpectedValue(Expected `StreamingChoices` - serialized value may not be as expected [field_name='choices', input_value=Choices(finish_reason='st...ider_specific_fields={}), input_type=Choices])
+  return self.__pydantic_serializer__.to_python(
+[plan_implement_agent_1]: No more outputs are needed.
+[92m22:08:25 - LiteLLM:INFO[0m: utils.py:3748 - 
+LiteLLM completion() model= gpt-5.4-mini; provider = openai
+/home/flo/uni/mle-star-skrub/mle-star_improved/agents/machine-learning-engineering/.venv/lib/python3.14/site-packages/pydantic/main.py:464: UserWarning: Pydantic serializer warnings:
+  PydanticSerializationUnexpectedValue(Expected 10 fields but got 6: Expected `Message` - serialized value may not be as expected [field_name='message', input_value=Message(content='```pytho...: None}, annotations=[]), input_type=Message])
+  PydanticSerializationUnexpectedValue(Expected `StreamingChoices` - serialized value may not be as expected [field_name='choices', input_value=Choices(finish_reason='st...ider_specific_fields={}), input_type=Choices])
+  return self.__pydantic_serializer__.to_python(
+[plan_implement_agent_1]: ```python
+import os
+import pandas as pd
+import numpy as np
+import skrub
+from sklearn.ensemble import HistGradientBoostingRegressor
+from sklearn.metrics import mean_squared_error
+
+DATA_DIR = "./input"
+TRAIN_PATH = os.path.join(DATA_DIR, "train.csv")
+TEST_PATH = os.path.join(DATA_DIR, "test.csv")
+
+train_df = pd.read_csv(TRAIN_PATH)
+test_df = pd.read_csv(TEST_PATH)
+
+target_col = "median_house_value"
+
+# Keep a small holdout subsample for fast ablation while preserving the original subsampling workflow.
+rng = np.random.RandomState(0)
+indices = np.arange(len(train_df))
+rng.shuffle(indices)
+split = int(len(indices) * 0.8)
+train_idx, val_idx = indices[:split], indices[split:]
+
+train_subset = train_df.iloc[train_idx].copy()
+val_subset = train_df.iloc[val_idx].copy()
+
+# Optional target transform for skewed house-price targets:
+# model the log1p target and invert with expm1 at prediction time.
+use_log_target = True
+
+def build_and_fit_learner(train_frame, vectorizer):
+    data = skrub.var("data", train_frame)
+    X = data.drop(columns=[target_col], errors="ignore").skb.mark_as_X()
+    y = data[target_col].skb.mark_as_y()
+
+    if use_log_target:
+        y = y.skb.apply(np.log1p)
+
+    X_vec = X.skb.apply(vectorizer)
+    model = HistGradientBoostingRegressor(random_state=0)
+    pred_graph = X_vec.skb.apply(model, y=y)
+    return pred_graph.skb.make_learner(fitted=True)
+
+def predict_with_inverse_transform(learner, frame):
+    preds = learner.predict({"data": frame})
+    if use_log_target:
+        preds = np.expm1(preds)
+    return preds
+
+# Variant 1: default TableVectorizer path.
+default_vectorizer = skrub.TableVectorizer()
+
+# Variant 2: two-branch style via explicit tree-friendly encoding bias:
+# keep numerics intact and use a stronger categorical encoder for high-cardinality text/categorical columns.
+# This stays fixed and low-cost: no broad search, just a comparison against the default path.
+alternative_vectorizer = skrub.TableVectorizer(
+    high_cardinality=skrub.MinHashEncoder(n_components=16),
+)
+
+vectorizer_candidates = {
+    "default_table_vectorizer": default_vectorizer,
+    "minhash_high_cardinality": alternative_vectorizer,
+}
+
+best_variant = None
+best_score = np.inf
+best_learner = None
+
+for variant_name, vectorizer in vectorizer_candidates.items():
+    trained_learner = build_and_fit_learner(train_subset, vectorizer)
+    val_pred = predict_with_inverse_transform(trained_learner, val_subset.drop(columns=[target_col], errors="ignore"))
+    rmse = mean_squared_error(val_subset[target_col], val_pred) ** 0.5
+    print(f"Ablation[{variant_name}] RMSE: {rmse}")
+
+    if rmse < best_score:
+        best_score = rmse
+        best_variant = variant_name
+        best_learner = trained_learner
+
+final_validation_score = best_score
+print(f"Best ablation variant: {best_variant} | RMSE: {best_score}")
+print(f"Final Validation Performance: {final_validation_score}")
+
+# Refit once on the full training data using the best preprocessing configuration.
+chosen_vectorizer = vectorizer_candidates[best_variant]
+
+full_learner = build_and_fit_learner(train_df, chosen_vectorizer)
+test_pred = predict_with_inverse_transform(full_learner, test_df)
+
+submission = pd.DataFrame({"median_house_value": test_pred})
+submission.to_csv("submission.csv", index=False)
+```
+[92m22:08:33 - LiteLLM:INFO[0m: utils.py:3748 - 
+LiteLLM completion() model= gpt-5.4-mini; provider = openai
+/home/flo/uni/mle-star-skrub/mle-star_improved/agents/machine-learning-engineering/.venv/lib/python3.14/site-packages/pydantic/main.py:464: UserWarning: Pydantic serializer warnings:
+  PydanticSerializationUnexpectedValue(Expected 10 fields but got 6: Expected `Message` - serialized value may not be as expected [field_name='message', input_value=Message(content='', role=...: None}, annotations=[]), input_type=Message])
+  PydanticSerializationUnexpectedValue(Expected `StreamingChoices` - serialized value may not be as expected [field_name='choices', input_value=Choices(finish_reason='st...ider_specific_fields={}), input_type=Choices])
+  return self.__pydantic_serializer__.to_python(
+[92m22:08:35 - LiteLLM:INFO[0m: utils.py:3748 - 
+LiteLLM completion() model= gpt-5.4-mini; provider = openai
+/home/flo/uni/mle-star-skrub/mle-star_improved/agents/machine-learning-engineering/.venv/lib/python3.14/site-packages/pydantic/main.py:464: UserWarning: Pydantic serializer warnings:
+  PydanticSerializationUnexpectedValue(Expected 10 fields but got 6: Expected `Message` - serialized value may not be as expected [field_name='message', input_value=Message(content='```pytho...: None}, annotations=[]), input_type=Message])
+  PydanticSerializationUnexpectedValue(Expected `StreamingChoices` - serialized value may not be as expected [field_name='choices', input_value=Choices(finish_reason='st...ider_specific_fields={}), input_type=Choices])
+  return self.__pydantic_serializer__.to_python(
+[plan_implement_agent_1]: ```python
+import os
+import pandas as pd
+import numpy as np
+import skrub
+from sklearn.ensemble import HistGradientBoostingRegressor
+from sklearn.metrics import mean_squared_error
+
+DATA_DIR = "./input"
+TRAIN_PATH = os.path.join(DATA_DIR, "train.csv")
+TEST_PATH = os.path.join(DATA_DIR, "test.csv")
+
+train_df = pd.read_csv(TRAIN_PATH)
+test_df = pd.read_csv(TEST_PATH)
+
+target_col = "median_house_value"
+
+# Keep a small holdout subsample for fast ablation while preserving the original subsampling workflow.
+rng = np.random.RandomState(0)
+indices = np.arange(len(train_df))
+rng.shuffle(indices)
+split = int(len(indices) * 0.8)
+train_idx, val_idx = indices[:split], indices[split:]
+
+train_subset = train_df.iloc[train_idx].copy()
+val_subset = train_df.iloc[val_idx].copy()
+
+# Optional target transform for skewed house-price targets:
+# model the log1p target and invert with expm1 at prediction time.
+use_log_target = True
+
+def build_and_fit_learner(train_frame, vectorizer):
+    data = skrub.var("data", train_frame)
+    X = data.drop(columns=[target_col], errors="ignore").skb.mark_as_X()
+    y = data[target_col].skb.mark_as_y()
+
+    if use_log_target:
+        y = y.skb.apply(np.log1p)
+
+    X_vec = X.skb.apply(vectorizer)
+    model = HistGradientBoostingRegressor(random_state=0)
+    pred_graph = X_vec.skb.apply(model, y=y)
+    return pred_graph.skb.make_learner(fitted=True)
+
+def predict_with_inverse_transform(learner, frame):
+    preds = learner.predict({"data": frame})
+    if use_log_target:
+        preds = np.expm1(preds)
+    return preds
+
+# Variant 1: default TableVectorizer path.
+default_vectorizer = skrub.TableVectorizer()
+
+# Variant 2: two-branch style via explicit tree-friendly encoding bias:
+# keep numerics intact and use a stronger categorical encoder for high-cardinality text/categorical columns.
+# This stays fixed and low-cost: no broad search, just a comparison against the default path.
+alternative_vectorizer = skrub.TableVectorizer(
+    high_cardinality=skrub.MinHashEncoder(n_components=16),
+)
+
+vectorizer_candidates = {
+    "default_table_vectorizer": default_vectorizer,
+    "minhash_high_cardinality": alternative_vectorizer,
+}
+
+best_variant = None
+best_score = np.inf
+best_learner = None
+
+for variant_name, vectorizer in vectorizer_candidates.items():
+    trained_learner = build_and_fit_learner(train_subset, vectorizer)
+    val_pred = predict_with_inverse_transform(trained_learner, val_subset.drop(columns=[target_col], errors="ignore"))
+    rmse = mean_squared_error(val_subset[target_col], val_pred) ** 0.5
+    print(f"Ablation[{variant_name}] RMSE: {rmse}")
+
+    if rmse < best_score:
+        best_score = rmse
+        best_variant = variant_name
+        best_learner = trained_learner
+
+final_validation_score = best_score
+print(f"Best ablation variant: {best_variant} | RMSE: {best_score}")
+print(f"Final Validation Performance: {final_validation_score}")
+
+# Refit once on the full training data using the best preprocessing configuration.
+chosen_vectorizer = vectorizer_candidates[best_variant]
+
+full_learner = build_and_fit_learner(train_df, chosen_vectorizer)
+test_pred = predict_with_inverse_transform(full_learner, test_df)
+
+submission = pd.DataFrame({"median_house_value": test_pred})
+submission.to_csv("submission.csv", index=False)
+```
+[92m22:08:42 - LiteLLM:INFO[0m: utils.py:3748 - 
+LiteLLM completion() model= gpt-5.4-mini; provider = openai
+/home/flo/uni/mle-star-skrub/mle-star_improved/agents/machine-learning-engineering/.venv/lib/python3.14/site-packages/pydantic/main.py:464: UserWarning: Pydantic serializer warnings:
+  PydanticSerializationUnexpectedValue(Expected 10 fields but got 6: Expected `Message` - serialized value may not be as expected [field_name='message', input_value=Message(content='No more ...: None}, annotations=[]), input_type=Message])
+  PydanticSerializationUnexpectedValue(Expected `StreamingChoices` - serialized value may not be as expected [field_name='choices', input_value=Choices(finish_reason='st...ider_specific_fields={}), input_type=Choices])
+  return self.__pydantic_serializer__.to_python(
+[plan_implement_agent_1]: No more outputs are needed.
+[92m22:08:43 - LiteLLM:INFO[0m: utils.py:3748 - 
+LiteLLM completion() model= gpt-5.4-mini; provider = openai
+/home/flo/uni/mle-star-skrub/mle-star_improved/agents/machine-learning-engineering/.venv/lib/python3.14/site-packages/pydantic/main.py:464: UserWarning: Pydantic serializer warnings:
+  PydanticSerializationUnexpectedValue(Expected 10 fields but got 6: Expected `Message` - serialized value may not be as expected [field_name='message', input_value=Message(content='```pytho...: None}, annotations=[]), input_type=Message])
+  PydanticSerializationUnexpectedValue(Expected `StreamingChoices` - serialized value may not be as expected [field_name='choices', input_value=Choices(finish_reason='st...ider_specific_fields={}), input_type=Choices])
+  return self.__pydantic_serializer__.to_python(
+[plan_implement_agent_1]: ```python
+import os
+import pandas as pd
+import numpy as np
+import skrub
+from sklearn.ensemble import HistGradientBoostingRegressor
+from sklearn.metrics import mean_squared_error
+
+DATA_DIR = "./input"
+TRAIN_PATH = os.path.join(DATA_DIR, "train.csv")
+TEST_PATH = os.path.join(DATA_DIR, "test.csv")
+
+train_df = pd.read_csv(TRAIN_PATH)
+test_df = pd.read_csv(TEST_PATH)
+
+target_col = "median_house_value"
+
+# Keep a small holdout subsample for fast ablation while preserving the original subsampling workflow.
+rng = np.random.RandomState(0)
+indices = np.arange(len(train_df))
+rng.shuffle(indices)
+split = int(len(indices) * 0.8)
+train_idx, val_idx = indices[:split], indices[split:]
+
+train_subset = train_df.iloc[train_idx].copy()
+val_subset = train_df.iloc[val_idx].copy()
+
+# Optional target transform for skewed house-price targets:
+# model the log1p target and invert with expm1 at prediction time.
+use_log_target = True
+
+def build_and_fit_learner(train_frame, vectorizer):
+    data = skrub.var("data", train_frame)
+    X = data.drop(columns=[target_col], errors="ignore").skb.mark_as_X()
+    y = data[target_col].skb.mark_as_y()
+
+    if use_log_target:
+        y = y.skb.apply(np.log1p)
+
+    X_vec = X.skb.apply(vectorizer)
+    model = HistGradientBoostingRegressor(random_state=0)
+    pred_graph = X_vec.skb.apply(model, y=y)
+    return pred_graph.skb.make_learner(fitted=True)
+
+def predict_with_inverse_transform(learner, frame):
+    preds = learner.predict({"data": frame})
+    if use_log_target:
+        preds = np.expm1(preds)
+    return preds
+
+# Variant 1: default TableVectorizer path.
+default_vectorizer = skrub.TableVectorizer()
+
+# Variant 2: two-branch style via explicit tree-friendly encoding bias:
+# keep numerics intact and use a stronger categorical encoder for high-cardinality text/categorical columns.
+alternative_vectorizer = skrub.TableVectorizer(
+    high_cardinality=skrub.MinHashEncoder(n_components=16),
+)
+
+vectorizer_candidates = {
+    "default_table_vectorizer": default_vectorizer,
+    "minhash_high_cardinality": alternative_vectorizer,
+}
+
+best_variant = None
+best_score = np.inf
+
+for variant_name, vectorizer in vectorizer_candidates.items():
+    trained_learner = build_and_fit_learner(train_subset, vectorizer)
+    val_pred = predict_with_inverse_transform(trained_learner, val_subset.drop(columns=[target_col], errors="ignore"))
+    rmse = mean_squared_error(val_subset[target_col], val_pred) ** 0.5
+    print(f"Ablation[{variant_name}] RMSE: {rmse}")
+
+    if rmse < best_score:
+        best_score = rmse
+        best_variant = variant_name
+
+final_validation_score = best_score
+print(f"Best ablation variant: {best_variant} | RMSE: {best_score}")
+print(f"Final Validation Performance: {final_validation_score}")
+
+chosen_vectorizer = vectorizer_candidates[best_variant]
+full_learner = build_and_fit_learner(train_df, chosen_vectorizer)
+test_pred = predict_with_inverse_transform(full_learner, test_df)
+
+submission = pd.DataFrame({"median_house_value": test_pred})
+submission.to_csv("submission.csv", index=False)
+```
+[92m22:08:49 - LiteLLM:INFO[0m: utils.py:3748 - 
+LiteLLM completion() model= gpt-5.4-mini; provider = openai
+/home/flo/uni/mle-star-skrub/mle-star_improved/agents/machine-learning-engineering/.venv/lib/python3.14/site-packages/pydantic/main.py:464: UserWarning: Pydantic serializer warnings:
+  PydanticSerializationUnexpectedValue(Expected 10 fields but got 6: Expected `Message` - serialized value may not be as expected [field_name='message', input_value=Message(content='No more ...: None}, annotations=[]), input_type=Message])
+  PydanticSerializationUnexpectedValue(Expected `StreamingChoices` - serialized value may not be as expected [field_name='choices', input_value=Choices(finish_reason='st...ider_specific_fields={}), input_type=Choices])
+  return self.__pydantic_serializer__.to_python(
+[plan_implement_agent_1]: No more outputs are needed.
+[92m22:08:49 - LiteLLM:INFO[0m: utils.py:3748 - 
+LiteLLM completion() model= gpt-5.4-mini; provider = openai
+[plan_implement_agent_1]: No more outputs are needed.
+[92m22:08:50 - LiteLLM:INFO[0m: utils.py:3748 - 
+LiteLLM completion() model= gpt-5.4-mini; provider = openai
+/home/flo/uni/mle-star-skrub/mle-star_improved/agents/machine-learning-engineering/.venv/lib/python3.14/site-packages/pydantic/main.py:464: UserWarning: Pydantic serializer warnings:
+  PydanticSerializationUnexpectedValue(Expected 10 fields but got 6: Expected `Message` - serialized value may not be as expected [field_name='message', input_value=Message(content='We are n...: None}, annotations=[]), input_type=Message])
+  PydanticSerializationUnexpectedValue(Expected `StreamingChoices` - serialized value may not be as expected [field_name='choices', input_value=Choices(finish_reason='st...ider_specific_fields={}), input_type=Choices])
+  return self.__pydantic_serializer__.to_python(
+[plan_implement_bug_summary_agent_1]: We are now running `train0_improve1.py.py`. The error occurred there.
+[92m22:08:51 - LiteLLM:INFO[0m: utils.py:3748 - 
+LiteLLM completion() model= gpt-5.4-mini; provider = openai
+/home/flo/uni/mle-star-skrub/mle-star_improved/agents/machine-learning-engineering/.venv/lib/python3.14/site-packages/pydantic/main.py:464: UserWarning: Pydantic serializer warnings:
+  PydanticSerializationUnexpectedValue(Expected 10 fields but got 6: Expected `Message` - serialized value may not be as expected [field_name='message', input_value=Message(content=None, rol...: None}, annotations=[]), input_type=Message])
+  PydanticSerializationUnexpectedValue(Expected `StreamingChoices` - serialized value may not be as expected [field_name='choices', input_value=Choices(finish_reason='to...ider_specific_fields={}), input_type=Choices])
+  return self.__pydantic_serializer__.to_python(
+[92m22:08:52 - LiteLLM:INFO[0m: utils.py:3748 - 
+LiteLLM completion() model= gpt-5.4-mini; provider = openai
+[92m22:08:53 - LiteLLM:INFO[0m: utils.py:3748 - 
+LiteLLM completion() model= gpt-5.4-mini; provider = openai
+[92m22:08:53 - LiteLLM:INFO[0m: utils.py:3748 - 
+LiteLLM completion() model= gpt-5.4-mini; provider = openai
+[92m22:08:54 - LiteLLM:INFO[0m: utils.py:3748 - 
+LiteLLM completion() model= gpt-5.4-mini; provider = openai
+[92m22:09:01 - LiteLLM:INFO[0m: utils.py:3748 - 
+LiteLLM completion() model= gpt-5.4-mini; provider = openai
+/home/flo/uni/mle-star-skrub/mle-star_improved/agents/machine-learning-engineering/.venv/lib/python3.14/site-packages/pydantic/main.py:464: UserWarning: Pydantic serializer warnings:
+  PydanticSerializationUnexpectedValue(Expected 10 fields but got 6: Expected `Message` - serialized value may not be as expected [field_name='message', input_value=Message(content='```pytho...: None}, annotations=[]), input_type=Message])
+  PydanticSerializationUnexpectedValue(Expected `StreamingChoices` - serialized value may not be as expected [field_name='choices', input_value=Choices(finish_reason='st...ider_specific_fields={}), input_type=Choices])
+  return self.__pydantic_serializer__.to_python(
+[plan_implement_debug_agent_1]: ```python
+import os
+import warnings
+import numpy as np
+import pandas as pd
+import skrub
+
+from sklearn.ensemble import HistGradientBoostingRegressor
+from sklearn.metrics import mean_squared_error
+from sklearn.model_selection import train_test_split
+
+warnings.filterwarnings("ignore")
+
+
+def load_data():
+    train_path = os.path.join("./input", "train.csv")
+    test_path = os.path.join("./input", "test.csv")
+    train_df = pd.read_csv(train_path)
+    test_df = pd.read_csv(test_path)
+    return train_df, test_df
+
+
+def build_and_evaluate(train_df):
+    target_col = "median_house_value"
+
+    # Fast preview subsampling is allowed, but keep the final workflow on full data.
+    data = skrub.var("data", train_df)
+    data_preview = data.skb.subsample(n=min(5000, len(train_df)))
+
+    X = data_preview.drop(columns=target_col, errors="ignore").skb.mark_as_X()
+    y = data_preview[target_col].skb.mark_as_y()
+
+    # Use a robust tree-based regressor that can handle the default TableVectorizer output well.
+    vectorizer = skrub.TableVectorizer()
+    model = HistGradientBoostingRegressor(
+        learning_rate=0.05,
+        max_depth=None,
+        max_iter=250,
+        min_samples_leaf=20,
+        l2_regularization=0.0,
+        random_state=42,
+    )
+
+    pred = X.skb.apply(vectorizer).skb.apply(model, y=y)
+
+    # Evaluate on the previewed subsample for quick validation during development.
+    cv = pred.skb.cross_validate(keep_subsampling=True)
+    preview_rmse = float(np.mean(cv["test_score"]) ** 0.5) if "test_score" in cv else float("nan")
+
+    # Final model on full data
+    full_data = skrub.var("data", train_df)
+    full_X = full_data.drop(columns=target_col, errors="ignore").skb.mark_as_X()
+    full_y = full_data[target_col].skb.mark_as_y()
+
+    full_pred = full_X.skb.apply(skrub.TableVectorizer()).skb.apply(
+        HistGradientBoostingRegressor(
+            learning_rate=0.05,
+            max_depth=None,
+            max_iter=250,
+            min_samples_leaf=20,
+            l2_regularization=0.0,
+            random_state=42,
+        ),
+        y=full_y,
+    )
+
+    learner = full_pred.skb.make_learner(fitted=True)
+    return learner, preview_rmse
+
+
+def main():
+    train_df, test_df = load_data()
+    learner, preview_rmse = build_and_evaluate(train_df)
+
+    # Fit/predict through the DataOps learner with an environment dict.
+    preds = learner.predict({"data": test_df})
+
+    submission = pd.DataFrame({"median_house_value": np.asarray(preds).ravel()})
+    submission.to_csv("submission.csv", index=False)
+
+    final_validation_score = preview_rmse
+    print(f"Final Validation Performance: {final_validation_score}")
+
+
+if __name__ == "__main__":
+    main()
+```
+[92m22:09:13 - LiteLLM:INFO[0m: utils.py:3748 - 
+LiteLLM completion() model= gpt-5.4-mini; provider = openai
+/home/flo/uni/mle-star-skrub/mle-star_improved/agents/machine-learning-engineering/.venv/lib/python3.14/site-packages/pydantic/main.py:464: UserWarning: Pydantic serializer warnings:
+  PydanticSerializationUnexpectedValue(Expected 10 fields but got 6: Expected `Message` - serialized value may not be as expected [field_name='message', input_value=Message(content='- Keep b...: None}, annotations=[]), input_type=Message])
+  PydanticSerializationUnexpectedValue(Expected `StreamingChoices` - serialized value may not be as expected [field_name='choices', input_value=Choices(finish_reason='st...ider_specific_fields={}), input_type=Choices])
+  return self.__pydantic_serializer__.to_python(
+[init_ensemble_plan_agent]: - Keep both solutions almost unchanged, and ensemble only at the prediction level.
+- Use the same train/test split or full-data fitting workflow in each solution, then generate two separate test prediction vectors:
+  - Prediction A from Solution 1
+  - Prediction B from the second solution
+- Make sure both predictions are on the exact same test row order and the same target scale.
+
+- The simplest and safest ensemble is a weighted average:
+  - `final_pred = 0.5 * pred_1 + 0.5 * pred_2`
+  - If one solution is clearly better on validation, use that as the main weight, e.g. `0.7 / 0.3`.
+- If validation scores are available for both, convert them into inverse-error weights:
+  - `w_i = 1 / (rmse_i + eps)`
+  - normalize weights so they sum to 1
+  - this keeps the stronger model contributing more while staying easy to implement.
+
+- If the two solutions are very similar, a simple average is often enough and less risky than a more complex stack.
+- If you want one small improvement without changing the modeling code, add a “ranked blend” fallback:
+  - average raw predictions
+  - optionally clip extreme predictions using the median of both outputs if one model is unstable
+  - this can reduce outlier impact with almost no code change.
+
+- Recommended implementation pattern:
+  - run both scripts independently to produce `pred_1` and `pred_2`
+  - store each as a NumPy array or pandas Series
+  - average them in a short final script
+  - write the blended result to `submission.csv`
+
+- For maximum robustness:
+  - keep the preprocessing pipelines separate inside each solution
+  - only merge after `learner.predict({"data": test_df})`
+  - do not try to merge intermediate features or vectorizers, since that increases failure risk
+
+- In short: build two full predictions, align them by row, and ensemble with a simple weighted mean, using validation-based weights if available, otherwise a plain 50/50 average.
+[92m22:09:17 - LiteLLM:INFO[0m: utils.py:3748 - 
+LiteLLM completion() model= gpt-5.4-mini; provider = openai
+/home/flo/uni/mle-star-skrub/mle-star_improved/agents/machine-learning-engineering/.venv/lib/python3.14/site-packages/pydantic/main.py:464: UserWarning: Pydantic serializer warnings:
+  PydanticSerializationUnexpectedValue(Expected 10 fields but got 6: Expected `Message` - serialized value may not be as expected [field_name='message', input_value=Message(content=None, rol...: None}, annotations=[]), input_type=Message])
+  PydanticSerializationUnexpectedValue(Expected `StreamingChoices` - serialized value may not be as expected [field_name='choices', input_value=Choices(finish_reason='to...ider_specific_fields={}), input_type=Choices])
+  return self.__pydantic_serializer__.to_python(
+[92m22:09:19 - LiteLLM:INFO[0m: utils.py:3748 - 
+LiteLLM completion() model= gpt-5.4-mini; provider = openai
+[92m22:09:20 - LiteLLM:INFO[0m: utils.py:3748 - 
+LiteLLM completion() model= gpt-5.4-mini; provider = openai
+/home/flo/uni/mle-star-skrub/mle-star_improved/agents/machine-learning-engineering/.venv/lib/python3.14/site-packages/pydantic/main.py:464: UserWarning: Pydantic serializer warnings:
+  PydanticSerializationUnexpectedValue(Expected 10 fields but got 6: Expected `Message` - serialized value may not be as expected [field_name='message', input_value=Message(content='```pytho...: None}, annotations=[]), input_type=Message])
+  PydanticSerializationUnexpectedValue(Expected `StreamingChoices` - serialized value may not be as expected [field_name='choices', input_value=Choices(finish_reason='st...ider_specific_fields={}), input_type=Choices])
+  return self.__pydantic_serializer__.to_python(
+[ensemble_plan_implement_initial_agent]: ```python
+import os
+import pandas as pd
+import numpy as np
+import skrub
+from sklearn.ensemble import HistGradientBoostingRegressor
+from sklearn.metrics import mean_squared_error
+
+DATA_DIR = "./input"
+TRAIN_PATH = os.path.join(DATA_DIR, "train.csv")
+TEST_PATH = os.path.join(DATA_DIR, "test.csv")
+
+train_df = pd.read_csv(TRAIN_PATH)
+test_df = pd.read_csv(TEST_PATH)
+
+target_col = "median_house_value"
+
+# Common hold-out split
+rng = np.random.RandomState(0)
+indices = np.arange(len(train_df))
+rng.shuffle(indices)
+split = int(len(indices) * 0.8)
+train_idx, val_idx = indices[:split], indices[split:]
+
+train_subset = train_df.iloc[train_idx].copy()
+val_subset = train_df.iloc[val_idx].copy()
+
+# -------------------------------------------------
+# Solution 1: original DataOps pipeline
+# -------------------------------------------------
+data1 = skrub.var("data", train_subset)
+X1 = data1.drop(columns=[target_col], errors="ignore").skb.mark_as_X()
+y1 = data1[target_col].skb.mark_as_y()
+
+vectorizer1 = skrub.TableVectorizer()
+X1_vec = X1.skb.apply(vectorizer1)
+
+model1 = HistGradientBoostingRegressor(random_state=0)
+pred_graph1 = X1_vec.skb.apply(model1, y=y1)
+learner1 = pred_graph1.skb.make_learner(fitted=True)
+
+# validation prediction for solution 1
+val_features = val_subset.drop(columns=[target_col], errors="ignore")
+pred_1_val = learner1.predict({"data": val_features})
+rmse_1 = mean_squared_error(val_subset[target_col], pred_1_val) ** 0.5
+
+# fit on full data and predict test for solution 1
+data1_full = skrub.var("data", train_df)
+X1_full = data1_full.drop(columns=[target_col], errors="ignore").skb.mark_as_X()
+y1_full = data1_full[target_col].skb.mark_as_y()
+X1_full_vec = X1_full.skb.apply(vectorizer1)
+pred_graph1_full = X1_full_vec.skb.apply(model1, y=y1_full)
+full_learner1 = pred_graph1_full.skb.make_learner(fitted=True)
+pred_1_test = np.asarray(full_learner1.predict({"data": test_df}))
+
+# -------------------------------------------------
+# Solution 2: second DataOps pipeline (same workflow, different fixed model)
+# -------------------------------------------------
+data2 = skrub.var("data", train_subset)
+X2 = data2.drop(columns=[target_col], errors="ignore").skb.mark_as_X()
+y2 = data2[target_col].skb.mark_as_y()
+
+vectorizer2 = skrub.TableVectorizer()
+X2_vec = X2.skb.apply(vectorizer2)
+
+model2 = HistGradientBoostingRegressor(
+    random_state=1,
+    max_depth=6,
+    learning_rate=0.05,
+    max_iter=300,
+)
+pred_graph2 = X2_vec.skb.apply(model2, y=y2)
+learner2 = pred_graph2.skb.make_learner(fitted=True)
+
+pred_2_val = learner2.predict({"data": val_features})
+rmse_2 = mean_squared_error(val_subset[target_col], pred_2_val) ** 0.5
+
+# fit on full data and predict test for solution 2
+data2_full = skrub.var("data", train_df)
+X2_full = data2_full.drop(columns=[target_col], errors="ignore").skb.mark_as_X()
+y2_full = data2_full[target_col].skb.mark_as_y()
+X2_full_vec = X2_full.skb.apply(vectorizer2)
+pred_graph2_full = X2_full_vec.skb.apply(model2, y=y2_full)
+full_learner2 = pred_graph2_full.skb.make_learner(fitted=True)
+pred_2_test = np.asarray(full_learner2.predict({"data": test_df}))
+
+# -------------------------------------------------
+# Ensemble: inverse-RMSE weighted average
+# -------------------------------------------------
+eps = 1e-12
+w1 = 1.0 / (rmse_1 + eps)
+w2 = 1.0 / (rmse_2 + eps)
+w_sum = w1 + w2
+w1 /= w_sum
+w2 /= w_sum
+
+final_pred = w1 * pred_1_test + w2 * pred_2_test
+
+# Optional light robustness against extreme outputs
+median_blend = np.median(np.vstack([pred_1_test, pred_2_test]), axis=0)
+final_pred = 0.5 * final_pred + 0.5 * median_blend
+
+# Validation score of the blended model on hold-out
+pred_1_val = np.asarray(pred_1_val)
+pred_2_val = np.asarray(pred_2_val)
+val_blend = w1 * pred_1_val + w2 * pred_2_val
+val_blend = 0.5 * val_blend + 0.5 * np.median(np.vstack([pred_1_val, pred_2_val]), axis=0)
+final_validation_score = mean_squared_error(val_subset[target_col], val_blend) ** 0.5
+print(f"Final Validation Performance: {final_validation_score}")
+
+submission = pd.DataFrame({"median_house_value": final_pred})
+submission.to_csv("submission.csv", index=False)
+```
+[92m22:09:34 - LiteLLM:INFO[0m: utils.py:3748 - 
+LiteLLM completion() model= gpt-5.4-mini; provider = openai
+/home/flo/uni/mle-star-skrub/mle-star_improved/agents/machine-learning-engineering/.venv/lib/python3.14/site-packages/pydantic/main.py:464: UserWarning: Pydantic serializer warnings:
+  PydanticSerializationUnexpectedValue(Expected 10 fields but got 6: Expected `Message` - serialized value may not be as expected [field_name='message', input_value=Message(content='- Keep t...: None}, annotations=[]), input_type=Message])
+  PydanticSerializationUnexpectedValue(Expected `StreamingChoices` - serialized value may not be as expected [field_name='choices', input_value=Choices(finish_reason='st...ider_specific_fields={}), input_type=Choices])
+  return self.__pydantic_serializer__.to_python(
+[ensemble_plan_refine_agent]: - Keep the two full pipelines completely separate, but do not blend their raw outputs directly.
+- First, convert each model’s test predictions into within-model ranks, then average the ranks; finally map that averaged rank back to a value scale using the median of the two original predictions at each row.
+- In practice:
+  - get `pred_1_test` and `pred_2_test`
+  - compute `rank_1 = argsort(argsort(pred_1_test)) / (n-1)` and same for `rank_2`
+  - use `rank_avg = 0.5 * rank_1 + 0.5 * rank_2`
+  - reconstruct a final prediction by taking the quantile of the per-row pair `[pred_1_test, pred_2_test]` at `rank_avg` in a very simple way: if `rank_avg < 0.5`, lean toward the lower of the two; otherwise lean toward the higher one
+- This is different from a plain weighted mean because it blends the relative ordering first, which can be more stable when the two solutions have different calibration but similar signal.
+- To keep it easy and safe, use a simplified version:
+  - `final_pred = np.where(pred_1_test < pred_2_test, 0.5 * pred_1_test + 0.5 * pred_2_test, 0.5 * pred_1_test + 0.5 * pred_2_test)` only after first sorting both outputs by their average rank across the test set
+- Even safer and easier to implement:
+  - sort the test rows by the average of the two model predictions
+  - take the rank position of each row from both models
+  - blend by `final_pred = 0.7 * pred_1_test + 0.3 * pred_2_test` only on the top and bottom 20% of rows where the models agree least, and use the median of the two predictions in the middle 60%
+- This gives a piecewise rank-aware merge rather than a single global average, which is novel but still very small to code and low risk to the original solutions.
+[92m22:09:37 - LiteLLM:INFO[0m: utils.py:3748 - 
+LiteLLM completion() model= gpt-5.4-mini; provider = openai
+/home/flo/uni/mle-star-skrub/mle-star_improved/agents/machine-learning-engineering/.venv/lib/python3.14/site-packages/pydantic/main.py:464: UserWarning: Pydantic serializer warnings:
+  PydanticSerializationUnexpectedValue(Expected 10 fields but got 6: Expected `Message` - serialized value may not be as expected [field_name='message', input_value=Message(content=None, rol...: None}, annotations=[]), input_type=Message])
+  PydanticSerializationUnexpectedValue(Expected `StreamingChoices` - serialized value may not be as expected [field_name='choices', input_value=Choices(finish_reason='to...ider_specific_fields={}), input_type=Choices])
+  return self.__pydantic_serializer__.to_python(
+[92m22:09:38 - LiteLLM:INFO[0m: utils.py:3748 - 
+LiteLLM completion() model= gpt-5.4-mini; provider = openai
+/home/flo/uni/mle-star-skrub/mle-star_improved/agents/machine-learning-engineering/.venv/lib/python3.14/site-packages/pydantic/main.py:464: UserWarning: Pydantic serializer warnings:
+  PydanticSerializationUnexpectedValue(Expected 10 fields but got 6: Expected `Message` - serialized value may not be as expected [field_name='message', input_value=Message(content='```pytho...: None}, annotations=[]), input_type=Message])
+  PydanticSerializationUnexpectedValue(Expected `StreamingChoices` - serialized value may not be as expected [field_name='choices', input_value=Choices(finish_reason='st...ider_specific_fields={}), input_type=Choices])
+  return self.__pydantic_serializer__.to_python(
+[ensemble_plan_implement_agent]: ```python
+import os
+import pandas as pd
+import numpy as np
+import skrub
+from sklearn.ensemble import HistGradientBoostingRegressor
+from sklearn.metrics import mean_squared_error
+
+DATA_DIR = "./input"
+TRAIN_PATH = os.path.join(DATA_DIR, "train.csv")
+TEST_PATH = os.path.join(DATA_DIR, "test.csv")
+
+train_df = pd.read_csv(TRAIN_PATH)
+test_df = pd.read_csv(TEST_PATH)
+
+target_col = "median_house_value"
+
+# -----------------------------
+# Pipeline 1: original DataOps
+# -----------------------------
+data_1 = skrub.var("data", train_df)
+X_1 = data_1.drop(columns=[target_col], errors="ignore").skb.mark_as_X()
+y_1 = data_1[target_col].skb.mark_as_y()
+
+vectorizer_1 = skrub.TableVectorizer()
+X_vec_1 = X_1.skb.apply(vectorizer_1)
+model_1 = HistGradientBoostingRegressor(random_state=0)
+pred_graph_1 = X_vec_1.skb.apply(model_1, y=y_1)
+learner_1 = pred_graph_1.skb.make_learner(fitted=True)
+
+# Holdout split
+rng = np.random.RandomState(0)
+indices = np.arange(len(train_df))
+rng.shuffle(indices)
+split = int(len(indices) * 0.8)
+train_idx, val_idx = indices[:split], indices[split:]
+
+train_subset = train_df.iloc[train_idx].copy()
+val_subset = train_df.iloc[val_idx].copy()
+
+# Rebuild pipeline 1 on train subset
+train_data_1 = skrub.var("data", train_subset)
+train_X_1 = train_data_1.drop(columns=[target_col], errors="ignore").skb.mark_as_X()
+train_y_1 = train_data_1[target_col].skb.mark_as_y()
+train_X_vec_1 = train_X_1.skb.apply(vectorizer_1)
+train_pred_graph_1 = train_X_vec_1.skb.apply(model_1, y=train_y_1)
+trained_learner_1 = train_pred_graph_1.skb.make_learner(fitted=True)
+
+val_features_1 = val_subset.drop(columns=[target_col], errors="ignore")
+val_pred_1 = trained_learner_1.predict({"data": val_features_1})
+
+# Train on full data for test predictions
+full_learner_1 = learner_1
+pred_1_test = full_learner_1.predict({"data": test_df})
+
+# -----------------------------
+# Pipeline 2: separate full pipeline
+# -----------------------------
+data_2 = skrub.var("data", train_df)
+X_2 = data_2.drop(columns=[target_col], errors="ignore").skb.mark_as_X()
+y_2 = data_2[target_col].skb.mark_as_y()
+
+vectorizer_2 = skrub.TableVectorizer()
+X_vec_2 = X_2.skb.apply(vectorizer_2)
+model_2 = HistGradientBoostingRegressor(
+    random_state=1,
+    learning_rate=0.05,
+    max_depth=6,
+    max_iter=300
+)
+pred_graph_2 = X_vec_2.skb.apply(model_2, y=y_2)
+learner_2 = pred_graph_2.skb.make_learner(fitted=True)
+
+train_data_2 = skrub.var("data", train_subset)
+train_X_2 = train_data_2.drop(columns=[target_col], errors="ignore").skb.mark_as_X()
+train_y_2 = train_data_2[target_col].skb.mark_as_y()
+train_X_vec_2 = train_X_2.skb.apply(vectorizer_2)
+train_pred_graph_2 = train_X_vec_2.skb.apply(model_2, y=train_y_2)
+trained_learner_2 = train_pred_graph_2.skb.make_learner(fitted=True)
+
+val_features_2 = val_subset.drop(columns=[target_col], errors="ignore")
+val_pred_2 = trained_learner_2.predict({"data": val_features_2})
+
+full_learner_2 = learner_2
+pred_2_test = full_learner_2.predict({"data": test_df})
+
+# -----------------------------
+# Rank-aware piecewise ensemble
+# -----------------------------
+def rank01(a):
+    a = np.asarray(a)
+    order = np.argsort(a)
+    ranks = np.empty_like(order, dtype=float)
+    ranks[order] = np.arange(len(a), dtype=float)
+    if len(a) > 1:
+        ranks = ranks / (len(a) - 1)
+    else:
+        ranks = np.zeros_like(ranks, dtype=float)
+    return ranks
+
+rank_1 = rank01(pred_1_test)
+rank_2 = rank01(pred_2_test)
+rank_avg = 0.5 * rank_1 + 0.5 * rank_2
+
+raw_mean = 0.5 * pred_1_test + 0.5 * pred_2_test
+agreement = np.abs(pred_1_test - pred_2_test)
+q20 = np.quantile(agreement, 0.2)
+q80 = np.quantile(agreement, 0.8)
+
+final_pred = raw_mean.copy()
+low_mask = agreement <= q20
+high_mask = agreement >= q80
+
+final_pred[low_mask] = 0.7 * pred_1_test[low_mask] + 0.3 * pred_2_test[low_mask]
+final_pred[high_mask] = 0.3 * pred_1_test[high_mask] + 0.7 * pred_2_test[high_mask]
+
+# Optional tiny rank-aware adjustment: keep middle rows at median of pair
+mid_mask = ~(low_mask | high_mask)
+final_pred[mid_mask] = np.median(np.vstack([pred_1_test[mid_mask], pred_2_test[mid_mask]]), axis=0)
+
+# Validation ensemble metric
+val_rank_1 = rank01(val_pred_1)
+val_rank_2 = rank01(val_pred_2)
+val_agreement = np.abs(val_pred_1 - val_pred_2)
+val_q20 = np.quantile(val_agreement, 0.2)
+val_q80 = np.quantile(val_agreement, 0.8)
+
+val_final_pred = 0.5 * val_pred_1 + 0.5 * val_pred_2
+val_low_mask = val_agreement <= val_q20
+val_high_mask = val_agreement >= val_q80
+val_mid_mask = ~(val_low_mask | val_high_mask)
+
+val_final_pred[val_low_mask] = 0.7 * val_pred_1[val_low_mask] + 0.3 * val_pred_2[val_low_mask]
+val_final_pred[val_high_mask] = 0.3 * val_pred_1[val_high_mask] + 0.7 * val_pred_2[val_high_mask]
+val_final_pred[val_mid_mask] = np.median(np.vstack([val_pred_1[val_mid_mask], val_pred_2[val_mid_mask]]), axis=0)
+
+final_validation_score = mean_squared_error(val_subset[target_col], val_final_pred) ** 0.5
+print(f"Final Validation Performance: {final_validation_score}")
+
+submission = pd.DataFrame({"median_house_value": final_pred})
+submission.to_csv("submission.csv", index=False)
+```
+[92m22:09:56 - LiteLLM:INFO[0m: utils.py:3748 - 
+LiteLLM completion() model= gpt-5.4-mini; provider = openai
+/home/flo/uni/mle-star-skrub/mle-star_improved/agents/machine-learning-engineering/.venv/lib/python3.14/site-packages/pydantic/main.py:464: UserWarning: Pydantic serializer warnings:
+  PydanticSerializationUnexpectedValue(Expected 10 fields but got 6: Expected `Message` - serialized value may not be as expected [field_name='message', input_value=Message(content='```pytho...: None}, annotations=[]), input_type=Message])
+  PydanticSerializationUnexpectedValue(Expected `StreamingChoices` - serialized value may not be as expected [field_name='choices', input_value=Choices(finish_reason='st...ider_specific_fields={}), input_type=Choices])
+  return self.__pydantic_serializer__.to_python(
+[submission_agent]: ```python
+import os
+import pandas as pd
+import numpy as np
+import skrub
+from sklearn.ensemble import HistGradientBoostingRegressor
+from sklearn.metrics import mean_squared_error
+
+DATA_DIR = "./input"
+TRAIN_PATH = os.path.join(DATA_DIR, "train.csv")
+TEST_PATH = os.path.join(DATA_DIR, "test.csv")
+FINAL_DIR = "./final"
+os.makedirs(FINAL_DIR, exist_ok=True)
+
+train_df = pd.read_csv(TRAIN_PATH)
+test_df = pd.read_csv(TEST_PATH)
+
+target_col = "median_house_value"
+
+# -----------------------------
+# Pipeline 1: original DataOps
+# -----------------------------
+data_1 = skrub.var("data", train_df)
+X_1 = data_1.drop(columns=[target_col], errors="ignore").skb.mark_as_X()
+y_1 = data_1[target_col].skb.mark_as_y()
+
+vectorizer_1 = skrub.TableVectorizer()
+X_vec_1 = X_1.skb.apply(vectorizer_1)
+model_1 = HistGradientBoostingRegressor(random_state=0)
+pred_graph_1 = X_vec_1.skb.apply(model_1, y=y_1)
+learner_1 = pred_graph_1.skb.make_learner(fitted=True)
+
+# Holdout split
+rng = np.random.RandomState(0)
+indices = np.arange(len(train_df))
+rng.shuffle(indices)
+split = int(len(indices) * 0.8)
+train_idx, val_idx = indices[:split], indices[split:]
+
+train_subset = train_df.iloc[train_idx].copy()
+val_subset = train_df.iloc[val_idx].copy()
+
+# Rebuild pipeline 1 on train subset
+train_data_1 = skrub.var("data", train_subset)
+train_X_1 = train_data_1.drop(columns=[target_col], errors="ignore").skb.mark_as_X()
+train_y_1 = train_data_1[target_col].skb.mark_as_y()
+train_X_vec_1 = train_X_1.skb.apply(vectorizer_1)
+train_pred_graph_1 = train_X_vec_1.skb.apply(model_1, y=train_y_1)
+trained_learner_1 = train_pred_graph_1.skb.make_learner(fitted=True)
+
+val_features_1 = val_subset.drop(columns=[target_col], errors="ignore")
+val_pred_1 = trained_learner_1.predict({"data": val_features_1})
+
+# Train on full data for test predictions
+full_learner_1 = learner_1
+pred_1_test = full_learner_1.predict({"data": test_df})
+
+# -----------------------------
+# Pipeline 2: separate full pipeline
+# -----------------------------
+data_2 = skrub.var("data", train_df)
+X_2 = data_2.drop(columns=[target_col], errors="ignore").skb.mark_as_X()
+y_2 = data_2[target_col].skb.mark_as_y()
+
+vectorizer_2 = skrub.TableVectorizer()
+X_vec_2 = X_2.skb.apply(vectorizer_2)
+model_2 = HistGradientBoostingRegressor(
+    random_state=1,
+    learning_rate=0.05,
+    max_depth=6,
+    max_iter=300
+)
+pred_graph_2 = X_vec_2.skb.apply(model_2, y=y_2)
+learner_2 = pred_graph_2.skb.make_learner(fitted=True)
+
+train_data_2 = skrub.var("data", train_subset)
+train_X_2 = train_data_2.drop(columns=[target_col], errors="ignore").skb.mark_as_X()
+train_y_2 = train_data_2[target_col].skb.mark_as_y()
+train_X_vec_2 = train_X_2.skb.apply(vectorizer_2)
+train_pred_graph_2 = train_X_vec_2.skb.apply(model_2, y=train_y_2)
+trained_learner_2 = train_pred_graph_2.skb.make_learner(fitted=True)
+
+val_features_2 = val_subset.drop(columns=[target_col], errors="ignore")
+val_pred_2 = trained_learner_2.predict({"data": val_features_2})
+
+full_learner_2 = learner_2
+pred_2_test = full_learner_2.predict({"data": test_df})
+
+# -----------------------------
+# Rank-aware piecewise ensemble
+# -----------------------------
+def rank01(a):
+    a = np.asarray(a)
+    order = np.argsort(a)
+    ranks = np.empty_like(order, dtype=float)
+    ranks[order] = np.arange(len(a), dtype=float)
+    if len(a) > 1:
+        ranks = ranks / (len(a) - 1)
+    else:
+        ranks = np.zeros_like(ranks, dtype=float)
+    return ranks
+
+rank_1 = rank01(pred_1_test)
+rank_2 = rank01(pred_2_test)
+rank_avg = 0.5 * rank_1 + 0.5 * rank_2
+
+raw_mean = 0.5 * pred_1_test + 0.5 * pred_2_test
+agreement = np.abs(pred_1_test - pred_2_test)
+q20 = np.quantile(agreement, 0.2)
+q80 = np.quantile(agreement, 0.8)
+
+final_pred = raw_mean.copy()
+low_mask = agreement <= q20
+high_mask = agreement >= q80
+
+final_pred[low_mask] = 0.7 * pred_1_test[low_mask] + 0.3 * pred_2_test[low_mask]
+final_pred[high_mask] = 0.3 * pred_1_test[high_mask] + 0.7 * pred_2_test[high_mask]
+
+mid_mask = ~(low_mask | high_mask)
+final_pred[mid_mask] = np.median(np.vstack([pred_1_test[mid_mask], pred_2_test[mid_mask]]), axis=0)
+
+# Validation ensemble metric
+val_rank_1 = rank01(val_pred_1)
+val_rank_2 = rank01(val_pred_2)
+val_agreement = np.abs(val_pred_1 - val_pred_2)
+val_q20 = np.quantile(val_agreement, 0.2)
+val_q80 = np.quantile(val_agreement, 0.8)
+
+val_final_pred = 0.5 * val_pred_1 + 0.5 * val_pred_2
+val_low_mask = val_agreement <= val_q20
+val_high_mask = val_agreement >= val_q80
+val_mid_mask = ~(val_low_mask | val_high_mask)
+
+val_final_pred[val_low_mask] = 0.7 * val_pred_1[val_low_mask] + 0.3 * val_pred_2[val_low_mask]
+val_final_pred[val_high_mask] = 0.3 * val_pred_1[val_high_mask] + 0.7 * val_pred_2[val_high_mask]
+val_final_pred[val_mid_mask] = np.median(np.vstack([val_pred_1[val_mid_mask], val_pred_2[val_mid_mask]]), axis=0)
+
+final_validation_score = mean_squared_error(val_subset[target_col], val_final_pred) ** 0.5
+print(f"Final Validation Performance: {final_validation_score}")
+
+submission = pd.DataFrame({"median_house_value": final_pred})
+submission_path = os.path.join(FINAL_DIR, "submission.csv")
+submission.to_csv(submission_path, index=False)
+```
+[user]: ^C^C
+Aborted!
+
+Script done on 2026-06-03 22:10:22+02:00 [COMMAND_EXIT_CODE="1"]

@@ -1,0 +1,22 @@
+## Model name
+HistGradientBoostingRegressor
+
+## Example Python code
+import pandas as pd
+import skrub
+from sklearn.ensemble import HistGradientBoostingRegressor
+
+train = pd.read_csv('train.csv')
+test = pd.read_csv('test.csv')
+target = 'median_house_value'
+
+X = skrub.X(train.drop(columns=[target]))
+y = skrub.y(train[target])
+
+model = HistGradientBoostingRegressor(max_depth=8, learning_rate=0.05, max_iter=300, random_state=42)
+pred = X.skb.apply(model, y=y)
+learner = pred.skb.make_learner(fitted=True)
+
+preds = learner.predict({'data': test})
+out = pd.DataFrame({'median_house_value': preds})
+out.to_csv('submission.csv', index=False)

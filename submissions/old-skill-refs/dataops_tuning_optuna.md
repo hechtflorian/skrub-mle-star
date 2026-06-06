@@ -74,7 +74,6 @@ best_learner.fit(env)
 ```
 
 
-
 ## When to load deeper references
 - Multi-table joins/aggregations/entity relationships: load `multi_table_pipeline_pattern.md`.
 - Choice/tuning logic and search-space composition: load `choices_hparam_pattern.md`.
