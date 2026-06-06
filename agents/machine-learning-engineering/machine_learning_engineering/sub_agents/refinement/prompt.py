@@ -234,6 +234,7 @@ IMPLEMENT_PLAN_INSTR = """# Introduction
 - You must call `list_skills` -> `load_skill` for `skrub-dataops-pipeline` and load relevant references via `load_skill_resource` before editing.
 - If implementation changes feature encoding/preprocessing or column routing, load `references/encoding_skrub.md` and/or `references/selectors_routing_skrub.md` via `load_skill_resource` before finalizing code.
 - If implementation adds derived features, drops redundant columns, or applies cleaning/scaling, load `references/feature_engineering_skrub.md` via `load_skill_resource` before finalizing code.
+- If the plan adds derived features via `.skb.apply_func(...)`, do not build column lists from raw `train_part`/`train_df`; route columns with skrub selectors on the post-FE `X` graph (or use a single `TableVectorizer()` on all features).
 - If you want to perform hyperparameter search (e.g. over model family, encoding, or search-space nodes), load `references/choices_hparam_pattern.md` and `references/dataops_tuning_optuna.md` via `load_skill_resource` before finalizing code.
 - If the plan is non-tuning or the change is minor, prefer reusing previous strong parameters or explicit fixed values.
 - If the plan indicates hyperparameter tuning is valuable, you must run real search (`.skb.make_randomized_search(...)`, `.skb.make_grid_search(...)`, or Optuna trial flow), keep it tightly bounded (`n_iter <= 8`), and use the best result.

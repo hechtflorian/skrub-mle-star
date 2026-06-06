@@ -104,7 +104,16 @@ Use this during debugging. Keep DataOps architecture unchanged.
   - Do not re-drop target columns at inference time.
   - Keep train/validation/test feature preparation in one reusable function/path.
 
-## 13) Ablation uses a different model than the solution under refinement
+## 13) Refinement score equals baseline after adding derived features
+- Symptom: RMSE unchanged after `.skb.apply_func(...)` adds new columns.
+- Root cause: column routing used pre-FE pandas lists (`train_part.select_dtypes(...)`) so new
+  columns never reach the model.
+- Fix:
+  - Use one `TableVectorizer()` on post-FE `X`, or route with `s.numeric()` / `s.string()` on `X`
+    after `apply_func` (see `feature_engineering_skrub.md`).
+- Prevention: do not build feature column lists from raw train data before FE transforms.
+
+## 14) Ablation uses a different model than the solution under refinement (without explicit model-change hypothesis)
 - Symptom: ablation RMSE (~56k HGB) does not match solution RMSE (~54k CatBoost); planner picks variants that regress.
 - Root cause: ablation script swaps backbone model or split while testing feature blocks.
 - Fix:

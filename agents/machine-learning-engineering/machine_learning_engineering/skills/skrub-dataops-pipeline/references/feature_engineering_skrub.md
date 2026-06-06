@@ -48,6 +48,38 @@ y = data_fe[target_col].skb.mark_as_y()
 
 Pandas `.assign(...)` inside a deferred function is equally valid for multi-column derivations.
 
+## Column lists after `apply_func` (common bug)
+
+**Anti-pattern:** building column lists from raw pandas *before* FE, then selecting on `X`:
+
+```python
+# BAD: new columns from apply_func are invisible to numeric_cols
+numeric_cols = train_df.select_dtypes(include=[np.number]).columns
+data_fe = data.skb.apply_func(add_ratios)
+X = data_fe.drop(columns=target_col, errors="ignore").skb.mark_as_X()
+X_num = X.skb.select(numeric_cols)  # misses rooms_per_household, etc.
+```
+
+**Pattern 1 (preferred when unsure):** one encoder on the full FE graph:
+
+```python
+data_fe = data.skb.apply_func(add_ratios)
+X = data_fe.drop(columns=target_col, errors="ignore").skb.mark_as_X()
+X_vec = X.skb.apply(skrub.TableVectorizer())
+```
+
+**Pattern 2 (routing):** use skrub selectors on `X` *after* FE, not pre-FE pandas lists:
+
+```python
+import skrub.selectors as s
+
+X_num = X.skb.select(s.numeric())
+X_str = X.skb.select(s.string())
+# or: X.skb.select(s.cols("rooms_per_household") | s.numeric())
+```
+
+Debug on a sample frame that includes derived columns if unsure: `s.select(sample_df, s.numeric())`.
+
 ## Redundancy and cleaning
 
 ### Drop one correlated column

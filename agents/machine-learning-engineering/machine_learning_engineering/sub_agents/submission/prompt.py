@@ -24,7 +24,7 @@ ADD_TEST_FINAL_INSTR = """# Introduction
 
 # Required
 - Do not modify the given Python solution code too much. Try to integarte test submission with minimal changes.
-- Keep the existing DataOps pipeline structure intact in the final script; submission changes should focus on full-train fitting and test prediction/export, not preprocessing/modeling rewrites.
+- Keep the existing skrub DataOps pipeline structure intact in the final script; submission changes should focus on full-train fitting and test prediction/export, not preprocessing/modeling rewrites.
 - There should be no additional headings or text in your response.
 - The code should be a single-file Python program that is self-contained and can be executed as-is.
 - Your response should only contain a single code block.
@@ -32,4 +32,4 @@ ADD_TEST_FINAL_INSTR = """# Introduction
 - Do not use exit() function in the Python code.
 - Do not use try: and except: or if else to ignore unintended behavior.
 - The final test predictions must be generated from model(s) trained on the full training set.
-- The code must print a final validation metric line with the exact format: `Final Validation Performance: {{final_validation_score}}` before finishing."""
+- Before fitting on the full training set and writing `./final/submission.csv`, keep and run the solution's existing holdout validation block unchanged (same `train_test_split` size and `random_state`). Print only that holdout RMSE as `Final Validation Performance: {{final_validation_score}}`. Then refit on the full training set for final test predictions."""

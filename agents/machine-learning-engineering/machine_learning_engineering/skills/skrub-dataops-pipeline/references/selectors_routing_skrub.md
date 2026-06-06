@@ -84,6 +84,9 @@ X_clean = X.skb.apply(DropCols(cols=s.cols("households")))
 
 ## Anti-patterns
 - Hardcoding long column lists when a selector expresses the rule.
+- Building `numeric_cols = train_part.select_dtypes(...)` before `.skb.apply_func(...)`, then
+  `X.skb.select(numeric_cols)` — derived columns are dropped silently. Route with `s.numeric()`
+  / `s.string()` on the post-FE `X` graph instead (see `feature_engineering_skrub.md`).
 - Replacing the whole pipeline with sklearn `ColumnTransformer` outside DataOps.
 - Applying one heavy encoder to all strings without cardinality routing.
 
