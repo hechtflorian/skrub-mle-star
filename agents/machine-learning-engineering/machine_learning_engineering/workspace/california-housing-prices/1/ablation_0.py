@@ -1,97 +1,111 @@
-import pandas as pd
+import os
+import warnings
+warnings.filterwarnings("ignore")
+
 import numpy as np
+import pandas as pd
 import skrub
-from catboost import CatBoostRegressor
+from sklearn.ensemble import HistGradientBoostingRegressor
 from sklearn.metrics import mean_squared_error
 from sklearn.model_selection import train_test_split
 
-train_df = pd.read_csv("./input/train.csv")
+TARGET = "median_house_value"
+DATA_DIR = "./input"
+TRAIN_PATH = os.path.join(DATA_DIR, "train.csv")
 
-target_col = "median_house_value"
-train_part, valid_part = train_test_split(train_df, test_size=0.2, random_state=42)
+train_df = pd.read_csv(TRAIN_PATH)
 
-def rmse_score(y_true, y_pred):
-    return mean_squared_error(y_true, y_pred) ** 0.5
+train_idx, valid_idx = train_test_split(
+    np.arange(len(train_df)), test_size=0.2, random_state=42
+)
+train_part = train_df.iloc[train_idx].copy()
+valid_part = train_df.iloc[valid_idx].copy()
 
-def fit_eval_pipeline(train_df_in, valid_df_in, build_X_fn, model_params=None):
-    data = skrub.var("data", train_df_in)
-    X = data.drop(columns=target_col, errors="ignore").skb.mark_as_X()
-    y = data[target_col].skb.mark_as_y()
+def fill_missing_numeric(df):
+    df = df.copy()
+    for col in df.columns:
+        if df[col].dtype.kind in "biufc":
+            df[col] = df[col].fillna(df[col].median())
+    return df
 
-    X_mod = build_X_fn(X)
-
-    vectorizer = skrub.TableVectorizer()
-    X_vec = X_mod.skb.apply(vectorizer)
-
-    params = dict(
-        depth=8,
-        learning_rate=0.05,
-        iterations=4000,
-        loss_function="RMSE",
-        random_seed=42,
-        verbose=0,
-    )
-    if model_params:
-        params.update(model_params)
-
-    model = CatBoostRegressor(**params)
-    pred = X_vec.skb.apply(model, y=y)
-
-    learner = pred.skb.make_learner(fitted=True)
-    learner.fit({"data": train_df_in})
-    valid_pred = learner.predict({"data": valid_df_in})
-    return rmse_score(valid_df_in[target_col], valid_pred)
-
-# Baseline: original pipeline
-def baseline_builder(X):
-    return X
-
-# Ablation 1: drop one redundant feature from a highly correlated pair
-# total_bedrooms and households are extremely correlated (0.97)
-def drop_redundant_builder(X):
-    return X.skb.apply(skrub.DropCols(cols=["households"]))
-
-# Ablation 2: add a simple ratio feature that may capture density information
-@skrub.deferred
 def add_ratio_features(df):
-    out = df.copy()
-    denom = out["households"].replace(0, np.nan)
-    out["rooms_per_household"] = (out["total_rooms"] / denom).replace([np.inf, -np.inf], np.nan).fillna(0.0)
-    out["bedrooms_per_household"] = (out["total_bedrooms"] / denom).replace([np.inf, -np.inf], np.nan).fillna(0.0)
-    return out
+    df = df.copy()
+    eps = 1e-9
+    df["rooms_per_household"] = df["total_rooms"] / (df["households"] + eps)
+    df["bedrooms_per_room"] = df["total_bedrooms"] / (df["total_rooms"] + eps)
+    df["population_per_household"] = df["population"] / (df["households"] + eps)
+    return df
 
-def ratio_builder(X):
-    return X.skb.apply_func(add_ratio_features)
+def build_and_score(df_train, df_valid, use_missing_fill=True, use_ratio_features=True, drop_redundant=False):
+    data = skrub.var("data", df_train)
+    X = data.drop(columns=TARGET, errors="ignore").skb.mark_as_X()
+    y = data[TARGET].skb.mark_as_y()
 
-# Ablation 3: slightly simpler model to test importance of model capacity
-def shallow_model_builder(X):
-    return X
+    if use_missing_fill:
+        X = X.skb.apply_func(fill_missing_numeric)
+    if use_ratio_features:
+        X = X.skb.apply_func(add_ratio_features)
+    if drop_redundant:
+        X = X.skb.apply(skrub.DropCols(cols=["households"]))
+
+    model = HistGradientBoostingRegressor(
+        learning_rate=0.05,
+        max_depth=8,
+        max_iter=300,
+        min_samples_leaf=20,
+        l2_regularization=0.0,
+        random_state=42,
+    )
+
+    pred = X.skb.apply(model, y=y)
+    learner = pred.skb.make_learner(fitted=True)
+    valid_pred = learner.predict({"data": df_valid})
+    rmse = mean_squared_error(df_valid[TARGET], valid_pred) ** 0.5
+    return rmse
 
 results = {}
 
-results["baseline"] = fit_eval_pipeline(train_part, valid_part, baseline_builder)
-results["drop_households"] = fit_eval_pipeline(train_part, valid_part, drop_redundant_builder)
-results["add_ratio_features"] = fit_eval_pipeline(train_part, valid_part, ratio_builder)
-results["shallower_model"] = fit_eval_pipeline(
-    train_part,
-    valid_part,
-    shallow_model_builder,
-    model_params={"depth": 6, "iterations": 2500},
+results["baseline"] = build_and_score(
+    train_part, valid_part, use_missing_fill=True, use_ratio_features=True, drop_redundant=False
+)
+results["no_ratio_features"] = build_and_score(
+    train_part, valid_part, use_missing_fill=True, use_ratio_features=False, drop_redundant=False
+)
+results["no_missing_fill"] = build_and_score(
+    train_part, valid_part, use_missing_fill=False, use_ratio_features=True, drop_redundant=False
+)
+results["drop_households"] = build_and_score(
+    train_part, valid_part, use_missing_fill=True, use_ratio_features=True, drop_redundant=True
 )
 
+baseline = results["baseline"]
+print(f"Ablation[baseline] RMSE: {baseline:.6f}")
 for name, score in results.items():
-    print(f"Ablation[{name}] RMSE: {score:.6f}")
+    if name == "baseline":
+        continue
+    delta = score - baseline
+    print(f"Ablation[{name}] RMSE: {score:.6f} | delta_vs_baseline: {delta:+.6f}")
 
-best_name = min(results, key=results.get)
-best_score = results[best_name]
-baseline_score = results["baseline"]
+best_variant = min(results, key=results.get)
+best_score = results[best_variant]
+worst_variant = max(results, key=results.get)
+worst_score = results[worst_variant]
 
-print(f"Final Validation Performance: {baseline_score:.6f}")
-print(f"Best ablation variant: {best_name} | RMSE: {best_score:.6f}")
+print(f"Final Validation Performance: {baseline}")
+print(f"Best ablation variant: {best_variant} | RMSE: {best_score:.6f}")
+print(f"Worst ablation variant: {worst_variant} | RMSE: {worst_score:.6f}")
 
-delta = {k: v - baseline_score for k, v in results.items() if k != "baseline"}
-most_important = min(delta, key=lambda k: abs(delta[k]))
-largest_improvement = min(delta, key=delta.get)
+importance = {
+    name: results[name] - baseline for name in results if name != "baseline"
+}
+most_important = min(importance, key=lambda k: importance[k])
+least_important = max(importance, key=lambda k: importance[k])
 
-print(f"Most impactful change by absolute RMSE shift: {most_important} | Delta: {delta[most_important]:+.6f}")
-print(f"Best improvement over baseline: {largest_improvement} | Delta: {delta[largest_improvement]:+.6f}")
+print(
+    f"Most helpful part of the code: {most_important} "
+    f"(RMSE change vs baseline: {importance[most_important]:+.6f})"
+)
+print(
+    f"Least helpful / harmful part of the code: {least_important} "
+    f"(RMSE change vs baseline: {importance[least_important]:+.6f})"
+)

@@ -25,6 +25,7 @@ ADD_TEST_FINAL_INSTR = """# Introduction
 # Required
 - Do not modify the given Python solution code too much. Try to integarte test submission with minimal changes.
 - Keep the existing skrub DataOps pipeline structure intact in the final script; submission changes should focus on full-train fitting and test prediction/export, not preprocessing/modeling rewrites.
+- The pipeline is pre-tuned with fixed parameters; do not add `choose_*` or re-run hyperparameter search.
 - There should be no additional headings or text in your response.
 - The code should be a single-file Python program that is self-contained and can be executed as-is.
 - Your response should only contain a single code block.

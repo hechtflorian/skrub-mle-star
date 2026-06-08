@@ -1,125 +1,110 @@
 
+import os
+import json
+import warnings
 import numpy as np
 import pandas as pd
-import skrub
-from catboost import CatBoostRegressor
+
+warnings.filterwarnings("ignore")
+
+try:
+    import skrub
+except Exception as e:
+    raise ImportError(
+        "This script requires skrub. Please install it before running."
+    ) from e
+
+from sklearn.ensemble import HistGradientBoostingRegressor
 from sklearn.metrics import mean_squared_error
-from sklearn.model_selection import train_test_split
 
-train_df = pd.read_csv("./input/train.csv")
-test_df = pd.read_csv("./input/test.csv")
 
-target_col = "median_house_value"
+TARGET = "median_house_value"
+INPUT_DIR = "./input"
+TRAIN_PATH = os.path.join(INPUT_DIR, "train.csv")
+TEST_PATH = os.path.join(INPUT_DIR, "test.csv")
 
-train_part, valid_part = train_test_split(train_df, test_size=0.2, random_state=42)
 
-# -------------------------
-# Pipeline 1 (unchanged)
-# -------------------------
-data1 = skrub.var("data1", train_part)
-X1 = data1.drop(columns=target_col, errors="ignore").skb.mark_as_X()
-y1 = data1[target_col].skb.mark_as_y()
+def add_ratio_features(df: pd.DataFrame) -> pd.DataFrame:
+    out = df.copy()
 
-# Structural refinement from ablation: remove redundant households before vectorization.
-X1 = X1.skb.apply(skrub.DropCols(cols=["households"]))
+    if "total_rooms" in out.columns and "households" in out.columns:
+        denom = out["households"].replace(0, np.nan)
+        out["rooms_per_household"] = (out["total_rooms"] / denom).replace(
+            [np.inf, -np.inf], np.nan
+        ).fillna(0.0)
 
-vectorizer1 = skrub.TableVectorizer()
-X1_vec = X1.skb.apply(vectorizer1)
+    if "total_bedrooms" in out.columns and "total_rooms" in out.columns:
+        denom = out["total_rooms"].replace(0, np.nan)
+        out["bedrooms_per_room"] = (out["total_bedrooms"] / denom).replace(
+            [np.inf, -np.inf], np.nan
+        ).fillna(0.0)
 
-model1 = CatBoostRegressor(
-    depth=8,
+    if "population" in out.columns and "households" in out.columns:
+        denom = out["households"].replace(0, np.nan)
+        out["population_per_household"] = (out["population"] / denom).replace(
+            [np.inf, -np.inf], np.nan
+        ).fillna(0.0)
+
+    if "population" in out.columns and "total_rooms" in out.columns:
+        denom = out["total_rooms"].replace(0, np.nan)
+        out["population_per_room"] = (out["population"] / denom).replace(
+            [np.inf, -np.inf], np.nan
+        ).fillna(0.0)
+
+    if "longitude" in out.columns and "latitude" in out.columns:
+        out["coord_radius"] = np.sqrt(out["longitude"] ** 2 + out["latitude"] ** 2)
+        out["coord_product"] = out["longitude"] * out["latitude"]
+
+    return out
+
+
+train_df = pd.read_csv(TRAIN_PATH)
+test_df = pd.read_csv(TEST_PATH)
+
+data = skrub.var("data", train_df)
+data_fe = data.skb.apply_func(skrub.deferred(add_ratio_features))
+
+X = data_fe.drop(columns=TARGET, errors="ignore").skb.mark_as_X()
+y = data_fe[TARGET].skb.mark_as_y()
+
+vectorizer = skrub.TableVectorizer()
+model = HistGradientBoostingRegressor(
     learning_rate=0.05,
-    iterations=4000,
-    loss_function="RMSE",
-    random_seed=42,
-    verbose=0,
+    max_depth=8,
+    max_leaf_nodes=31,
+    min_samples_leaf=20,
+    l2_regularization=0.0,
+    random_state=42,
 )
 
-pred1 = X1_vec.skb.apply(model1, y=y1)
-learner1 = pred1.skb.make_learner(fitted=True)
-learner1.fit({"data1": train_part})
+pred = X.skb.apply(vectorizer).skb.apply(model, y=y)
 
-valid_pred1 = learner1.predict({"data1": valid_part})
-test_pred1 = learner1.predict({"data1": test_df})
+# Holdout validation for a reproducible score print.
+rng = np.random.RandomState(42)
+idx = np.arange(len(train_df))
+rng.shuffle(idx)
+split = int(len(idx) * 0.85)
+fit_idx = idx[:split]
+val_idx = idx[split:]
 
-# -------------------------
-# Pipeline 2 (kept fully intact in spirit; same core settings)
-# -------------------------
-data2 = skrub.var("data2", train_part)
-X2 = data2.drop(columns=target_col, errors="ignore").skb.mark_as_X()
-y2 = data2[target_col].skb.mark_as_y()
+fit_df = train_df.iloc[fit_idx].reset_index(drop=True)
+val_df = train_df.iloc[val_idx].reset_index(drop=True)
 
-# Keep preprocessing/model settings unchanged except for independent instantiation.
-X2 = X2.skb.apply(skrub.DropCols(cols=["households"]))
+fit_data = skrub.var("data", fit_df)
+fit_data_fe = fit_data.skb.apply_func(skrub.deferred(add_ratio_features))
+fit_X = fit_data_fe.drop(columns=TARGET, errors="ignore").skb.mark_as_X()
+fit_y = fit_data_fe[TARGET].skb.mark_as_y()
+fit_pred = fit_X.skb.apply(vectorizer).skb.apply(model, y=fit_y)
+learner = fit_pred.skb.make_learner(fitted=True)
 
-vectorizer2 = skrub.TableVectorizer()
-X2_vec = X2.skb.apply(vectorizer2)
-
-model2 = CatBoostRegressor(
-    depth=8,
-    learning_rate=0.05,
-    iterations=4000,
-    loss_function="RMSE",
-    random_seed=42,
-    verbose=0,
-)
-
-pred2 = X2_vec.skb.apply(model2, y=y2)
-learner2 = pred2.skb.make_learner(fitted=True)
-learner2.fit({"data2": train_part})
-
-valid_pred2 = learner2.predict({"data2": valid_part})
-test_pred2 = learner2.predict({"data2": test_df})
-
-# -------------------------
-# Dynamic bin-based gating ensemble
-# -------------------------
-valid_target = valid_part[target_col].values
-abs_diff_valid = np.abs(valid_pred1 - valid_pred2)
-abs_diff_test = np.abs(test_pred1 - test_pred2)
-
-def grid_search_bin_weight(y_true, p1, p2, mask, candidate_weights):
-    if mask.sum() == 0:
-        return 0.5
-    best_w = 0.5
-    best_rmse = float("inf")
-    for w in candidate_weights:
-        blended = w * p1[mask] + (1.0 - w) * p2[mask]
-        rmse = mean_squared_error(y_true[mask], blended) ** 0.5
-        if rmse < best_rmse:
-            best_rmse = rmse
-            best_w = w
-    return best_w
-
-# Coarse and safe: bottom 50% disagreement vs top 50% disagreement.
-median_diff = np.median(abs_diff_valid)
-low_mask = abs_diff_valid <= median_diff
-high_mask = abs_diff_valid > median_diff
-
-candidate_weights = np.round(np.arange(0.0, 1.0 + 1e-9, 0.1), 1)
-
-w_low = grid_search_bin_weight(valid_target, valid_pred1, valid_pred2, low_mask, candidate_weights)
-w_high = grid_search_bin_weight(valid_target, valid_pred1, valid_pred2, high_mask, candidate_weights)
-
-# Optional sanity fallback: if the two bin weights collapse to extremes or are identical, use average in low bin.
-if not np.isfinite(w_low):
-    w_low = 0.5
-if not np.isfinite(w_high):
-    w_high = 0.5
-
-test_low_mask = abs_diff_test <= median_diff
-test_high_mask = abs_diff_test > median_diff
-
-final_valid_pred = np.empty_like(valid_pred1, dtype=float)
-final_valid_pred[low_mask] = w_low * valid_pred1[low_mask] + (1.0 - w_low) * valid_pred2[low_mask]
-final_valid_pred[high_mask] = w_high * valid_pred1[high_mask] + (1.0 - w_high) * valid_pred2[high_mask]
-
-final_test_pred = np.empty_like(test_pred1, dtype=float)
-final_test_pred[test_low_mask] = w_low * test_pred1[test_low_mask] + (1.0 - w_low) * test_pred2[test_low_mask]
-final_test_pred[test_high_mask] = w_high * test_pred1[test_high_mask] + (1.0 - w_high) * test_pred2[test_high_mask]
-
-final_validation_score = mean_squared_error(valid_target, final_valid_pred) ** 0.5
+val_pred = learner.predict({"data": val_df})
+final_validation_score = mean_squared_error(val_df[TARGET].values, val_pred) ** 0.5
 print(f"Final Validation Performance: {final_validation_score}")
 
-submission = pd.DataFrame({"median_house_value": final_test_pred})
+# Fit on full training data and predict test set.
+full_learner = pred.skb.make_learner(fitted=True)
+test_pred = full_learner.predict({"data": test_df})
+
+submission = pd.DataFrame({TARGET: test_pred})
 submission.to_csv("submission.csv", index=False)
+print("Saved submission.csv")

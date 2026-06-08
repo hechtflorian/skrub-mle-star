@@ -1,0 +1,37 @@
+## Model name
+LightGBM Regressor
+
+## Example Python code
+import pandas as pd
+import lightgbm as lgb
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import mean_squared_error
+
+train = pd.read_csv('train.csv')
+test = pd.read_csv('test.csv')
+
+target = 'median_house_value'
+X = train.drop(columns=[target])
+y = train[target]
+
+# LightGBM handles tabular data very well on this kind of problem
+X_tr, X_val, y_tr, y_val = train_test_split(X, y, test_size=0.2, random_state=42)
+
+model = lgb.LGBMRegressor(
+    n_estimators=2000,
+    learning_rate=0.03,
+    num_leaves=64,
+    subsample=0.8,
+    colsample_bytree=0.8,
+    random_state=42,
+)
+model.fit(X_tr, y_tr)
+
+val_pred = model.predict(X_val)
+rmse = mean_squared_error(y_val, val_pred) ** 0.5
+print('RMSE:', rmse)
+
+model.fit(X, y)
+test_pred = model.predict(test)
+submission = pd.DataFrame({'median_house_value': test_pred})
+submission.to_csv('submission.csv', index=False)

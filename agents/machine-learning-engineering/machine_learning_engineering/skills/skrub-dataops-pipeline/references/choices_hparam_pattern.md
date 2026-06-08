@@ -3,9 +3,9 @@
 Use this reference when adding tunable parameters or model/encoder alternatives inside a DataOps graph.
 
 ## APIs quickmap
-- `skrub.choose_int(low: int, high: int, ...) -> numeric choice: object`
-- `skrub.choose_float(low: float, high: float, ...) -> numeric choice: object`
-- `skrub.choose_from(outcomes: list or dict, name: str=None) -> choice: object`
+- `skrub.choose_int(low, high, n_steps=..., log=..., default=..., name=...)`
+- `skrub.choose_float(low, high, log=True, default=..., name=...)`
+- `skrub.choose_from(outcomes: list or dict, name=...)` — list or dict; dict keys must be strings
 - `.skb.describe_param_grid()`
 - `.skb.make_randomized_search(...)`
 - `.skb.make_grid_search(...)`
@@ -31,6 +31,13 @@ max_depth = skrub.choose_from({6: 6, 8: 8, 10: 10}, name="max_depth")
 max_depth = skrub.choose_int(6, 10, name="max_depth")
 max_depth = skrub.choose_float(6.0, 10.0, name="max_depth")
 ```
+- List form is valid: `skrub.choose_from([0.1, 1.0, 10.0], name="alpha")`
+
+## Critical rule: do not mix train / val / full data
+- `skrub.var("data", train_df)` binds the pipeline to **full** training data.
+- `pred.skb.make_learner(fitted=True)` fits on that bound data (full `train_df`), even if you later `predict({"data": val_df})` for scoring.
+- `search.fit({"data": fit_df})` fits search on **only** `fit_df`; holdout eval must use `search.best_learner_.predict({"data": val_df})`.
+- These paths produce **different scores**. For MLE-STAR tune stages, copy the structural solution's exact split, then use the **same fit + eval path** in `tune_implement` and `tune_bake`.
 
 ## Pattern 1: tune scalar hyperparameters in place
 ```python
@@ -77,17 +84,46 @@ pred = X.skb.apply(encoder).skb.apply(classifier, y=y)
 ```
 
 ## Search execution pattern
+Holdout search
 ```python
+import json
+
 search = pred.skb.make_randomized_search(
     n_iter=8, n_jobs=4, random_state=1, fitted=True
 )
+search.fit({"data": fit_df})  # train fold only — not full train_df, not val_df
 best_learner = search.best_learner_
+
+val_pred = best_learner.predict({"data": val_df})
+rmse = mean_squared_error(val_df[target_col].values, val_pred) ** 0.5
+print(f"Final Validation Performance: {rmse}")
+
+print(pred.skb.describe_param_grid())  # inspect param names before bake, returns string
+best_params = {}
+for name, value in search.best_params_.items():
+    if hasattr(value, "item"):
+        value = value.item()
+    best_params[name] = value
+print("TUNING_BEST_PARAMS:", json.dumps(best_params, default=str))
 ```
+Tune agents should prefer explicit holdout `search.fit` above when structural code splits train/val.
 
 ## Anti-pattern vs correct pattern
 - Anti-pattern (fake tuning): define `choose_*` and then call only `pred.skb.make_learner(fitted=True)`.
+- Anti-pattern (terminal tune crash): call `json.dumps(best_params)` on skrub/search params without `default=str` or numpy-to-Python conversion.
+- Anti-pattern (incomparable scores): `search.fit({"data": fit_df})` in tune_implement, then `make_learner(fitted=True)` on full `train_df` in tune_bake for the metric line.
+- Anti-pattern (bake mapping): assume `search.best_params_` keys match `name=` strings — keys are often `data_op__0`, `data_op__1`, … Map **values** to estimator kwargs using plan `tunable_params` order (or `describe_param_grid()`), not key names.
 - Correct tuning: define `choose_*`, run search (`make_randomized_search` / `make_grid_search`), then train/predict with best search result.
 - Correct fixed-parameter run: no `choose_*`; use concrete parameter values directly.
+
+## Refinement terminal tune (search → bake handoff)
+- Runs once in the dedicated `tuning` pipeline stage after refinement completes.
+- `tune_implement` script: keep structural DataOps graph; add in-graph `choose_*` only on one focus block; run `make_randomized_search`, **`search.fit({"data": fit_df})`**, holdout eval with `search.best_learner_.predict({"data": val_df})`.
+- Print best params on one line with JSON-safe serialization:
+  `print("TUNING_BEST_PARAMS:", json.dumps(best_params, default=str))`
+- Do **not** use bare `json.dumps(best_params)` on skrub/search output — numpy scalars will crash the script.
+- `tune_bake` script: replace each `choose_*` with literals from best params; **no** `choose_*` or search calls; score with the **same** fit/eval protocol as structural (not a different train/val/full-data path).
+- One focus block per search; keep `n_iter` low (≤4 by default). Set `verbose=-1` on LightGBM/CatBoost during search to limit stdout noise.
 
 ## Checklist
 - Tunables are in-graph, not external ad-hoc parameter dicts.
@@ -95,6 +131,8 @@ best_learner = search.best_learner_
 - Search object comes from the final prediction DataOp.
 - For `choose_from({...})`, dictionary keys are readable outcome names and must be strings.
 - If `choose_*` appears in final code, search execution is present and best search output is used.
+- `fit_df`, `val_df`, and full `train_df` are used consistently across search, bake, and structural scoring.
+- `describe_param_grid()` checked; bake literals mapped from `best_params_` values, not assumed key names.
 
 ## When to load other references
 - Load `dataops_api_quickmap.md` for canonical DataOps pipeline shape and safe fit/predict patterns.

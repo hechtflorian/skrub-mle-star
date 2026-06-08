@@ -1,10 +1,23 @@
 # Feature Engineering and Preprocessing with skrub
 
-Use in ablation/refinement when TableReport (or domain knowledge) suggests structural
-feature changes: redundant columns, ratios, cleaning, scaling, or geo/datetime handling.
+Use when TableReport (or domain knowledge) suggests structural feature changes:
+redundant columns, ratios, cleaning, scaling, or geo/datetime handling.
+Planners, ablation, and implement agents may load this reference.
 Keep the existing DataOps graph; change only the feature block under test.
 
+## Planner priority (structural refinement)
+
+- Prefer **one bounded structural change** per plan: derived features, encoding/routing,
+  cleaning, or drop-one — before swapping model family or running search.
+- Use the data profile selectively: correlated numerics, missingness, cardinality mix,
+  coordinate-like column names.
+- After any `apply_func` block, default to a **single** `TableVectorizer()` on post-FE `X`
+  unless selectors clearly require split routing.
+- Terminal hyperparameter search runs in a separate tuning stage; do not add `choose_*`
+  in structural refinement unless the plan explicitly requires it.
+
 ## Ablation contract (must follow)
+
 - Ablate one structural block at a time (encoding, derived features, drop-one, scaling).
 - Do not swap the backbone model (e.g. CatBoost → HGB) unless that is the explicit hypothesis.
 - Pandas and sklearn are fine **inside** deferred functions or as transformers in
@@ -14,7 +27,7 @@ Keep the existing DataOps graph; change only the feature block under test.
 
 | Profile signal | Try (structural, fixed params) |
 |---|---|
-| `\|pearson\| >= 0.9` among count/size columns | drop one column; add ratio (e.g. rooms/household) |
+| `\|pearson\| >= 0.9` among count/size columns | drop one column; add ratio (e.g. col_a / col_b) |
 | Strong geo pair (lat/lon) | keep both vs drop one; add interaction or distance block |
 | `null_proportion > 0` | imputation path vs `DropUninformative`; selector on `s.has_nulls()` |
 | `n_constant_columns > 0` | `Cleaner(drop_if_constant=True)` or `DropCols` |
@@ -23,10 +36,91 @@ Keep the existing DataOps graph; change only the feature block under test.
 
 If redundancy ablations hurt validation, prefer keeping raw columns and tuning encoding/model instead.
 
+## Conditional coordinate / geo features (general)
+
+Detect coordinate-like columns by name; no-op when absent. Works across tasks without
+hardcoding dataset-specific column lists.
+
+```python
+import numpy as np
+import skrub
+
+@skrub.deferred
+def add_coordinate_features(df):
+    out = df.copy()
+    cols = set(out.columns)
+    lat_lon_pairs = (
+        ({"latitude", "longitude"}, "latitude", "longitude"),
+        ({"lat", "lon"}, "lat", "lon"),
+        ({"x", "y"}, "x", "y"),
+    )
+    for required, lat_name, lon_name in lat_lon_pairs:
+        if required.issubset(cols):
+            lat = out[lat_name]
+            lon = out[lon_name]
+            out[f"{lat_name}_abs"] = lat.abs()
+            out[f"{lon_name}_abs"] = lon.abs()
+            out[f"{lat_name}_{lon_name}_interaction"] = lat * lon
+            out["coord_radius"] = np.sqrt(lat ** 2 + lon ** 2)
+            break
+    return out
+
+data = skrub.var("data", train_df)
+data_fe = data.skb.apply_func(add_coordinate_features)
+X = data_fe.drop(columns=target_col, errors="ignore").skb.mark_as_X()
+y = data_fe[target_col].skb.mark_as_y()
+```
+
+## Safe ratio / per-unit features (general)
+
+Use when the profile shows highly correlated count or size columns. Always guard
+division by zero and replace non-finite values.
+
+```python
+import numpy as np
+import skrub
+
+@skrub.deferred
+def add_ratio_features(df, numer_col, denom_col, out_name):
+    out = df.copy()
+    if numer_col not in out.columns or denom_col not in out.columns:
+        return out
+    denom = out[denom_col].replace(0, np.nan)
+    ratio = (out[numer_col] / denom).replace([np.inf, -np.inf], np.nan)
+    out[out_name] = ratio.fillna(0.0)
+    return out
+
+@skrub.deferred
+def add_common_ratios(df):
+    out = df.copy()
+    # Example: apply multiple ratios inside one deferred function when profile
+    # suggests correlated count/size pairs (replace names with your columns).
+    pairs = [
+        ("col_a", "col_b", "col_a_per_col_b"),
+        ("col_c", "col_d", "col_c_per_col_d"),
+    ]
+    for numer_col, denom_col, out_name in pairs:
+        if numer_col in out.columns and denom_col in out.columns:
+            denom = out[denom_col].replace(0, np.nan)
+            out[out_name] = (
+                (out[numer_col] / denom)
+                .replace([np.inf, -np.inf], np.nan)
+                .fillna(0.0)
+            )
+    return out
+
+data_fe = data.skb.apply_func(add_common_ratios)
+```
+
+Prefer one deferred function with several guarded ratios over many separate `apply_func`
+calls when they share the same preprocessing block.
+
 ## Derived features (ratios, per-capita) — DataOps-native
+
 Prefer `@skrub.deferred` + `.skb.apply_func` so features live in the graph.
 
 Example:
+
 ```python
 import numpy as np
 import skrub
@@ -48,6 +142,17 @@ y = data_fe[target_col].skb.mark_as_y()
 
 Pandas `.assign(...)` inside a deferred function is equally valid for multi-column derivations.
 
+## Post-FE vectorization (default after `apply_func`)
+
+After any feature block, vectorize the full post-FE `X` graph unless selectors require split paths:
+
+```python
+data_fe = data.skb.apply_func(add_common_ratios)
+X = data_fe.drop(columns=target_col, errors="ignore").skb.mark_as_X()
+y = data_fe[target_col].skb.mark_as_y()
+X_vec = X.skb.apply(skrub.TableVectorizer())
+```
+
 ## Column lists after `apply_func` (common bug)
 
 **Anti-pattern:** building column lists from raw pandas *before* FE, then selecting on `X`:
@@ -57,7 +162,7 @@ Pandas `.assign(...)` inside a deferred function is equally valid for multi-colu
 numeric_cols = train_df.select_dtypes(include=[np.number]).columns
 data_fe = data.skb.apply_func(add_ratios)
 X = data_fe.drop(columns=target_col, errors="ignore").skb.mark_as_X()
-X_num = X.skb.select(numeric_cols)  # misses rooms_per_household, etc.
+X_num = X.skb.select(numeric_cols)  # misses derived columns
 ```
 
 **Pattern 1 (preferred when unsure):** one encoder on the full FE graph:
@@ -83,6 +188,7 @@ Debug on a sample frame that includes derived columns if unsure: `s.select(sampl
 ## Redundancy and cleaning
 
 ### Drop one correlated column
+
 ```python
 from skrub import DropCols
 
@@ -90,6 +196,7 @@ X_reduced = X.skb.apply(DropCols(cols=["households"]))
 ```
 
 ### Drop uninformative columns
+
 `Cleaner` / `DropUninformative` remove constant or mostly-null columns (used by default inside
 `TableVectorizer`; can also apply explicitly):
 
@@ -105,6 +212,7 @@ X_clean = X.skb.apply(
 ```
 
 ## Numeric scaling (outliers)
+
 For numeric columns with heavy tails or infinities, use `SquashingScaler` via selectors:
 
 ```python
@@ -118,6 +226,7 @@ X_scaled = X.skb.apply(
 Missing values are left as-is (not imputed by `SquashingScaler`).
 
 ## When to load other references
+
 - Load `selectors_routing_skrub.md` for multi-path encoding/routing and `DropCols` selectors.
 - Load `encoding_skrub.md` for string/datetime encoders and `TableVectorizer` tuning.
 - Load `choices_hparam_pattern.md` only if ablation explicitly compares tuning vs fixed params.

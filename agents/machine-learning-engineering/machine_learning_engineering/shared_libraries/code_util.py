@@ -1,5 +1,6 @@
 """Code related utility functions."""
 
+import json
 import os
 import subprocess
 import time
@@ -45,6 +46,42 @@ def run_python_code(
         "execution_time": execution_time,
     }
     return result_dict
+
+
+def normalize_tuning_best_params(params: dict) -> dict:
+    """Convert numpy scalars to native Python types for JSON-safe state storage."""
+    normalized: dict = {}
+    for key, value in params.items():
+        if hasattr(value, "item") and callable(value.item):
+            try:
+                value = value.item()
+            except (ValueError, TypeError):
+                pass
+        normalized[key] = value
+    return normalized
+
+
+def extract_tuning_best_params(text: str) -> dict | None:
+    """Parse TUNING_BEST_PARAMS JSON line from tune_implement stdout."""
+    for line in text.splitlines():
+        if line.startswith("TUNING_BEST_PARAMS:"):
+            json_part = line.split(":", 1)[1].strip()
+            try:
+                parsed = json.loads(json_part)
+                if isinstance(parsed, dict):
+                    return normalize_tuning_best_params(parsed)
+            except json.JSONDecodeError:
+                return None
+    return None
+
+
+def code_contains_tuning_placeholders(raw_code: str) -> bool:
+    """Return True if code still has choose_* or search calls."""
+    return (
+        "choose_" in raw_code
+        or "make_randomized_search" in raw_code
+        or "make_grid_search" in raw_code
+    )
 
 
 def extract_performance_from_text(text: str) -> float | None:
@@ -102,6 +139,9 @@ def get_updated_suffix(
         step = callback_context.state.get(f"refine_step_{task_id}", 0)
         inner_iter = callback_context.state.get(f"inner_iter_{task_id}", 0)
         suffix = f"{inner_iter}_{step}_{task_id}"
+    elif agent_name.startswith("tune_implement") or agent_name.startswith("tune_bake"):
+        task_id = agent_name.split("_")[-1]
+        suffix = f"{task_id}"
     elif agent_name.startswith("ensemble_plan_implement"):
         ensemble_iter = callback_context.state.get("ensemble_iter", 0)
         suffix = f"{ensemble_iter}"
@@ -127,6 +167,10 @@ def get_code_state_key(
         key = f"ablation_code_{suffix}"
     elif agent_name.startswith("plan_implement"):
         key = f"train_code_improve_{suffix}"
+    elif agent_name.startswith("tune_implement"):
+        key = f"train_code_tune_search_{suffix}"
+    elif agent_name.startswith("tune_bake"):
+        key = f"train_code_tune_{suffix}"
     elif agent_name.startswith("ensemble_plan_implement"):
         key = f"ensemble_code_{suffix}"
     elif agent_name.startswith("submission"):
@@ -151,6 +195,10 @@ def get_code_execution_result_state_key(
         key = f"ablation_code_exec_result_{suffix}"
     elif agent_name.startswith("plan_implement"):
         key = f"train_code_improve_exec_result_{suffix}"
+    elif agent_name.startswith("tune_implement"):
+        key = f"train_code_tune_search_exec_result_{suffix}"
+    elif agent_name.startswith("tune_bake"):
+        key = f"train_code_tune_exec_result_{suffix}"
     elif agent_name.startswith("ensemble_plan_implement"):
         key = f"ensemble_code_exec_result_{suffix}"
     elif agent_name.startswith("submission"):
@@ -179,6 +227,8 @@ def get_run_code_condition(
             "Final Validation Performance" in raw_code
             and "exit()" not in raw_code
         ):
+            #if code_contains_tuning_placeholders(raw_code):
+                #return False
             return True
     elif agent_name.startswith("ablation"):
         # With tool-enabled ablation agents, responses can contain tool/prose output which will be empty.
@@ -201,9 +251,46 @@ def get_run_code_condition(
             compile(raw_code, "<plan_implement>", "exec")
         except SyntaxError:
             return False
+        #if code_contains_tuning_placeholders(raw_code):
+            #return False
         if "debug_agent" not in agent_name:
             return True
         if "exit()" not in raw_code:
+            return True
+    elif agent_name.startswith("tune_implement"):
+        if not raw_code.strip():
+            return False
+        try:
+            compile(raw_code, "<tune_implement>", "exec")
+        except SyntaxError:
+            return False
+        #if "make_randomized_search" not in raw_code:
+            #return False
+        #if "search.fit" not in raw_code:
+            #return False
+        if "TUNING_BEST_PARAMS" not in raw_code:
+            return False
+        if "choose_" not in raw_code:
+            return False
+        if "debug_agent" not in agent_name:
+            return True
+        if "exit()" not in raw_code:
+            return True
+    elif agent_name.startswith("tune_bake"):
+        if not raw_code.strip():
+            return False
+        try:
+            compile(raw_code, "<tune_bake>", "exec")
+        except SyntaxError:
+            return False
+        if code_contains_tuning_placeholders(raw_code):
+            return False
+        if "debug_agent" not in agent_name:
+            return True
+        if (
+            "Final Validation Performance" in raw_code
+            and "exit()" not in raw_code
+        ):
             return True
     elif agent_name.startswith("submission"):
         if (
@@ -211,8 +298,12 @@ def get_run_code_condition(
             and "exit()" not in raw_code
             and "submission.csv" in raw_code
         ):
+            #if code_contains_tuning_placeholders(raw_code):
+                #return False
             return True
         if "debug_agent" in agent_name and "exit()" not in raw_code:
+            #if code_contains_tuning_placeholders(raw_code):
+                #return False
             return True
     elif (
         "Final Validation Performance" in raw_code and "exit()" not in raw_code
@@ -254,6 +345,12 @@ def evaluate_code(
         step = callback_context.state.get(f"refine_step_{task_id}", 0)
         inner_iter = callback_context.state.get(f"inner_iter_{task_id}", 0)
         py_filepath = f"train{step}_improve{inner_iter}.py"
+    elif agent_name.startswith("tune_implement"):
+        task_id = agent_name.split("_")[-1]
+        py_filepath = "train_tune_search.py"
+    elif agent_name.startswith("tune_bake"):
+        task_id = agent_name.split("_")[-1]
+        py_filepath = "train_tune_baked.py"
     elif agent_name.startswith("ensemble_plan_implement"):
         task_id = "ensemble"
         py_filepath = f"ensemble{suffix}.py"
@@ -290,6 +387,15 @@ def evaluate_code(
                     score = float(score)
                 except Exception:
                     score = 1e9 if lower else 0
+                if agent_name.startswith("tune_implement"):
+                    task_id = agent_name.split("_")[-1]
+                    best_params = extract_tuning_best_params(
+                        result_dict.get("stdout", "")
+                    )
+                    if best_params is not None:
+                        callback_context.state[
+                            f"tune_best_params_{task_id}"
+                        ] = best_params
             else:
                 score = 1e9 if lower else 0
             result_dict["score"] = score

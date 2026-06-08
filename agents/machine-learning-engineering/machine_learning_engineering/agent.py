@@ -35,6 +35,9 @@ from machine_learning_engineering.sub_agents.refinement import (
 from machine_learning_engineering.sub_agents.submission import (
     agent as submission_agent_module,
 )
+from machine_learning_engineering.sub_agents.tuning import (
+    agent as tuning_agent_module,
+)
 
 
 def save_state(
@@ -49,14 +52,20 @@ def save_state(
     return None
 
 
+_pipeline_sub_agents = [
+    initialization_agent_module.initialization_agent,
+    refinement_agent_module.refinement_agent,
+]
+if config.CONFIG.tuning_enabled:
+    _pipeline_sub_agents.append(tuning_agent_module.tuning_agent)
+_pipeline_sub_agents.extend([
+    ensemble_agent_module.ensemble_agent,
+    submission_agent_module.submission_agent,
+])
+
 mle_pipeline_agent = agents.SequentialAgent(
     name="mle_pipeline_agent",
-    sub_agents=[
-        initialization_agent_module.initialization_agent,
-        refinement_agent_module.refinement_agent,
-        ensemble_agent_module.ensemble_agent,
-        submission_agent_module.submission_agent,
-    ],
+    sub_agents=_pipeline_sub_agents,
     description="Executes a sequence of sub-agents for solving the MLE task.",
     after_agent_callback=save_state,
 )

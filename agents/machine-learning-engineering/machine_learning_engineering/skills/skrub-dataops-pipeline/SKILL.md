@@ -71,7 +71,13 @@ preds = trained_learner.predict({"data": test_df})
 
 Refinement ablation policy:
 - Default to structural ablation with fixed/reused parameters.
-- Escalate to bounded tuning only when the current hypothesis is explicitly about tuning impact. In this case, load `choices_hparam_pattern.md` and `dataops_tuning_optuna.md`.
+- Escalate to bounded tuning only when the current hypothesis is explicitly about tuning impact. In this case, load `choices_hparam_pattern.md`.
+
+Refinement terminal tuning policy (dedicated tuning stage after refinement):
+- Structural ablation and plan/implement steps stay fixed-parameter.
+- One bounded holdout randomized search on a **single** focus block (`model`, `encoder`, or `preprocessing`).
+- Use `make_randomized_search` with low `n_iter` (default 4); no CV, no Optuna.
+- Bake best params into fixed code before ensemble/submission; downstream code must not contain `choose_*` or search calls.
 
 ```python
 # Example print contract inside ablation script

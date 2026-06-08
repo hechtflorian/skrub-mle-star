@@ -139,6 +139,10 @@ def get_bug_summary_agent_instruction(
         step = context.state.get(f"refine_step_{task_id}", 0)
         inner_iter = context.state.get(f"inner_iter_{task_id}", 0)
         filename = f"train{step}_improve{inner_iter}.py"
+    elif agent_name.startswith("tune_implement"):
+        filename = "train_tune_search.py"
+    elif agent_name.startswith("tune_bake"):
+        filename = "train_tune_baked.py"
     elif agent_name.startswith("ensemble_plan_implement"):
         filename = f"ensemble{suffix}.py"
     elif agent_name.startswith("submission"):

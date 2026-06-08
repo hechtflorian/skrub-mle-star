@@ -38,6 +38,9 @@ class DefaultConfig:
     num_top_plans: int = 2  # The number of highest-scoring plans or strategies to select or retain. (DEFAULT: 2)
     use_data_leakage_checker: bool = False  # Enable (`True`) or disable (`False`) a check for data leakage in the machine learning pipeline. (DEFAULT: False)
     use_data_usage_checker: bool = False  # Enable (`True`) or disable (`False`) a check for how data is being used, potentially for compliance or best practices. (DEFAULT: False)
+    tuning_enabled: bool = True  # Run terminal choose_* search after refinement.
+    tuning_n_iter: int = 4  # Max randomized search iterations for terminal tuning.
+    tuning_n_jobs: int = 2  # Parallel jobs for terminal randomized search.
 
 
 CONFIG = DefaultConfig()

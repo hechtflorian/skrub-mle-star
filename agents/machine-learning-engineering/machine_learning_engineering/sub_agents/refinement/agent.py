@@ -39,7 +39,6 @@ def update_outer_loop_states(
     workspace_dir = callback_context.state.get("workspace_dir", "")
     task_name = callback_context.state.get("task_name", "")
     lower = callback_context.state.get("lower", True)
-    inner_loop_round = callback_context.state.get("inner_loop_round", 2)
     run_cwd = os.path.join(workspace_dir, task_name, task_id)
     prev_solution = callback_context.state.get(
         f"train_code_{step}_{task_id}", ""
@@ -47,11 +46,13 @@ def update_outer_loop_states(
     prev_exec_result = callback_context.state.get(
         f"train_code_exec_result_{step}_{task_id}", {}
     )
-    improvements = []
-    improvement_indices = []
+    inner_loop_round = callback_context.state.get("inner_loop_round", 2)
+    improvements: list[float] = []
+    improvement_indices: list[int] = []
     for inner_iter in range(inner_loop_round):
         exec_result = callback_context.state.get(
-            f"train_code_improve_exec_result_{inner_iter}_{step}_{task_id}", {}
+            f"train_code_improve_exec_result_{inner_iter}_{step}_{task_id}",
+            {},
         )
         if "score" not in prev_exec_result or "score" not in exec_result:
             continue
@@ -61,39 +62,27 @@ def update_outer_loop_states(
             improvement = exec_result["score"] - prev_exec_result["score"]
         improvements.append(improvement)
         improvement_indices.append(inner_iter)
-    # new check: if no improvements, don't advance loop and keep previous solution
-    if not improvements:
-        best_improvement = 0.0
-        best_idx = -1
-    else:
+    best_solution = prev_solution
+    best_exec_result = prev_exec_result
+    if improvements:
         best_improvement = max(improvements)
-        best_pos = improvements.index(best_improvement)
-        best_idx = improvement_indices[best_pos]
+        if best_improvement > 0.0:
+            best_pos = improvements.index(best_improvement)
+            best_idx = improvement_indices[best_pos]
+            best_solution = callback_context.state.get(
+                f"train_code_improve_{best_idx}_{step}_{task_id}", ""
+            )
+            best_exec_result = callback_context.state.get(
+                f"train_code_improve_exec_result_{best_idx}_{step}_{task_id}",
+                {},
+            )
     output_filepath = os.path.join(run_cwd, f"train{step + 1}.py")
-    if best_improvement <= 0.0:
-        callback_context.state[f"train_code_{step + 1}_{task_id}"] = (
-            prev_solution
-        )
-        callback_context.state[
-            f"train_code_exec_result_{step + 1}_{task_id}"
-        ] = prev_exec_result
-        with open(output_filepath, "w", encoding="utf-8") as f:
-            f.write(prev_solution)
-    else:
-        best_solution = callback_context.state.get(
-            f"train_code_improve_{best_idx}_{step}_{task_id}", ""
-        )
-        best_exec_result = callback_context.state.get(
-            f"train_code_improve_exec_result_{best_idx}_{step}_{task_id}", {}
-        )
-        callback_context.state[f"train_code_{step + 1}_{task_id}"] = (
-            best_solution
-        )
-        callback_context.state[
-            f"train_code_exec_result_{step + 1}_{task_id}"
-        ] = best_exec_result
-        with open(output_filepath, "w", encoding="utf-8") as f:
-            f.write(best_solution)
+    callback_context.state[f"train_code_{step + 1}_{task_id}"] = best_solution
+    callback_context.state[
+        f"train_code_exec_result_{step + 1}_{task_id}"
+    ] = best_exec_result
+    with open(output_filepath, "w", encoding="utf-8") as f:
+        f.write(best_solution)
     ablation_results = callback_context.state.get(
         f"ablation_summary_{step}_{task_id}", ""
     )
@@ -123,7 +112,7 @@ def init_outer_loop_states(
     callback_context.state[f"refine_step_{task_id}"] = 0
     callback_context.state[f"prev_ablations_{task_id}"] = []
     callback_context.state[f"prev_code_blocks_{task_id}"] = []
-    profile_key = f"ablation_table_report_profile_{task_id}"
+    profile_key = table_report_util.profile_state_key(task_id)
     workspace_dir = callback_context.state.get("workspace_dir", "")
     task_name = callback_context.state.get("task_name", "")
     run_cwd = os.path.join(workspace_dir, task_name, task_id)
@@ -164,12 +153,9 @@ def get_ablation_agent_instruction(
     for i, ablation_result in enumerate(prev_ablations):
         prev_ablations_str += f"## Previous ablation study result {i + 1}\n"
         prev_ablations_str += f"{ablation_result}\n\n"
-    data_profile = context.state.get(
-        f"ablation_table_report_profile_{task_id}",
-        "",
+    data_profile = table_report_util.get_profile_from_state(
+        context.state, task_id
     )
-    if not data_profile:
-        data_profile = "Data profile unavailable."
     if prev_ablations_str:
         instruction = prompt.ABLATION_SEQ_INSTR.format(
             code=code,
@@ -211,16 +197,21 @@ def get_init_plan_agent_instruction(
         f"ablation_summary_{step}_{task_id}", ""
     )
     prev_code_blocks = context.state.get(f"prev_code_blocks_{task_id}", [])
+    data_profile = table_report_util.get_profile_from_state(
+        context.state, task_id
+    )
     if not prev_code_blocks:
         instruction = prompt.EXTRACT_BLOCK_AND_PLAN_INSTR.format(
             code=code,
             ablation_results=ablation_results,
+            data_profile=data_profile,
         )
     else:
         instruction = prompt.EXTRACT_BLOCK_AND_PLAN_SEQ_INSTR.format(
             code=code,
             ablation_results=ablation_results,
             prev_code_blocks=prev_code_blocks,
+            data_profile=data_profile,
         )
     return instruction
 
@@ -263,9 +254,13 @@ def get_plan_refinement_instruction(
             f"## Execution time after implement: {execution_time}s\n"
         )
         prev_plan_summary += f"## Score: {score:.5f}\n\n"
+    data_profile = table_report_util.get_profile_from_state(
+        context.state, task_id
+    )
     return prompt.PLAN_REFINEMENT_INSTR.format(
         code_block=code_block,
         prev_plan_summary=prev_plan_summary,
+        data_profile=data_profile,
     )
 
 

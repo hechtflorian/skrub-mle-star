@@ -247,3 +247,57 @@ generate_content_config=types.GenerateContentConfig(
 - **Sparse or noisy results:** increase repeats for unstable tasks and report confidence intervals, not only single-run scores.
 - **Operational failures:** maintain run-resume checkpoints and standardized run manifests to recover without losing full experiments.
 
+---
+
+## Progress update (2026-06-06): separate tuning stage, TableReport ablation context, run analysis
+
+### 9) Refinement reverted to structural-only; tuning extracted to own module
+- Removed embedded tuning from `sub_agents/refinement/agent.py` (structural ablation → plan → implement only).
+- Added `sub_agents/tuning/agent.py` + `prompt.py` with flow:
+  - `tune_plan` → `tune_implement` → `tune_bake` → `promote_tuning_winner`
+- Wired into pipeline in `machine_learning_engineering/agent.py` when `config.CONFIG.tuning_enabled`.
+- Config renamed: `tuning_enabled`, `tuning_n_iter`, `tuning_n_jobs` (replacing `refinement_tune_*`).
+- Handoff unchanged for ensemble: reads `train_code_{outer_loop_round}_{task_id}`; on tuning win, keys overwritten + `train{N}_tuned.py` written.
+
+### 10) TableReport data profile for ablation agent
+- Added `shared_libraries/table_report_util.py`:
+  - `load_table_report_dict(train.csv)` via `skrub.TableReport`
+  - `format_ablation_profile(...)` — compact column stats, missingness, top associations
+- `init_outer_loop_states` in refinement builds `ablation_table_report_profile_{task_id}` and writes `workspace/<task>/table_report.json`.
+- Injected into ablation prompts as `{data_profile}` with hints for encoding/routing/redundancy ablations (`refinement/prompt.py`).
+
+### 11) Tuning implement loop fixes (post `adk_run_20260606_211508`)
+- Root cause of tune stuck loop: `json.dumps(best_params)` failed on numpy scalars → `returncode=1` → finish gate never passed.
+- Fixes in `shared_libraries/code_util.py`:
+  - `normalize_tuning_best_params()`, `extract_tuning_best_params()`
+  - Restored tune gates: `make_randomized_search`, `search.fit`, `TUNING_BEST_PARAMS` line
+  - Restored `tune_bake` placeholder check (`choose_*` / search calls)
+- `tuning/prompt.py`: require `search.fit`, `json.dumps(..., default=str)`, no prose-only replies.
+- `choices_hparam_pattern.md`: terminal search pattern + JSON-safe params.
+- `tuning/agent.py`: `check_tune_implement_finish` aligned with refinement (`returncode==0` + score).
+
+### 12) Successful end-to-end validation run (`adk_run_20260606_223108`)
+- Full pipeline completed: init → refinement → tuning → ensemble → submission.
+- Artifacts under `workspace/california-housing-prices/`:
+  - Structural winner: `1/train1.py` (= `train0_improve0.py`, geo features + encoders + LightGBM, holdout RMSE ~2664)
+  - Tuning ran but lost: search ~57712, bake ~11021 → `tune_winner_source_1: structural`
+  - Final submission holdout ~2414 (ensemble stack)
+- Compared to older `gpt-5.4-mini` submissions (~54k train RMSE, CatBoost-heavy): latest run is genuinely better pipeline/code, not a scoring bug.
+
+### 13) Architecture / memory analysis (documented, not implemented)
+- No shared conversational memory across subagents (`include_contents="none"`); state keys are the handoff.
+- Debug path keeps **latest** `bug_summary_*` only — no failure history → agents can repeat failed fixes.
+- Recommended direction: **state-based experiment ledger** + stdout truncation, not full chat memory.
+- Captured in **`docs/MLE_STAR_FUTURE_IMPROVEMENTS.md`** (prioritized backlog for coding agents).
+
+### 14) Known issues to address next (see future improvements doc)
+- `final_state.json` bloated (~6 MB) by tune search stdout (80k× LightGBM warning lines); truncate before state storage.
+- Ablation often uses a **different pipeline** than `train{N}.py` → misleading summaries for planners.
+- Scores across stages not comparable without unified validation harness.
+- Tuning stage: architecturally good, empirically neutral/negative on first California Housing win — needs hardening (`verbose=-1`, subsample search, deterministic bake).
+
+### TL;DR (June 2026)
+- Tuning is a separate stage with promotion gate; implement loop fixed and validated end-to-end.
+- TableReport gives ablation structured dataset context; impact on simple tabular tasks is modest — consider feeding planners too.
+- Next work is correctness/comparability (same-pipeline ablation, unified holdout, stdout caps) before more prompt expansion.
+

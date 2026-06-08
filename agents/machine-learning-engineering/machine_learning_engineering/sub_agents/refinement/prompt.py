@@ -16,7 +16,7 @@ ABLATION_INSTR = """# Introduction
 # Instructions
 - You need to generate a simple Python code that performs an ablation study on the above Python solution script.
 - The generated code should create variations by modifying or disabling parts (1-2 simple parts) of the training process.
-- For each ablation, print out how the modification affects the model's performance.
+- For each ablation, you must print out how the modification affects the model's performance.
 
 # Requirements
 - You must call `list_skills` -> `load_skill` for `skrub-dataops-pipeline` before editing and load relevant references via `load_skill_resource` if you see fit. 
@@ -34,7 +34,7 @@ ABLATION_INSTR = """# Introduction
 # Response format
 - There should be no additional headings or text in your response.
 - The Python code for the ablation study should not load test data. It should only focus on training and evaluating the model on the validation set.
-- The code should include a printing statement that shows the performance of each ablation.
+- The code must include a printing statement that shows the performance of each ablation.
 - The code should consequently print out which part of the code contributes the most to the overall performance.
 - Return Python code; never return only tool-call results.
 """
@@ -108,6 +108,9 @@ EXTRACT_BLOCK_AND_PLAN_INSTR = """# Introduction
 # Ablation study results
 {ablation_results}
 
+# Data profile (precomputed on train.csv; use selectively)
+{data_profile}
+
 # Your task
 - Given the ablation study results, suggest an effective next plan to improve the above Python script.
 - The plan should be a brief outline/sketch of your proposed solution in natural language (3-5 sentences).
@@ -116,10 +119,11 @@ EXTRACT_BLOCK_AND_PLAN_INSTR = """# Introduction
 
 # Requirements
 - You must call `list_skills` -> `load_skill` for `skrub-dataops-pipeline` before finalizing the plan and load relevant references via `load_skill_resource` if you see fit.
+- When the profile suggests structural opportunities (correlated numerics, missingness, cardinality mix), prefer feature/preprocessing/encoding changes before model-family swaps; load `references/feature_engineering_skrub.md` when adding derived features.
 - If your plan changes feature encoding/preprocessing or column routing, load `references/encoding_skrub.md` and/or `references/selectors_routing_skrub.md` via `load_skill_resource` before finalizing the plan.
 - If your plan adds derived features, drops redundant columns, or applies cleaning/scaling from the data profile, load `references/feature_engineering_skrub.md` via `load_skill_resource` before finalizing the plan.
 - If you want to perform hyperparameter search (e.g. over model family, encoding, or specific values), load `references/choices_hparam_pattern.md` via `load_skill_resource` before finalizing.
-- If tuning is proposed, state a focused bounded search budget (`n_iter <= 8`) and a compact targeted search space.
+- Do not propose `choose_*` or randomized search in structural refinement plans; terminal tuning already runs separately at the end of refinement.
 - Do not call a plan tuned unless search is actually executed in implementation.
 - You must always finish by returning your proposed solution, even if you call `list_skills`/`load_skill`/`load_skill_resource`.
 
@@ -150,6 +154,9 @@ EXTRACT_BLOCK_AND_PLAN_SEQ_INSTR = """# Introduction
 
 {prev_code_blocks}
 
+# Data profile (precomputed on train.csv; use selectively)
+{data_profile}
+
 # Your task
 - Given the ablation study results, suggest an effective next plan to improve the above Python script.
 - The plan should be a brief outline/sketch of your proposed solution in natural language (3-5 sentences).
@@ -159,6 +166,7 @@ EXTRACT_BLOCK_AND_PLAN_SEQ_INSTR = """# Introduction
 
 # Requirements
 - You must call `list_skills` -> `load_skill` for `skrub-dataops-pipeline` and load relevant references via `load_skill_resource` before finalizing the plan.
+- When the profile suggests structural opportunities (correlated numerics, missingness, cardinality mix), prefer feature/preprocessing/encoding changes before model-family swaps; load `references/feature_engineering_skrub.md` when adding derived features.
 - If your plan changes feature encoding/preprocessing or column routing, load `references/encoding_skrub.md` and/or `references/selectors_routing_skrub.md` via `load_skill_resource` before finalizing the plan.
 - If your plan adds derived features, drops redundant columns, or applies cleaning/scaling from the data profile, load `references/feature_engineering_skrub.md` via `load_skill_resource` before finalizing the plan.
 - If you want to perform hyperparameter search (e.g. over model family, encoding, or specific values), load `references/choices_hparam_pattern.md` via `load_skill_resource` before finalizing the plan.
@@ -190,6 +198,9 @@ PLAN_REFINEMENT_INSTR = """# Introduction
 
 {prev_plan_summary}
 
+# Data profile (precomputed on train.csv; use selectively)
+{data_profile}
+
 # Your task
 - Suggest a better plan to improve the above code block.
 - The suggested plan must be novel and effective.
@@ -198,11 +209,12 @@ PLAN_REFINEMENT_INSTR = """# Introduction
 
 # Requirements
 - You must call `list_skills` -> `load_skill` for `skrub-dataops-pipeline` and load relevant references via `load_skill_resource`before finalizing the plan.
+- When the profile suggests structural opportunities (correlated numerics, missingness, cardinality mix), prefer feature/preprocessing/encoding changes before model-family swaps; load `references/feature_engineering_skrub.md` when adding derived features.
 - If your plan changes feature encoding/preprocessing or column routing, load `references/encoding_skrub.md` and/or `references/selectors_routing_skrub.md` via `load_skill_resource` before finalizing the plan.
 - If your plan adds derived features, drops redundant columns, or applies cleaning/scaling from the data profile, load `references/feature_engineering_skrub.md` via `load_skill_resource` before finalizing the plan.
 - If you want to perform parameter search (e.g. model family, encoders, specific values), load `references/choices_hparam_pattern.md` via `load_skill_resource` before finalizing the plan.
+- Do not propose `choose_*` or randomized search in structural refinement plans; terminal tuning already runs separately at the end of refinement.
 - Prefer fixed/reused params when edits are minor and search-sensitive parts are unchanged.
-- If proposing tuning, keep it bounded (`n_iter <= 8`) with a compact targeted search space.
 - Do not describe default-choice `.skb.make_learner(...)` / `.skb.eval(...)` runs as tuned.
 - You must always finish by returning your proposed solution, even if you call `list_skills`/`load_skill`/`load_skill_resource`.
 
@@ -235,9 +247,9 @@ IMPLEMENT_PLAN_INSTR = """# Introduction
 - If implementation changes feature encoding/preprocessing or column routing, load `references/encoding_skrub.md` and/or `references/selectors_routing_skrub.md` via `load_skill_resource` before finalizing code.
 - If implementation adds derived features, drops redundant columns, or applies cleaning/scaling, load `references/feature_engineering_skrub.md` via `load_skill_resource` before finalizing code.
 - If the plan adds derived features via `.skb.apply_func(...)`, do not build column lists from raw `train_part`/`train_df`; route columns with skrub selectors on the post-FE `X` graph (or use a single `TableVectorizer()` on all features).
-- If you want to perform hyperparameter search (e.g. over model family, encoding, or search-space nodes), load `references/choices_hparam_pattern.md` and `references/dataops_tuning_optuna.md` via `load_skill_resource` before finalizing code.
+- If you want to perform parameter search (e.g. over model family, encoding, or search-space nodes), load `references/choices_hparam_pattern.md` via `load_skill_resource` before finalizing code.
+- Do not add `choose_*` or run parameter search unless the improvement plan explicitly requires tuning in this step; terminal tuning is handled by dedicated tune agents after structural refinement.
 - If the plan is non-tuning or the change is minor, prefer reusing previous strong parameters or explicit fixed values.
-- If the plan indicates hyperparameter tuning is valuable, you must run real search (`.skb.make_randomized_search(...)`, `.skb.make_grid_search(...)`, or Optuna trial flow), keep it tightly bounded (`n_iter <= 8`), and use the best result.
 - Do not label default-choice `.skb.make_learner(...)` / `.skb.eval(...)` behavior as tuned.
 - Keep search localized to the selected impactful block, preserve existing DataOps architecture, and keep the search space compact.
 - The printed `Final Validation Performance` must be computed from a direct holdout RMSE (`mean_squared_error(y_val, y_pred) ** 0.5`) on a real validation split.
