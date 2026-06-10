@@ -50,6 +50,7 @@ MODEL_EVAL_INSTR = """# Introduction
 - The full ML pipeline must be implemented as a `skrub` DataOps workflow, not as sklearn-only orchestration.
 - Use DataOps primitives for pipeline structure: variables (`skrub.var` or `skrub.X`/`skrub.y`), dataframe/table transforms, and estimator application via `.skb.apply(...)`.
 - Use the Skrub DataOps skill: call `list_skills` -> `load_skill` for `skrub-dataops-pipeline` before changing uncertain DataOps parts.
+- Load `references/dataops_api_quickmap.md` via `load_skill_resource` before finalizing; use holdout-only scripts in early stages (`train_part` bind → metric print; no `test_df` until submission).
 - If API details are unclear, call one focused `load_skill_resource` before editing.
 - If multiple related tables exist, assemble them in the same DataOps workflow (join/aggregate/select before learner application), consistent with official multi-table DataOps usage.
 - Keep the model in the model description, but integrate its preprocessing/training path inside the DataOps workflow.

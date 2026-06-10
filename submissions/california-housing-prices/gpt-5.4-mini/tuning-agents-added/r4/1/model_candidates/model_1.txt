@@ -1,0 +1,23 @@
+## Model name
+CatBoostRegressor
+
+## Example Python code
+from catboost import CatBoostRegressor
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import mean_squared_error
+
+X = df.drop(columns=['median_house_value'])
+y = df['median_house_value']
+X_train, X_val, y_train, y_val = train_test_split(X, y, test_size=0.2, random_state=42)
+
+model = CatBoostRegressor(
+    loss_function='RMSE',
+    iterations=5000,
+    learning_rate=0.03,
+    depth=8,
+    random_seed=42,
+    verbose=200
+)
+model.fit(X_train, y_train, eval_set=(X_val, y_val), early_stopping_rounds=200)
+rmse = mean_squared_error(y_val, model.predict(X_val)) ** 0.5
+print(rmse)

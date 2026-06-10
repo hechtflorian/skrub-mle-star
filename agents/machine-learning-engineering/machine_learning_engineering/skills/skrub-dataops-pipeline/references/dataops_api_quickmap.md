@@ -21,8 +21,8 @@ Use this file as the canonical reference for DataOps-first pipeline structure.
 ```python
 import skrub
 
-X = skrub.X(train_df.drop(columns=target_col, errors="ignore"))
-y = skrub.y(train_df[target_col])
+X = skrub.X(df.drop(columns=target_col, errors="ignore"))
+y = skrub.y(df[target_col])
 
 n_components = skrub.choose_int(5, 15, name="n_components")
 encoder = skrub.TableVectorizer(
@@ -42,14 +42,68 @@ clf = YourModel(
 pred = X.skb.apply(encoder).skb.apply(clf, y=y)
 ```
 
+## Holdout validation (default for init / ablation / refinement / tuning)
+`skrub.var("data", df)` sets which rows `make_learner(fitted=True)` fits on. Predicting on `valid_part` after fitting on full `train_df` **leaks** validation rows into training and inflates scores.
+
+**Anti-pattern (leakage):**
+```python
+data = skrub.var("data", train_df)  # full train bound
+# ... split train_part / valid_part ...
+learner = pred.skb.make_learner(fitted=True)  # trained on ALL rows including valid_part
+valid_pred = learner.predict({"data": valid_part})  # optimistic RMSE
+```
+
+**Default script (early stages — holdout metric only; no test, no submission.csv):**
+```python
+import numpy as np
+from sklearn.metrics import mean_squared_error
+from sklearn.model_selection import train_test_split
+
+train_idx, valid_idx = train_test_split(
+    np.arange(len(train_df)), test_size=0.2, random_state=42
+)
+train_part = train_df.iloc[train_idx].copy()
+valid_part = train_df.iloc[valid_idx].copy()
+
+data_train = skrub.var("data", train_part)
+X_train = data_train.drop(columns=target_col, errors="ignore").skb.mark_as_X()
+y_train = data_train[target_col].skb.mark_as_y()
+pred = X_train.skb.apply(encoder).skb.apply(model, y=y_train)
+val_learner = pred.skb.make_learner(fitted=True)
+valid_pred = val_learner.predict({"data": valid_part})
+rmse = mean_squared_error(valid_part[target_col], valid_pred) ** 0.5
+print(f"Final Validation Performance: {rmse}")
+```
+
+**Submission stage only** (after printing validation score; not for init/refinement/tuning):
+```python
+data_full = skrub.var("data", train_df)
+X_full = data_full.drop(columns=target_col, errors="ignore").skb.mark_as_X()
+y_full = data_full[target_col].skb.mark_as_y()
+full_pred = X_full.skb.apply(encoder).skb.apply(model, y=y_full)
+full_learner = full_pred.skb.make_learner(fitted=True)
+test_pred = full_learner.predict({"data": test_df})
+```
+
+Rules:
+- Early stages: Block 1 only — bind **`train_part`**, print holdout metric, stop.
+- Submission (optional late ensemble export): add Block 2 on **`train_df`** after the metric print.
+- Keep the same split (`test_size`, `random_state`) across stages.
+- Preprocessing inside `.skb.apply_func` / transformers learns from bound rows only — binding `train_part` prevents val/test rows from influencing fit-time stats.
+- Tuning search: `search.fit({"data": train_part})`, eval with `search.best_learner_.predict({"data": valid_part})` — see `choices_hparam_pattern.md`.
+
 ## Safe execution pattern (fit/predict without API misuse)
 ```python
-# Option A: evaluate directly from DataOp
+# Option A: cross-validation from DataOp (when CV is appropriate)
 cv_results = pred.skb.cross_validate()
 
-# Option B: compile learner and predict with environment dict
-learner = pred.skb.make_learner(fitted=True)
-pred_test = learner.predict({"data": test_df})
+# Option B: holdout metric — bind train_part (default for early stages)
+val_learner = pred.skb.make_learner(fitted=True)
+valid_pred = val_learner.predict({"data": valid_part})
+
+# Option C: submission stage only — full train + test predict
+full_learner = full_pred.skb.make_learner(fitted=True)
+pred_test = full_learner.predict({"data": test_df})
 
 # Avoid redundant target drops at inference time:
 # do not call test_df.drop(columns=target_col) unless truly needed.
@@ -107,6 +161,7 @@ search = pred.skb.make_randomized_search(
 ## Validation checklist
 - Pipeline is DataOps-first (`.skb.apply(...)` main path).
 - `X`/`y` are explicitly marked.
+- Early stages: holdout metric only (`train_part` bind + `valid_part` predict); no `test_df` / full-train refit until submission.
 - Tunables are embedded with `choose_*`/`choose_from`.
 - Search runs from DataOp (`make_randomized_search` or `make_grid_search`).
 - Prediction uses dict environments keyed by source variable names.

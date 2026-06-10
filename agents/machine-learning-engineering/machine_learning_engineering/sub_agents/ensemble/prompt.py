@@ -9,10 +9,11 @@ INIT_ENSEMBLE_PLAN_INSTR = """# Introduction
 
 # Your task
 - Suggest a plan to ensemble the {num_solutions} solutions. You should concentrate how to merge, not the other parts like hyperparameters.
-- The suggested plan should be easy to novel, effective, and easy to implement.
+- The suggested plan should be novel, effective, and easy to implement.
 - All the provided data is already prepared and available in the `./input` directory. There is no need to unzip any files.
 - Keep each solution's skrub DataOps pipeline structure intact; treat ensembling as a merge layer on top of existing predictions/models rather than rewriting preprocessing/modeling flows.
 - Solutions are already terminal-tuned with fixed parameters; do not add `choose_*` or re-run hyperparameter search.
+- Prefer lightweight merge plans; avoid multi-fold, multi-seed, or repeated full retrains in large spaces unless the gain clearly justifies the extra runtime or the model is small/fast.
 
 # Respone format
 - Your response should be an outline/sketch of your proposed solution in natural language.
@@ -33,7 +34,7 @@ ENSEMBLE_PLAN_IMPLEMENT_INSTR = """# Introduction
 - Implement the ensemble plan with the provided solutions.
 - Unless mentioned in the ensemble plan, do not modify the origianl Python Solutions too much.
 - All the provided data is already prepared and available in the `./input` directory. There is no need to unzip any files.
-- The code should implement the proposed solution and print the value of the evaluation metric computed on a hold-out validation set.
+- The code should implement the proposed solution and print the value of the evaluation metric computed on a hold-out validation set (same split as upstream).
 - Keep the original skrub DataOps pipeline(s) intact while implementing the ensemble logic. Do not refactor core preprocessing/modeling flows unless the ensemble plan explicitly requires a minimal compatibility fix.
 - Input pipelines are pre-tuned fixed-parameter code; do not add `choose_*` or re-run hyperparameter search.
 
@@ -63,6 +64,7 @@ ENSEMBLE_PLAN_REFINE_INSTR = """# Introduction
 - The suggested plan must be easy to implement, novel, and effective.
 - The suggested plan should be differ from the previous plans you have tried and should receive a {criteria} score.
 - Keep each solution's skrub DataOps pipeline structure intact; propose refinements in ensembling logic rather than rewriting preprocessing/modeling internals.
+- Prefer simple, effective ensemble variants over too heavy CV/seed grids when refining plans; only escalate compute when a prior plan showed a meaningful quality gap or the model is small/fast.
 
 # Response format
 - Your response should be an outline/sketch of your proposed solution in natural language.

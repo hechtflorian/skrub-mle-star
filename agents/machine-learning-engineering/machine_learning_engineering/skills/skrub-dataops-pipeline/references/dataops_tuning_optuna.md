@@ -63,6 +63,7 @@ best_learner.fit(env)
 - `choose_*`/`choose_from` exist before search.
 - Optuna is used either through `backend="optuna"` or explicit `trial` workflow.
 - Final model is created from best trial and fit on full environment.
+- Holdout scripts (no CV): bind `train_part` for search/metric, `train_df` only for final test block — see `dataops_api_quickmap.md`.
 - If no search is run, remove `choose_*` and switch to fixed values instead of leaving pseudo-tunable placeholders.
 
 ## When to load other references

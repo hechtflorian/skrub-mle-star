@@ -14,6 +14,7 @@ from machine_learning_engineering.shared_libraries import (
     common_util,
     config,
     data_leakage_prompt,
+    skill_tool_util,
 )
 
 
@@ -198,6 +199,7 @@ def get_data_leakage_checker_agent(
         ),
         description="Check if the code has the data leakage issue.",
         instruction=get_check_leakage_agent_instruction,
+        tools=[skill_tool_util.get_skill_toolset()],
         before_model_callback=functools.partial(
             check_extract_status,
             prefix=prefix,
@@ -234,6 +236,7 @@ def get_data_leakage_checker_agent(
         ),
         description="Refine the code to address the data leakage issue.",
         instruction=get_refine_leakage_agent_instruction,
+        tools=[skill_tool_util.get_skill_toolset()],
         before_model_callback=functools.partial(
             check_data_leakage,
             prefix=prefix,

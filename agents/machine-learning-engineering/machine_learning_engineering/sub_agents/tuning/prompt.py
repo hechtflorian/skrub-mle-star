@@ -45,7 +45,7 @@ Return: TunePlan"""
 TUNE_IMPLEMENT_INSTR = """# Introduction
 - Implement the terminal tuning plan on the structural solution below.
 - Run **real** holdout randomized search with in-graph `choose_*` nodes, then report best holdout RMSE.
-- Follow `references/choices_hparam_pattern.md` for the terminal tuning search contract.
+- Follow `references/choices_hparam_pattern.md` for the tuning search contract.
 
 # Structural solution
 ```python
@@ -63,7 +63,7 @@ TUNE_IMPLEMENT_INSTR = """# Introduction
 - Load `references/choices_hparam_pattern.md` via skill tools before editing.
 - Keep all parts listed in plan `frozen` unchanged.
 - Inject `choose_*` only on the plan `focus_block`.
-- Keep the same DataOps architecture as the structural solution; only add `choose_*` on the focus block.
+- You must keep the same DataOps pipeline architecture as the structural solution; only add `choose_*` on the focus block.
 - Run search from the final prediction DataOp:
   `search = pred.skb.make_randomized_search(n_iter={n_iter}, n_jobs={n_jobs}, random_state=42, fitted=True)`
 - **Must** fit search on the training fold only: `search.fit({{"data": train_part}})`
@@ -71,7 +71,7 @@ TUNE_IMPLEMENT_INSTR = """# Introduction
 - Build a JSON-serializable `best_params` dict (native Python floats/ints, not numpy scalars).
 - Print holdout RMSE as: `Final Validation Performance: {{score}}`
 - Print best params as one line using: `print("TUNING_BEST_PARAMS:", json.dumps(best_params, default=str))`
-- Keep test prediction + `submission.csv` export like the structural solution.
+- Do **not** load `test_df`, refit on full `train_df`, or write `submission.csv` — holdout metric only (submission stage agent adds test export later).
 - This script **must** contain `make_randomized_search`, `search.fit`, `choose_*`, and the `TUNING_BEST_PARAMS` print.
 
 # Response format
@@ -83,6 +83,7 @@ TUNE_BAKE_INSTR = """# Introduction
 - Bake the tuned hyperparameters into fixed-parameter DataOps code.
 - Downstream agents must not re-run search or keep `choose_*` placeholders.
 - This should be a simple task, because you should just replace the `choose_*` with the best params you received from the search.
+- Do not change the pipeline architecture; only touch on and replace the `choose_*` with the best params.
 
 # Structural solution (reference)
 ```python
@@ -99,8 +100,8 @@ TUNE_BAKE_INSTR = """# Introduction
 - Replace every tuned `choose_*` with literal values from best params JSON.
 - **No** `choose_*`, `make_randomized_search`, or `make_grid_search` in final code.
 - Keep the same DataOps architecture and frozen blocks from the plan.
-- Same holdout split; print `Final Validation Performance: {{holdout_rmse}}` from direct holdout RMSE.
-- Keep test prediction + `submission.csv` export.
+- Same holdout split; print `Final Validation Performance: {{holdout_rmse}}` from Block 1 (`skrub.var("data", train_part)` + predict on `valid_part`) — not from a learner fit on full `train_df`.
+- Do **not** load `test_df`, refit on full `train_df`, or write `submission.csv`.
 
 # Response format
 - Single markdown Python code block only.

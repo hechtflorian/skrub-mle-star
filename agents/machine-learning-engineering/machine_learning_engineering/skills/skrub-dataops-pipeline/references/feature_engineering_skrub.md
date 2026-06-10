@@ -13,8 +13,6 @@ Keep the existing DataOps graph; change only the feature block under test.
   coordinate-like column names.
 - After any `apply_func` block, default to a **single** `TableVectorizer()` on post-FE `X`
   unless selectors clearly require split routing.
-- Terminal hyperparameter search runs in a separate tuning stage; do not add `choose_*`
-  in structural refinement unless the plan explicitly requires it.
 
 ## Ablation contract (must follow)
 
@@ -22,6 +20,7 @@ Keep the existing DataOps graph; change only the feature block under test.
 - Do not swap the backbone model (e.g. CatBoost → HGB) unless that is the explicit hypothesis.
 - Pandas and sklearn are fine **inside** deferred functions or as transformers in
   `.skb.apply(...)`; the outer path stays DataOps (`var` / `mark_as_X` / `mark_as_y` / `.skb.apply`).
+- **Holdout binding:** for each ablation variant, fit on `train_part` only (`skrub.var("data", train_part)`), then score on `valid_part`. Do not bind full `train_df` before the metric line (see `dataops_api_quickmap.md`).
 
 ## TableReport profile → ablation ideas
 
@@ -36,11 +35,11 @@ Keep the existing DataOps graph; change only the feature block under test.
 
 If redundancy ablations hurt validation, prefer keeping raw columns and tuning encoding/model instead.
 
-## Conditional coordinate / geo features (general)
+## Derived features (ratios, per-capita) — DataOps-native
 
-Detect coordinate-like columns by name; no-op when absent. Works across tasks without
-hardcoding dataset-specific column lists.
+Prefer `@skrub.deferred` + `.skb.apply_func` so features live in the graph.
 
+Example for coordinate feature engineering:
 ```python
 import numpy as np
 import skrub
@@ -134,10 +133,11 @@ def add_room_ratios(df):
     ).fillna(0.0)
     return out
 
-data = skrub.var("data", train_df)
-data_fe = data.skb.apply_func(add_room_ratios)
+data_train = skrub.var("data", train_part)
+data_fe = data_train.skb.apply_func(add_room_ratios)
 X = data_fe.drop(columns=target_col, errors="ignore").skb.mark_as_X()
 y = data_fe[target_col].skb.mark_as_y()
+# ... model + val_learner on train_part; predict valid_part for metric ...
 ```
 
 Pandas `.assign(...)` inside a deferred function is equally valid for multi-column derivations.

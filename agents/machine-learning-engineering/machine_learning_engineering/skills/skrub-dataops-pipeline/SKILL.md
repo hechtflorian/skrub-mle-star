@@ -28,6 +28,8 @@ Load only the minimum references needed for the current step to avoid context po
   - How to subsample with skrub.
 - **Common skrub failure fixes**: `references/common_failure_fixes.md`
   - Known errors and quick fixes for skrub (DataOps) errors.
+- **Holdout data leakage audit**: `references/holdout_data_leakage.md`
+  - Incorrect vs correct bind/fit patterns; load for the data leakage checker agent.
 
 ## Rules (must follow)
 1. Build the solution as a DataOps graph first, then write final code.
@@ -42,6 +44,7 @@ Load only the minimum references needed for the current step to avoid context po
 10. If the step changes encoders or `TableVectorizer` config, load `references/encoding_skrub.md` before finalizing.
 11. If the step changes column routing (`ApplyToCols`, `DropCols`, selectors, split/concat paths), load `references/selectors_routing_skrub.md`.
 12. If the step adds derived features, drops redundant columns, cleans/scales numerics, or ablation profile suggests structural feature edits, load `references/feature_engineering_skrub.md`.
+13. **Honest holdout validation:** `skrub.var("data", df)` defines what rows `make_learner(fitted=True)` trains on. For `Final Validation Performance`, bind **`train_part` only**, fit, then `predict({"data": valid_part})`. Do **not** load `test_df`, refit on full `train_df`, or write `submission.csv` in init, ablation, refinement, or tuning — **holdout metric only**. Full-train + test export is **submission stage only** (optional late ensemble export). See `references/dataops_api_quickmap.md`.
 
 ## Hard constraints (must follow to prevent common runtime failures)
 - Do not call `.fit(X, y)` on a DataOp chain output.
@@ -50,24 +53,34 @@ Load only the minimum references needed for the current step to avoid context po
 - Do not use unverified kwargs for `TableVectorizer(...)` or `.skb.subsample(...)`.
 - Do not use `mean_squared_error(..., squared=False)` in this project runtime; compute RMSE as `mean_squared_error(...) ** 0.5`.
 
-## Example skrub DataOps pipeline starter template
+## Default pipeline template (init, ablation, refinement, tuning)
+Use the same `train_test_split` size and `random_state` in every early-stage script. **Stop after the validation print** — no test load, no full-train refit.
 ```python
+import numpy as np
 import skrub
+from sklearn.metrics import mean_squared_error
+from sklearn.model_selection import train_test_split
 
-data = skrub.var("data", train_df)
-X = data.drop(columns=target_col, errors="ignore").skb.mark_as_X()
-y = data[target_col].skb.mark_as_y()
+train_idx, valid_idx = train_test_split(
+    np.arange(len(train_df)), test_size=0.2, random_state=42
+)
+train_part = train_df.iloc[train_idx].copy()
+valid_part = train_df.iloc[valid_idx].copy()
+
+data_train = skrub.var("data", train_part)
+X_train = data_train.drop(columns=target_col, errors="ignore").skb.mark_as_X()
+y_train = data_train[target_col].skb.mark_as_y()
 
 vectorizer = skrub.TableVectorizer()
-X_vec = X.skb.apply(vectorizer)
+predictor = X_train.skb.apply(vectorizer).skb.apply(YourModel(), y=y_train)
 
-model = YourModel() # insert your model here
-predictor = X_vec.skb.apply(model, y=y)
-
-# Turning DataOps plan into fitted learner:
-trained_learner = predictor.skb.make_learner(fitted=True)
-preds = trained_learner.predict({"data": test_df})
+val_learner = predictor.skb.make_learner(fitted=True)
+valid_pred = val_learner.predict({"data": valid_part})
+final_validation_score = mean_squared_error(valid_part[target_col], valid_pred) ** 0.5
+print(f"Final Validation Performance: {final_validation_score}")
 ```
+
+**Submission stage only** (and optional final ensemble export): after the metric line above, add full `train_df` refit + `test_df` predict. See `references/dataops_api_quickmap.md` → “Submission stage only”.
 
 Refinement ablation policy:
 - Default to structural ablation with fixed/reused parameters.

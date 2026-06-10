@@ -8,8 +8,10 @@ CHECK_LEAKAGE_INSTR = """# Python code
 # Your task
 - Extract the code block where the validation and test samples are preprocessed using training samples.
 - Check that the model is trained with only training samples.
-- Check that before printing the final validation score, the model is not trained the validation samples.
+- Check that before printing the final validation score, the model is not trained on the validation samples.
 - Also check whether the validation and test samples are preprocessed correctly, preventing information from the validation or test samples from influencing the training process (i.e., preventing data leakage).
+- You must load `references/holdout_data_leakage.md` via `list_skills` -> `load_skill`(`skrub-dataops-pipeline`) -> `load_skill_resource` before judging
+- Tool calls are preparation only — always finish with the JSON below in the same turn.
 
 # Requirement
 - If data leakage is present on validation and test samples, answer 'Yes Data Leakage'.
@@ -30,7 +32,10 @@ LEAKAGE_REFINE_INSTR = """# Python code
 - Ensure that the model is trained with only training samples.
 - Ensure that before printing the final validation score, the model is not trained on the validation samples.
 - Refine the code to prevent such data leakage problem.
+- You must load `references/holdout_data_leakage.md` via `list_skills` -> `load_skill`(`skrub-dataops-pipeline`) -> `load_skill_resource` before editing; apply its Block 1 / Block 2 fix patterns.
 
 # Requirement
 - Your response should be a single markdown code block.
-- Note that all the variables are defined earlier. Just modify it with the above code."""
+- Note that all the variables are defined earlier. Just modify it with the above code.
+- Do not change the core DataOps pipeline architecture; only patch the leakage scope.
+- Tool calls are preparation only — always finish by returning your single markdown code block in the same response."""

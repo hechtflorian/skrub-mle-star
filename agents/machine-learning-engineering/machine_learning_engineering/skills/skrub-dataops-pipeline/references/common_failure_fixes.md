@@ -6,7 +6,7 @@ Use this during debugging. Keep DataOps architecture unchanged.
 - Symptom: errors like `'Series' object has no attribute 'fit'` or internal `SkrubLearner` type errors.
 - Fix:
   - Keep chain as DataOps and use `pred.skb.cross_validate()` for evaluation, or
-  - compile first: `learner = pred.skb.make_learner(fitted=True)`.
+  - compile first: `learner = pred.skb.make_learner(fitted=True)` with the correct bound data (see item 15 for holdout binding).
   - If fitting manually after compile, fit with environment dict (not `X, y` positional form).
 
 ## 2) Predict environment violation
@@ -120,6 +120,15 @@ Use this during debugging. Keep DataOps architecture unchanged.
   - Reload `references/feature_engineering_skrub.md` and keep the same model family/params as `train_code`.
   - Ablate only the feature/preprocessing block; compare holdout RMSE on the same split.
 - Prevention: ablation prompt requires same backbone unless model swap is the explicit hypothesis.
+
+## 15) Holdout leakage via full-data `skrub.var` (optimistic validation RMSE)
+- Symptom: validation RMSE looks unusually good; script binds `skrub.var("data", train_df)`, splits `train_part`/`valid_part`, then `make_learner(fitted=True)` and `predict({"data": valid_part})`.
+- Root cause: `make_learner(fitted=True)` trains on **all** bound rows (including validation), so the metric is not a true holdout score.
+- Fix:
+  - Block 1 (metric): `data_train = skrub.var("data", train_part)`, build graph, `val_learner = pred.skb.make_learner(fitted=True)`, `val_learner.predict({"data": valid_part})`.
+  - Remove `test_df`, full-train refit, and `submission.csv` from init/refinement/tuning scripts — submission agent adds those later.
+  - For tuning: `search.fit({"data": train_part})`, eval with `search.best_learner_.predict({"data": valid_part})`.
+- Prevention: load `references/dataops_api_quickmap.md` (holdout section) or `references/holdout_data_leakage.md` (leakage checker).
 
 ## When to load other references
 - Load `dataops_api_quickmap.md` when rebuilding a broken DataOps path from a known-good template.

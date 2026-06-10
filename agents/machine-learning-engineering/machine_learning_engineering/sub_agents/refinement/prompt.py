@@ -26,6 +26,7 @@ ABLATION_INSTR = """# Introduction
 - Use the data profile to choose focused ablations if useful.
 - Keep ablation search budget small when used (`n_iter <= 5`).
 - Keep the same model family and validation split as the current solution; unless changing the model is the explicit hypothesis.
+- For each ablation variant, fit on `train_part` only (`skrub.var("data", train_part)`); do not bind full `train_df` before scoring on `valid_part`.
 - If the profile shows string/categorical complexity or missingness, include at least one preprocessing/encoding structural ablation.
 - If the profile shows highly correlated feature pairs, include at least one redundancy/ratio/drop-one ablation.
 - Do not claim tuning from default-choice `.skb.make_learner(...)` / `.skb.eval(...)` behavior.
@@ -69,6 +70,7 @@ ABLATION_SEQ_INSTR = """# Introduction
 - Keep ablation search budget small when used (`n_iter <= 5`).
 - Use the data profile to choose focused ablations if useful.
 - Keep the same model family and validation split as the current solution; unless changing the model is the explicit hypothesis.
+- For each ablation variant, fit on `train_part` only (`skrub.var("data", train_part)`); do not bind full `train_df` before scoring on `valid_part`.
 - If the profile shows string/categorical complexity or missingness, include at least one preprocessing/encoding structural ablation.
 - If the profile shows highly correlated feature pairs, include at least one redundancy/ratio/drop-one ablation.
 - Do not claim tuning from default-choice `.skb.make_learner(...)` / `.skb.eval(...)` behavior.
@@ -253,6 +255,7 @@ IMPLEMENT_PLAN_INSTR = """# Introduction
 - Do not label default-choice `.skb.make_learner(...)` / `.skb.eval(...)` behavior as tuned.
 - Keep search localized to the selected impactful block, preserve existing DataOps architecture, and keep the search space compact.
 - The printed `Final Validation Performance` must be computed from a direct holdout RMSE (`mean_squared_error(y_val, y_pred) ** 0.5`) on a real validation split.
+- Fit the metric line on `train_part` only (`skrub.var("data", train_part)`); do not load `test_df` or refit on full `train_df` (submission stage handles test export).
 - Do not use transformed generic CV scores (e.g., `sqrt(mean(test_score))`) as the final refinement score line.
 - You must always return your final runnable Python code block in the same response, even if you call tools via `list_skills`/`load_skill`/`load_skill_resource`.
 

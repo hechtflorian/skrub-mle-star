@@ -238,7 +238,7 @@ for k in range(config.CONFIG.num_solutions):
     tune_plan_agent = agents.Agent(
         model=config.CONFIG.agent_model,
         name=f"tune_plan_agent_{k + 1}",
-        description="Plan terminal choose_* tuning on one focus block.",
+        description="Plan choose_* tuning on one focus block.",
         instruction=get_tune_plan_agent_instruction,
         tools=[skill_tool_util.get_skill_toolset()],
         before_model_callback=check_tune_plan_finish,
@@ -252,7 +252,7 @@ for k in range(config.CONFIG.num_solutions):
     )
     tune_plan_loop_agent = agents.LoopAgent(
         name=f"tune_plan_loop_agent_{k + 1}",
-        description="Generate terminal tuning plan until valid.",
+        description="Generate choose_* tuning plan until valid.",
         sub_agents=[tune_plan_agent],
         max_iterations=config.CONFIG.max_retry,
     )
@@ -274,7 +274,7 @@ for k in range(config.CONFIG.num_solutions):
     )
     tune_task_agent = agents.SequentialAgent(
         name=f"tune_task_agent_{k + 1}",
-        description="Plan, search, bake, and promote terminal tuning.",
+        description="Plan, search, bake, and promote tuning.",
         sub_agents=[
             tune_plan_loop_agent,
             tune_implement_agent,
@@ -286,6 +286,6 @@ for k in range(config.CONFIG.num_solutions):
 
 tuning_agent = agents.ParallelAgent(
     name="tuning_agent",
-    description="Run terminal choose_* tuning once after refinement.",
+    description="Run choose_* tuning once after refinement.",
     sub_agents=tuning_parallel_sub_agents,
 )

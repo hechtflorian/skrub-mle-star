@@ -75,6 +75,32 @@ def extract_tuning_best_params(text: str) -> dict | None:
     return None
 
 
+def _data_op_sort_key(key: str) -> tuple[int, str]:
+    if key.startswith("data_op__"):
+        suffix = key.split("__", 1)[-1]
+        if suffix.isdigit():
+            return (int(suffix), key)
+    return (10**9, key)
+
+
+def map_tuning_best_params(raw: dict, tune_plan: dict) -> dict:
+    """Map skrub search keys (e.g. data_op__0) to plan param names by order."""
+    if not raw:
+        return raw
+    tunable = tune_plan.get("tunable_params") or []
+    names = [p.get("name") for p in tunable if isinstance(p, dict) and p.get("name")]
+    if not names:
+        return raw
+    ordered_values = [
+        value for _, value in sorted(raw.items(), key=lambda item: _data_op_sort_key(item[0]))
+    ]
+    if len(names) != len(ordered_values):
+        return raw
+    return normalize_tuning_best_params(
+        {name: ordered_values[i] for i, name in enumerate(names)}
+    )
+
+
 def code_contains_tuning_placeholders(raw_code: str) -> bool:
     """Return True if code still has choose_* or search calls."""
     return (
@@ -393,9 +419,12 @@ def evaluate_code(
                         result_dict.get("stdout", "")
                     )
                     if best_params is not None:
+                        tune_plan = callback_context.state.get(
+                            f"tune_plan_{task_id}", {}
+                        )
                         callback_context.state[
                             f"tune_best_params_{task_id}"
-                        ] = best_params
+                        ] = map_tuning_best_params(best_params, tune_plan)
             else:
                 score = 1e9 if lower else 0
             result_dict["score"] = score
