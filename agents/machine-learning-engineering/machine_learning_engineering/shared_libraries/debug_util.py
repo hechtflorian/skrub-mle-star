@@ -1,6 +1,7 @@
 """Utility functions for debug agents."""
 
 import functools
+import re
 
 from google.adk import agents
 from google.adk.agents import callback_context as callback_context_module
@@ -156,6 +157,23 @@ def get_bug_summary_agent_instruction(
     )
 
 
+_ESTIMATOR_CLASS_RE = re.compile(r"\b([A-Z]\w*(?:Regressor|Classifier))\b")
+
+def _get_backbone_contract(code: str) -> str:
+    """Deterministic anti-drift context: estimator classes in the buggy code."""
+    estimators = sorted(set(_ESTIMATOR_CLASS_RE.findall(code)))
+    if not estimators:
+        return ""
+    return (
+        "\n# Backbone contract\n"
+        f"- Estimator classes used by the input code: {', '.join(estimators)}. "
+        "Your fixed code must use exactly these estimator classes with the "
+        "same hyperparameters. If an estimator import or module reference is "
+        "wrong (e.g. imported from the wrong package), fix the import for "
+        "the same class — do not substitute a different model family.\n"
+    )
+
+
 def get_debug_agent_instruction(
     context: callback_context_module.ReadonlyContext,
     prefix: str,
@@ -175,18 +193,12 @@ def get_debug_agent_instruction(
         suffix=suffix,
     )
     code = context.state.get(code_state_key, "")
-    instruction = debug_prompt.BUG_REFINE_INSTR.format(
+    return debug_prompt.BUG_REFINE_INSTR.format(
         task_description=task_description,
         code=code,
         bug=bug,
+        backbone_contract=_get_backbone_contract(code),
     )
-    if prefix.startswith("tune_implement"):
-        instruction += (
-            "\n- For tune search fixes: keep in-graph `choose_*`, "
-            "`make_randomized_search`, and `search.fit`; do not remove search "
-            "or substitute fixed literals."
-        )
-    return instruction
 
 
 def get_code_from_response(
@@ -224,6 +236,12 @@ def get_code_from_response(
                 f"train_code_{step}_{task_id}", ""
             )
             if not code.strip():    # return early if no code (tool-call only)
+                return None
+            if not code_block.strip():
+                # Empty extracted block (init_plan never produced a valid
+                # one): str.replace("") would insert the new code between
+                # every character of prev_code (multi-MB string -> context
+                # window explosion). Treat as no-op.
                 return None
             new_code = prev_code.replace(code_block, code)
             if new_code == prev_code:    # no change, return early (tool-call only)

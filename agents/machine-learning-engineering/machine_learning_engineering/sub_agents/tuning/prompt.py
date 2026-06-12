@@ -19,11 +19,13 @@ TUNE_PLAN_INSTR = """# Introduction
 # Your task
 - Pick **one** focus block only: `model`, `encoder`, or `preprocessing`.
 - Prefer `model` when ablation showed capacity or model-side effects; prefer `encoder` when encoding ablation clearly mattered.
-- Model focus: at most **3** `choose_*` nodes with tight ranges around current literals.
+- Model focus: at most **2** `choose_*` nodes with tight ranges around current literals.
 - Encoder/preprocessing focus: at most **2** `choose_*` nodes.
+- If the backbone estimator is **not** a sklearn-API estimator (`sklearn.base.BaseEstimator` subclass — e.g. CatBoost is not), numeric `choose_*` in its constructor will not resolve; plan a small discrete variant grid via `choose_from` instead (see `choices_hparam_pattern.md` Pattern 4), still with `default` values per param.
 - Do not propose new feature engineering, backbone swap, or multiple focus blocks.
 - Use the same holdout split as the current solution (`train_test_split` size and `random_state`).
 - Search budget: `n_iter={n_iter}` (holdout randomized search only, no CV, no Optuna).
+- The whole search must finish well under the 600s execution timeout: account for single-fit runtime, and plan **reduced capacity during search** for boosted trees.
 
 # Requirements
 - Call `list_skills` -> `load_skill` for `skrub-dataops-pipeline` and load `references/choices_hparam_pattern.md` via `load_skill_resource`.
@@ -58,13 +60,15 @@ TUNE_IMPLEMENT_INSTR = """# Introduction
 # Search budget
 - `n_iter={n_iter}`, `n_jobs={n_jobs}`, `random_state=42`
 - Holdout only (same split as current solution). No CV. No Optuna.
+- The script must finish well under the 600s execution timeout: reduce boosted-tree `iterations`/`n_estimators` to ~1/4 of the structural value during search, and use `n_jobs=1` if the estimator is internally multithreaded (CatBoost/LightGBM/XGBoost).
 
 # Requirements
 - Load `references/choices_hparam_pattern.md` via skill tools before editing.
 - Keep all parts listed in plan `frozen` unchanged.
 - Inject `choose_*` only on the plan `focus_block`.
-- Keep `choose_*` inside the DataOps `.skb.apply(...)` graph only — never assign a `choose_*` to a variable and pass it into an estimator constructor; prefer inline kwargs on `.skb.apply(Estimator(param=skrub.choose_float(...)), y=y)`.
+- Keep `choose_*` inside the DataOps `.skb.apply(...)` graph only — never assign a `choose_*` to a variable and pass it into an estimator constructor. For sklearn-API estimators use inline kwargs on `.skb.apply(Estimator(param=skrub.choose_float(...)), y=y)`; for non-sklearn estimators (e.g. CatBoost) inline kwargs do **not** resolve — use the `choose_from` variant-grid pattern (`choices_hparam_pattern.md` Pattern 4) and print the winning variant's literal params as `TUNING_BEST_PARAMS`.
 - You must keep the same DataOps pipeline architecture as the structural solution; only add `choose_*` on the focus block.
+- Reproduce the structural pipeline **verbatim** — every `@skrub.deferred` feature function, `.skb.apply_func(...)` step, scaler, encoder, and column-routing step must appear unchanged in your script. Dropping feature engineering makes the search measure the wrong pipeline and the result unusable. If the structural solution compares variants at runtime, reproduce only its winning variant.
 - Run search from the final prediction DataOp: `search = pred.skb.make_randomized_search(n_iter={n_iter}, n_jobs={n_jobs}, random_state=42, fitted=True)`
 - **Must** fit search on the training fold only: `search.fit({{"data": train_part}})`
 - Evaluate holdout RMSE with `search.best_learner_.predict({{"data": valid_part}})` (after `search.fit`).
@@ -98,8 +102,10 @@ TUNE_BAKE_INSTR = """# Introduction
 
 # Requirements
 - Replace every tuned `choose_*` with literal values from best params JSON.
+- Restore structural-capacity values for any params that were reduced only for the search budget (e.g. boosted-tree `iterations`/`n_estimators` back to the structural solution's value) unless they are explicitly part of the tuned params.
 - **No** `choose_*`, `make_randomized_search`, or `make_grid_search` in final code.
 - Keep the same DataOps architecture and frozen blocks from the plan.
+- Carry over the structural solution's full pipeline verbatim (deferred feature functions, `.skb.apply_func(...)` steps, scalers, encoders); only the tuned literals may differ.
 - Same holdout split; print `Final Validation Performance: {{holdout_rmse}}` from Block 1 (`skrub.var("data", train_part)` + predict on `valid_part`) — not from a learner fit on full `train_df`.
 - Do **not** load `test_df`, refit on full `train_df`, or write `submission.csv`.
 

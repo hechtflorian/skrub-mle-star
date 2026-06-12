@@ -35,7 +35,7 @@ ABLATION_INSTR = """# Introduction
 # Response format
 - There should be no additional headings or text in your response.
 - The Python code for the ablation study should not load test data. It should only focus on training and evaluating the model on the validation set.
-- The code must include a printing statement that shows the performance of each ablation.
+- The code must print one line per variant in the exact format `Ablation[<variant_name>] <metric>: <value>` — include the unmodified baseline as one variant, so at least 2 such lines are printed.
 - The code should consequently print out which part of the code contributes the most to the overall performance.
 - Return Python code; never return only tool-call results.
 """
@@ -79,7 +79,7 @@ ABLATION_SEQ_INSTR = """# Introduction
 # Response format
 - There should be no additional headings or text in your response.
 - The Python code for the ablation study should not load test data. It should only focus on training and evaluating the model on the validation set.
-- The code should include a printing statement that shows the performance of each ablation.
+- The code must print one line per variant in the exact format `Ablation[<variant_name>] <metric>: <value>` — include the unmodified baseline as one variant, so at least 2 such lines are printed.
 - The code should consequently print out what part of the code contributes the most to the overall performance.
 - Return Python code; never return only tool-call results.
 """
@@ -132,6 +132,8 @@ EXTRACT_BLOCK_AND_PLAN_INSTR = """# Introduction
 # Response format
 - Your response should be a brief outline/sketch of your proposed solution in natural language (3-5 sentences) and a single markdown code block which is the code block that need to be improved.
 - The code block can be long but should be exactly extracted from the Python script provided above.
+- `code_block` must be a verbatim, contiguous excerpt of the solution above — copied character-exact, not the full script, and without markdown fences inside the JSON string.
+- Your response must be the JSON array only; never reply with prose such as "No further outputs are needed.".
 - Tool calls are preparation only; you must finish by returning your proposed solution.
 
 Use this JSON schema:
@@ -179,6 +181,8 @@ EXTRACT_BLOCK_AND_PLAN_SEQ_INSTR = """# Introduction
 # Response format
 - Your response should be a brief outline/sketch of your proposed solution in natural language (3-5 sentences) and a single markdown code block which is the code block that need to be improved.
 - The code block can be long but should be exactly extracted from the Python script provided above.
+- `code_block` must be a verbatim, contiguous excerpt of the solution above — copied character-exact, not the full script, and without markdown fences inside the JSON string.
+- Your response must be the JSON array only; never reply with prose such as "No further outputs are needed.".
 - Tool calls are preparation only; you must finish by returning your proposed solution.
 
 Use this JSON schema:
@@ -252,6 +256,7 @@ IMPLEMENT_PLAN_INSTR = """# Introduction
 - If you want to perform parameter search (e.g. over model family, encoding, or search-space nodes), load `references/choices_hparam_pattern.md` via `load_skill_resource` before finalizing code.
 - Do not add `choose_*` or run parameter search unless the improvement plan explicitly requires tuning in this step; terminal tuning is handled by dedicated tune agents after structural refinement.
 - If the plan is non-tuning or the change is minor, prefer reusing previous strong parameters or explicit fixed values.
+- Implement the plan directly as one resolved pipeline. Do not write runtime variant-chooser loops (building several pipeline variants and picking the best at runtime): variant comparison belongs to the ablation stage, and downstream agents must see a single unambiguous pipeline.
 - Do not label default-choice `.skb.make_learner(...)` / `.skb.eval(...)` behavior as tuned.
 - Keep search localized to the selected impactful block, preserve existing DataOps architecture, and keep the search space compact.
 - The printed `Final Validation Performance` must be computed from a direct holdout RMSE (`mean_squared_error(y_val, y_pred) ** 0.5`) on a real validation split.

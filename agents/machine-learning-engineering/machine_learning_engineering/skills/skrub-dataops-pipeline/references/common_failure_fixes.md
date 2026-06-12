@@ -129,14 +129,15 @@ Use this during debugging. Keep DataOps architecture unchanged.
   - For tuning: `search.fit({"data": train_part})`, eval with `search.best_learner_.predict({"data": valid_part})`.
 - Prevention: load `references/dataops_api_quickmap.md` (holdout section) or `references/holdout_data_leakage.md` (leakage checker).
 
-## 16) Unresolved `choose_*` passed into estimator kwargs
-- Symptom: `TypeError: Object of type NumericChoice is not JSON serializable` (or similar param/type errors) when building or training the model step.
-- Root cause: a `skrub.choose_*` / `choose_from` object was assigned and passed directly into a third-party estimator constructor (e.g. `Model(learning_rate=skrub.choose_float(...))`) instead of staying inside the DataOps graph for search to resolve.
+## 16) Unresolved `choose_*` in estimator params (`NumericChoice is not JSON serializable` and similar)
+- Symptom: `TypeError: Object of type NumericChoice is not JSON serializable` (CatBoost) or similar param/type errors when the model step is built or fitted.
+- Root cause: skrub resolves `choose_*` inside estimator constructor kwargs **only for sklearn-API estimators** (`sklearn.base.BaseEstimator` subclasses — sklearn, LightGBM, XGBoost). For non-sklearn estimators (e.g. CatBoost) the choice is never substituted and reaches `fit` unresolved — inline kwargs do **not** fix it there.
 - Fix:
-  - Put tunables inline on the `.skb.apply(...)` chain: `pred = X.skb.apply(Estimator(lr=skrub.choose_float(..., name="lr")), y=y)` — do not bind `choose_*` to a variable first.
-  - Run `pred.skb.make_randomized_search(...)` / `.skb.make_grid_search(...)`, then `search.fit(...)` and use `search.best_learner_` — do not call `make_learner(fitted=True)` on an unresolved `choose_*` graph expecting real tuning, this will only use default values.
+  - sklearn-API estimator: keep `choose_*` inline in constructor kwargs on the `.skb.apply(...)` chain (never bound to a variable first), then run `make_randomized_search` + `search.fit(...)` and use `search.best_learner_`.
+  - non-sklearn estimator: select the whole pre-configured estimator with `choose_from({label: Estimator(**params)})` over a small variant grid; recover the winner via `search.results_.iloc[0][<choice name>]` and print its literal params as `TUNING_BEST_PARAMS` (see `choices_hparam_pattern.md` Pattern 4).
+  - **Never swap the model class to silence this error** — fix the tuning mechanism, not the backbone.
   - For fixed-parameter scripts (tune-bake), replace `choose_*` with plain Python literals.
-- Prevention: load `references/choices_hparam_pattern.md`; keep estimator class/family unchanged while fixing.
+- Prevention: load `references/choices_hparam_pattern.md`; if unsure check `isinstance(est, sklearn.base.BaseEstimator)`.
 
 ## 17) `.skb.apply_func` helper assumes pandas DataFrame
 - Symptom: `AttributeError` (e.g. no `.copy()`, `.drop()`, `.columns`) inside a function passed to `.skb.apply_func(...)`.
@@ -144,14 +145,35 @@ Use this during debugging. Keep DataOps architecture unchanged.
 - Fix:
   - Keep `@skrub.deferred` helpers pandas-native on `.copy()`/column ops only when the pattern matches working examples in `feature_engineering_skrub.md`.
   - Or use skrub selectors / graph ops on `X` after FE instead of pandas drops inside the deferred helper.
-  - For ablation variants, change only the intended block; keep the same backbone model and holdout split.
 - Prevention: load `references/feature_engineering_skrub.md` before ablation or refinement FE edits.
+
+## 18) Eager pandas ops on DataOp graph objects
+- Symptom: errors (and repeated identical retries) on lines like `"col" in X.columns`, iteration over `X.columns`, or conditional logic on a DataOp (e.g. `X` after `.skb.mark_as_X()`).
+- Root cause: a DataOp is a lazy graph node, not a pandas DataFrame — membership tests, iteration, and eager branching on it are invalid at graph-build time.
+- Fix:
+  - Do column checks/derivations inside a `@skrub.deferred` helper (it receives a real DataFrame at run time), or on the raw df before `skrub.var(...)`.
+  - Replace conditional drops with `.drop(columns=..., errors="ignore")` on the chain.
+- Prevention: never branch on `.columns` of a marked `X`/`y` DataOp; load `references/feature_engineering_skrub.md` before FE edits.
+
+## 20) Custom wrapper classes/objects around DataOps graphs break `.skb`
+- Symptom: `AttributeError` on `.skb.make_learner(...)` / `.skb` because the object is a custom class or plain function result, not a DataOp; often from a helper that bundles several graphs into an invented "ensemble" wrapper.
+- Root cause: only skrub DataOp objects carry the `.skb` accessor. A hand-written class wrapping graphs (or mimicking `.skb` with a method) is not part of the skrub API.
+- Fix (verified pattern — combine **predictions**, not graph/learner objects):
+```python
+pred_a = X.skb.apply(vectorizer).skb.apply(model_a, y=y)
+pred_b = X.skb.apply(vectorizer).skb.apply(model_b, y=y)
+learner_a = pred_a.skb.make_learner(fitted=True)
+learner_b = pred_b.skb.make_learner(fitted=True)
+blend = 0.7 * np.asarray(learner_a.predict({"data": valid_part})) \
+      + 0.3 * np.asarray(learner_b.predict({"data": valid_part}))
+```
+- Helpers are fine when they return DataOps (e.g. a function building and returning `pred`); never invent classes that wrap graphs or expose a fake `.skb`.
 
 ## When to load other references
 - Load `dataops_api_quickmap.md` when rebuilding a broken DataOps path from a known-good template.
 - Load `encoding_skrub.md` if failures are tied to weak/default encoding strategy.
 - Load `selectors_routing_skrub.md` for split/concat routing or selector mistakes.
-- Load `feature_engineering_skrub.md` for ratios, redundancy drops, cleaning, ablation alignment, or `.skb.apply_func` DataOp helper errors (#17).
+- Load `feature_engineering_skrub.md` for ratios, redundancy drops, cleaning, ablation alignment, or DataOp helper / eager-pandas errors (#17, #18).
 - Load `choices_hparam_pattern.md` for `choose_*` semantics, fake-tuning prevention, or grid/randomized search fixes.
 - Load `dataops_tuning_optuna.md` for Optuna-specific search/debug patterns.
 - Load `joining_across_columns.md` for multi-table merge/aggregation correctness.

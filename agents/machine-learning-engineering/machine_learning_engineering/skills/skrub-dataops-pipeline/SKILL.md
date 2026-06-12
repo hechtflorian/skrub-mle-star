@@ -52,9 +52,10 @@ Load only the minimum references needed for the current step to avoid context po
 - Do not redundantly drop target columns during inference; avoid `test_df.drop(columns=target_col)` unless required (test_df usually doesnt include target_col), and if used, guard with `errors="ignore"`.
 - Do not use unverified kwargs for `TableVectorizer(...)` or `.skb.subsample(...)`.
 - Do not use `mean_squared_error(..., squared=False)` in this project runtime; compute RMSE as `mean_squared_error(...) ** 0.5`.
+- Silence training logs so stdout stays small: CatBoost `verbose=0`, LightGBM `verbose=-1`, XGBoost `verbosity=0` (never per-iteration logging).
 
 ## Default pipeline template (init, ablation, refinement, tuning)
-Use the same `train_test_split` size and `random_state` in every early-stage script. **Stop after the validation print** — no test load, no full-train refit.
+Use the same `train_test_split` size and `random_state`. The final line should be **validation print** — no test load, no full-train refit if no submission export is expected.
 ```python
 import numpy as np
 import skrub
@@ -80,7 +81,7 @@ final_validation_score = mean_squared_error(valid_part[target_col], valid_pred) 
 print(f"Final Validation Performance: {final_validation_score}")
 ```
 
-**Submission stage only** (and optional final ensemble export): after the metric line above, add full `train_df` refit + `test_df` predict. See `references/dataops_api_quickmap.md` → “Submission stage only”.
+**Submission stage only** (and optional final ensemble export): after the val metric line above, add full `train_df` refit + `test_df` predict. See `references/dataops_api_quickmap.md` → “Submission stage only”.
 
 Refinement ablation policy:
 - Default to structural ablation with fixed/reused parameters.

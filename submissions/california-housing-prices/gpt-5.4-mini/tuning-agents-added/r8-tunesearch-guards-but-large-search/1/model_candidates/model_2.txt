@@ -1,0 +1,27 @@
+## Model name
+XGBoostRegressor
+
+## Example Python code
+import pandas as pd
+from xgboost import XGBRegressor
+
+train = pd.read_csv('train.csv')
+test = pd.read_csv('test.csv')
+X = train.drop(columns=['median_house_value'])
+y = train['median_house_value']
+
+model = XGBRegressor(
+    n_estimators=3000,
+    learning_rate=0.03,
+    max_depth=8,
+    subsample=0.8,
+    colsample_bytree=0.8,
+    reg_lambda=1.0,
+    random_state=42,
+    tree_method='hist'
+)
+model.fit(X, y, eval_set=[(X, y)], verbose=200)
+pred = model.predict(test)
+
+sub = pd.DataFrame({'median_house_value': pred})
+sub.to_csv('submission.csv', index=False)

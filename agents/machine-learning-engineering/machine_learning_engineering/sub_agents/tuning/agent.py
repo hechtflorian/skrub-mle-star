@@ -214,6 +214,38 @@ def check_tune_implement_finish(
     return llm_response_module.LlmResponse()
 
 
+def prepare_tune_bake_inputs(
+    callback_context: callback_context_module.CallbackContext,
+) -> types.Content | None:
+    """Define bake params source: search result, plan defaults, or skip bake.
+
+    Runs before the bake stage. If search produced no best params, fall back
+    to the tune plan's per-param defaults; if those are unavailable too, mark
+    bake as skipped (sentinel exec result) so no LLM calls are spent and
+    promotion keeps the structural solution.
+    """
+    task_id = callback_context.agent_name.split("_")[-1]
+    best_params = callback_context.state.get(f"tune_best_params_{task_id}", {})
+    if best_params:
+        callback_context.state[f"tune_param_source_{task_id}"] = "search"
+        return None
+    tune_plan = callback_context.state.get(f"tune_plan_{task_id}", {})
+    defaults = {}
+    for param in tune_plan.get("tunable_params") or []:
+        if isinstance(param, dict) and param.get("name") and "default" in param:
+            defaults[param["name"]] = param["default"]
+    if defaults:
+        callback_context.state[f"tune_best_params_{task_id}"] = defaults
+        callback_context.state[f"tune_param_source_{task_id}"] = "plan_defaults"
+        return None
+    callback_context.state[f"tune_param_source_{task_id}"] = "skipped"
+    callback_context.state[f"train_code_tune_exec_result_{task_id}"] = {
+        "returncode": 0,
+        "skipped_no_params": True,
+    }
+    return None
+
+
 def check_tune_bake_finish(
     callback_context: callback_context_module.CallbackContext,
     llm_request: llm_request_module.LlmRequest,
@@ -223,14 +255,20 @@ def check_tune_bake_finish(
     result_dict = callback_context.state.get(
         f"train_code_tune_exec_result_{task_id}", {}
     )
+    if result_dict.get("skipped_no_params"):
+        # Bake skipped (no search result, no plan defaults): no LLM calls.
+        callback_context.state[
+            f"tune_bake_skip_data_leakage_check_{task_id}"
+        ] = True
+        return llm_response_module.LlmResponse()
     baked_code = callback_context.state.get(f"train_code_tune_{task_id}", "")
     best_params = callback_context.state.get(f"tune_best_params_{task_id}", {})
     callback_context.state[f"tune_bake_skip_data_leakage_check_{task_id}"] = True
     if (
         result_dict.get("returncode", 1) == 0
-        #and "score" in result_dict
-        #and baked_code
-        #and best_params
+        and "score" in result_dict
+        and baked_code
+        and best_params
         and not code_util.code_contains_tuning_placeholders(baked_code)
     ):
         return llm_response_module.LlmResponse()
@@ -277,6 +315,8 @@ for k in range(config.CONFIG.num_solutions):
         before_model_callback=check_tune_bake_finish,
         tools=[skill_tool_util.get_skill_toolset()],
     )
+    # Decide bake param source (search / plan defaults / skip) before bake runs.
+    tune_bake_agent.before_agent_callback = prepare_tune_bake_inputs
     tune_task_agent = agents.SequentialAgent(
         name=f"tune_task_agent_{k + 1}",
         description="Plan, search, bake, and promote tuning.",

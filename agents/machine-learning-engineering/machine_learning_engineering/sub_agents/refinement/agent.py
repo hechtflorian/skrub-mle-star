@@ -323,6 +323,17 @@ def check_plan_implement_finish(
     step = callback_context.state.get(f"refine_step_{task_id}", 0)
     inner_iter = callback_context.state.get(f"inner_iter_{task_id}", 0)
     suffix = f"{inner_iter}_{step}_{task_id}"
+    code_block = callback_context.state.get(
+        f"refine_code_block_{step}_{task_id}", ""
+    )
+    if not code_block.strip():
+        # No valid extracted block from init_plan: the block merge cannot
+        # work, so skip all implement LLM calls; outer loop keeps the
+        # previous solution.
+        callback_context.state[
+            f"plan_implement_skip_data_leakage_check_{suffix}"
+        ] = True
+        return llm_response_module.LlmResponse()
     result_dict = callback_context.state.get(
         f"train_code_improve_exec_result_{suffix}", {}
     )
@@ -335,6 +346,7 @@ def check_plan_implement_finish(
     callback_context.state[
         f"plan_implement_skip_data_leakage_check_{suffix}"
     ] = True
+    # new tool-call only check: finish only when exec succeeds, code non-empty, and differs from prev code
     if (
         result_dict.get("returncode", 1) == 0
         and "score" in result_dict

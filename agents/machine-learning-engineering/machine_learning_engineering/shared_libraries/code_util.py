@@ -48,6 +48,23 @@ def run_python_code(
     return result_dict
 
 
+def truncate_for_state(text: str, head: int = 2000, tail: int = 4000) -> str:
+    """Bound subprocess output before storing it in state.
+
+    Keeps head + tail (metric lines and tracebacks are at the end); the
+    middle (e.g. unbounded CatBoost/LightGBM training logs) is elided.
+    Callers must extract scores/params from the full text before truncating.
+    """
+    if len(text) <= head + tail + 200:
+        return text
+    omitted = len(text) - head - tail
+    return (
+        text[:head]
+        + f"\n... [{omitted} characters of output omitted] ...\n"
+        + text[-tail:]
+    )
+
+
 def normalize_tuning_best_params(params: dict) -> dict:
     """Convert numpy scalars to native Python types for JSON-safe state storage."""
     normalized: dict = {}
@@ -91,6 +108,10 @@ def map_tuning_best_params(raw: dict, tune_plan: dict) -> dict:
     names = [p.get("name") for p in tunable if isinstance(p, dict) and p.get("name")]
     if not names:
         return raw
+    if set(raw.keys()) == set(names):
+        # Script already printed human-named params (e.g. choose_from variant
+        # pattern); positional remapping would scramble value assignment.
+        return normalize_tuning_best_params(raw)
     ordered_values = [
         value for _, value in sorted(raw.items(), key=lambda item: _data_op_sort_key(item[0]))
     ]
@@ -290,10 +311,6 @@ def get_run_code_condition(
             compile(raw_code, "<tune_implement>", "exec")
         except SyntaxError:
             return False
-        #if "make_randomized_search" not in raw_code:
-            #return False
-        #if "search.fit" not in raw_code:
-            #return False
         if "TUNING_BEST_PARAMS" not in raw_code:
             return False
         if "choose_" not in raw_code:
@@ -405,6 +422,21 @@ def evaluate_code(
         if agent_name.startswith("ablation"):
             if result_dict["returncode"] == 0:
                 ablation_result = result_dict.get("stdout", "None")
+                if ablation_result.count("Ablation[") < 2:
+                    # Ablation contract: a run without at least baseline +
+                    # one variant line is not an ablation study; fail it so
+                    # debug restores the variants instead of a single fit
+                    # passing as valid planner signal.
+                    result_dict["returncode"] = 1
+                    result_dict["stderr"] = (
+                        result_dict.get("stderr", "")
+                        + "\nAblation contract violation: stdout must contain "
+                        "at least 2 lines in the format "
+                        "'Ablation[<variant_name>] <metric>: <value>' "
+                        "(baseline + at least one ablated variant). Keep the "
+                        "existing variants and backbone; only fix the error."
+                    )
+                    ablation_result = "None"
             else:
                 ablation_result = "None"
             result_dict["ablation_result"] = ablation_result
@@ -422,16 +454,37 @@ def evaluate_code(
                     best_params = extract_tuning_best_params(
                         result_dict.get("stdout", "")
                     )
-                    if best_params is not None:
+                    if best_params:
                         tune_plan = callback_context.state.get(
                             f"tune_plan_{task_id}", {}
                         )
                         callback_context.state[
                             f"tune_best_params_{task_id}"
                         ] = map_tuning_best_params(best_params, tune_plan)
+                    else:
+                        # Honest tuning contract: exit code 0 without parseable
+                        # best params is not a successful search. Store a
+                        # failure so debug/rollback engage instead of bake
+                        # silently running without a search handoff.
+                        result_dict["returncode"] = 1
+                        result_dict["stderr"] = (
+                            result_dict.get("stderr", "")
+                            + "\nTuning contract violation: script exited 0 "
+                            "but no non-empty TUNING_BEST_PARAMS JSON line "
+                            "was found in stdout. Print exactly: "
+                            'print("TUNING_BEST_PARAMS:", '
+                            "json.dumps(best_params, default=str)) "
+                            "with the best parameters from the executed "
+                            "search."
+                        )
             else:
                 score = 1e9 if lower else 0
             result_dict["score"] = score
+        # Bound outputs before they enter state: scores, tuning params, and
+        # the ablation gate were all extracted from the full text above.
+        for key in ("stdout", "stderr", "ablation_result"):
+            if isinstance(result_dict.get(key), str):
+                result_dict[key] = truncate_for_state(result_dict[key])
     else:
         result_dict = {}
     code_execution_result_state_key = get_code_execution_result_state_key(

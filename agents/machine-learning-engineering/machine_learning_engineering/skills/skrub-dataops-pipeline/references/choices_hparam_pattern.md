@@ -84,6 +84,39 @@ classifier = skrub.choose_from({"model1": model1, "model2": model2}, name="class
 pred = X.skb.apply(encoder).skb.apply(classifier, y=y)
 ```
 
+## Critical rule: inline `choose_*` in constructor kwargs works only for sklearn-API estimators
+- skrub substitutes `choose_*` placed inside an estimator's constructor kwargs **only when the estimator subclasses `sklearn.base.BaseEstimator`** (all sklearn models, LightGBM `LGBM*`, XGBoost `XGB*`).
+- For estimators that are **not** `BaseEstimator` subclasses (e.g. `catboost.CatBoostRegressor`), the choice object is never resolved, reaches `fit` raw, and crashes (CatBoost: `TypeError: Object of type NumericChoice is not JSON serializable`). Patterns 1/3 inline kwargs cannot work there — use Pattern 4.
+- Quick check when unsure: `from sklearn.base import BaseEstimator; isinstance(est, BaseEstimator)`.
+
+## Pattern 4: tune non-sklearn estimators via a `choose_from` variant grid
+Select the **whole pre-configured estimator** instead of per-param choices. Keep the grid small (~2x `n_iter` combos), string keys.
+```python
+variants = {
+    "d7_lr0.03": dict(depth=7, learning_rate=0.03),
+    "d8_lr0.03": dict(depth=8, learning_rate=0.03),
+    "d8_lr0.05": dict(depth=8, learning_rate=0.05),
+    "d9_lr0.05": dict(depth=9, learning_rate=0.05),
+}
+model = skrub.choose_from(
+    {k: YourNonSklearnModel(**p, random_seed=42, verbose=0) for k, p in variants.items()},
+    name="model_variant",
+)
+pred = X.skb.apply(vectorizer).skb.apply(model, y=y)
+search = pred.skb.make_randomized_search(n_iter=4, random_state=42, fitted=True)
+search.fit({"data": train_part})
+
+chosen = search.results_.iloc[0]["model_variant"]  # results_ row 0 = best; column name = choice name
+best_params = dict(variants[chosen])               # literal params -> clean bake handoff
+print("TUNING_BEST_PARAMS:", json.dumps(best_params, default=str))
+```
+
+## Critical rule: search must fit the execution time budget
+- Total search runtime ≈ (n_iter + 1) × single-fit time; the whole script must finish **well under the execution timeout (default 600s)**. If one structural fit takes minutes, a full-capacity search will time out and the tuning stage fails.
+- For boosted trees, **reduce capacity during search**: cut `iterations`/`n_estimators` to roughly 1/4 of the structural value or use early stopping. Relative ranking of nearby configs is preserved; the winner is baked at structural capacity afterwards.
+- Use `n_jobs=1` in `make_randomized_search` when the estimator is internally multithreaded (CatBoost, LightGBM, XGBoost) — parallel search over parallel fits oversubscribes CPU and is slower.
+- Keep the search space small and focused: few params, tight ranges, low `n_iter`. One cheap completed search beats an ambitious one that times out.
+
 ## Search execution pattern
 Holdout search (`tune_implement` only — holdout metric + `TUNING_BEST_PARAMS`):
 ```python
@@ -113,7 +146,7 @@ Tune agents should prefer explicit holdout `search.fit` above when structural co
 - Anti-pattern (holdout leakage): `skrub.var("data", train_df)` + split + `make_learner(fitted=True)` + `predict({"data": valid_part})` for the metric line.
 - Anti-pattern (fake tuning): define `choose_*` and then call only `pred.skb.make_learner(fitted=True)`.
 - Anti-pattern (unresolved choose in estimator): `lr = skrub.choose_float(...)` then `Estimator(learning_rate=lr)` — many libraries copy/serialize kwargs at init and fail on skrub choice objects; keep `choose_*` on the DataOps apply path and resolve via search.
-- Correct (inline on apply): `pred = X.skb.apply(Estimator(lr=skrub.choose_float(0.01, 0.1, name="lr")), y=y)` then `search = pred.skb.make_randomized_search(...)` — no intermediate variable holding a choice object.
+- Correct (inline on apply, sklearn-API estimators only): `pred = X.skb.apply(Estimator(lr=skrub.choose_float(0.01, 0.1, name="lr")), y=y)` then `search = pred.skb.make_randomized_search(...)` — no intermediate variable holding a choice object. For non-sklearn estimators (e.g. CatBoost) this also fails — use Pattern 4.
 - Anti-pattern (terminal tune crash): call `json.dumps(best_params)` on skrub/search params without `default=str` or numpy-to-Python conversion.
 - Anti-pattern (incomparable scores): `search.fit({"data": train_part})` in tune_implement, then `make_learner(fitted=True)` on full `train_df` in tune_bake for the metric line.
 - Anti-pattern (bake mapping): assume `search.best_params_` keys match `name=` strings — keys are often `data_op__0`, `data_op__1`, … Map **values** to estimator kwargs using plan `tunable_params` order (or `describe_param_grid()`), not key names.
