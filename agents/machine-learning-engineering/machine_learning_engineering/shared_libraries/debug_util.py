@@ -175,11 +175,18 @@ def get_debug_agent_instruction(
         suffix=suffix,
     )
     code = context.state.get(code_state_key, "")
-    return debug_prompt.BUG_REFINE_INSTR.format(
+    instruction = debug_prompt.BUG_REFINE_INSTR.format(
         task_description=task_description,
         code=code,
         bug=bug,
     )
+    if prefix.startswith("tune_implement"):
+        instruction += (
+            "\n- For tune search fixes: keep in-graph `choose_*`, "
+            "`make_randomized_search`, and `search.fit`; do not remove search "
+            "or substitute fixed literals."
+        )
+    return instruction
 
 
 def get_code_from_response(
@@ -216,7 +223,11 @@ def get_code_from_response(
             prev_code = callback_context.state.get(
                 f"train_code_{step}_{task_id}", ""
             )
+            if not code.strip():    # return early if no code (tool-call only)
+                return None
             new_code = prev_code.replace(code_block, code)
+            if new_code == prev_code:    # no change, return early (tool-call only)
+                return None
         else:
             new_code = code
     else:

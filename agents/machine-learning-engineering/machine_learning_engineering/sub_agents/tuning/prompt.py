@@ -63,9 +63,9 @@ TUNE_IMPLEMENT_INSTR = """# Introduction
 - Load `references/choices_hparam_pattern.md` via skill tools before editing.
 - Keep all parts listed in plan `frozen` unchanged.
 - Inject `choose_*` only on the plan `focus_block`.
+- Keep `choose_*` inside the DataOps `.skb.apply(...)` graph only — never assign a `choose_*` to a variable and pass it into an estimator constructor; prefer inline kwargs on `.skb.apply(Estimator(param=skrub.choose_float(...)), y=y)`.
 - You must keep the same DataOps pipeline architecture as the structural solution; only add `choose_*` on the focus block.
-- Run search from the final prediction DataOp:
-  `search = pred.skb.make_randomized_search(n_iter={n_iter}, n_jobs={n_jobs}, random_state=42, fitted=True)`
+- Run search from the final prediction DataOp: `search = pred.skb.make_randomized_search(n_iter={n_iter}, n_jobs={n_jobs}, random_state=42, fitted=True)`
 - **Must** fit search on the training fold only: `search.fit({{"data": train_part}})`
 - Evaluate holdout RMSE with `search.best_learner_.predict({{"data": valid_part}})` (after `search.fit`).
 - Build a JSON-serializable `best_params` dict (native Python floats/ints, not numpy scalars).

@@ -198,15 +198,20 @@ def check_tune_implement_finish(
     result_dict = callback_context.state.get(
         f"train_code_tune_search_exec_result_{task_id}", {}
     )
+    if not result_dict:
+        return None
+
+    best_params = callback_context.state.get(f"tune_best_params_{task_id}", {})
+    compliant = (
+        result_dict.get("returncode", 1) == 0
+        and "score" in result_dict
+        and bool(best_params)
+    )
     callback_context.state[
         f"tune_implement_skip_data_leakage_check_{task_id}"
-    ] = True
-    if result_dict.get("returncode", 1) == 0:
-        return llm_response_module.LlmResponse()
-    callback_context.state[
-        f"tune_implement_skip_data_leakage_check_{task_id}"
-    ] = False
-    return None
+    ] = compliant
+    # Fail-fast: one implement attempt per rollback round, then debug.
+    return llm_response_module.LlmResponse()
 
 
 def check_tune_bake_finish(

@@ -85,7 +85,7 @@ pred = X.skb.apply(encoder).skb.apply(classifier, y=y)
 ```
 
 ## Search execution pattern
-Holdout search (`tune_implement` only — holdout metric + `TUNING_BEST_PARAMS`; no `test_df`, no full-train refit, no `submission.csv`):
+Holdout search (`tune_implement` only — holdout metric + `TUNING_BEST_PARAMS`):
 ```python
 import json
 
@@ -112,10 +112,12 @@ Tune agents should prefer explicit holdout `search.fit` above when structural co
 ## Anti-pattern vs correct pattern
 - Anti-pattern (holdout leakage): `skrub.var("data", train_df)` + split + `make_learner(fitted=True)` + `predict({"data": valid_part})` for the metric line.
 - Anti-pattern (fake tuning): define `choose_*` and then call only `pred.skb.make_learner(fitted=True)`.
+- Anti-pattern (unresolved choose in estimator): `lr = skrub.choose_float(...)` then `Estimator(learning_rate=lr)` — many libraries copy/serialize kwargs at init and fail on skrub choice objects; keep `choose_*` on the DataOps apply path and resolve via search.
+- Correct (inline on apply): `pred = X.skb.apply(Estimator(lr=skrub.choose_float(0.01, 0.1, name="lr")), y=y)` then `search = pred.skb.make_randomized_search(...)` — no intermediate variable holding a choice object.
 - Anti-pattern (terminal tune crash): call `json.dumps(best_params)` on skrub/search params without `default=str` or numpy-to-Python conversion.
 - Anti-pattern (incomparable scores): `search.fit({"data": train_part})` in tune_implement, then `make_learner(fitted=True)` on full `train_df` in tune_bake for the metric line.
 - Anti-pattern (bake mapping): assume `search.best_params_` keys match `name=` strings — keys are often `data_op__0`, `data_op__1`, … Map **values** to estimator kwargs using plan `tunable_params` order (or `describe_param_grid()`), not key names.
-- Correct holdout (early stages): bind `train_part`, print metric, stop — no test/full-train block until submission.
+- Correct holdout (early stages): bind `train_part`, print metric — no test/full-train block until submission.
 - Correct tuning: define `choose_*`, run search (`make_randomized_search` / `make_grid_search`), then train/predict with best search result.
 - Correct fixed-parameter run: no `choose_*`; use concrete parameter values directly.
 
@@ -125,7 +127,7 @@ Tune agents should prefer explicit holdout `search.fit` above when structural co
 - Print best params on one line with JSON-safe serialization:
   `print("TUNING_BEST_PARAMS:", json.dumps(best_params, default=str))`
 - Do **not** use bare `json.dumps(best_params)` on skrub/search output — numpy scalars will crash the script.
-- `tune_bake` script: replace each `choose_*` with literals from best params; **no** `choose_*` or search calls; score with Block 1 (`skrub.var("data", train_part)` + holdout predict) — same protocol as structural code; **no** `test_df` or full-train refit (submission stage adds those).
+- `tune_bake` script: replace each `choose_*` with literals from best params; **no** `choose_*` or search calls; score with Block 1 (`skrub.var("data", train_part)` + holdout predict) — same protocol as structural code; **no** `test_df` or full-train refit (will already happen at later submission stage)
 - One focus block per search; keep `n_iter` low (≤4 by default). Set `verbose=-1` on LightGBM/CatBoost during search to limit stdout noise.
 
 ## Checklist
@@ -140,6 +142,6 @@ Tune agents should prefer explicit holdout `search.fit` above when structural co
 ## When to load other references
 - Load `dataops_api_quickmap.md` for canonical DataOps pipeline shape and safe fit/predict patterns.
 - Load `dataops_tuning_optuna.md` when using Optuna backend or trial-based search flows for tuning.
-- Load `common_failure_fixes.md` when runtime errors appear, for fake-tuning, `choose_from` key-type, or scoring/debug issues.
+- Load `common_failure_fixes.md` when runtime errors appear, for fake-tuning, unresolved `choose_*` in estimator kwargs (#16), `choose_from` key-type, or scoring/debug issues.
 - Load `encoding_skrub.md` when tuning scope includes encoding/preprocessing choices.
 - Load `skrub_subsampling.md` when iteration speed is the bottleneck and subsampling is required.

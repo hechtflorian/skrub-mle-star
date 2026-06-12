@@ -331,12 +331,12 @@ Beyond the original `dataops_api_quickmap.md`, the skill now ships focused refer
 | `references/dataops_tuning_optuna.md` | Optuna backend (advanced; not default path) |
 | `references/holdout_data_leakage.md` | **Leakage checker only** — audit bind/fit patterns |
 
-**`SKILL.md`** — starter template rewritten to the **two-block holdout pattern** (Block 1: `train_part` for metric; Block 2: `train_df` for test/submission). Rule #13 enforces honest holdout binding.
+**`SKILL.md`** — default template is **holdout-only** for early stages (`train_part` bind → metric print). Full-train + test export moved to a separate **submission-stage** note (see §22 below; supersedes the earlier two-block default template).
 
 **Prompt alignment (minimal one-liners, no bloat):**
-- `sub_agents/initialization/prompt.py` — load quickmap + two-block holdout
-- `sub_agents/refinement/prompt.py` — ablation/implement fit on `train_part` only
-- `sub_agents/tuning/prompt.py` — bake scores via Block 1, not full-train fit
+- `sub_agents/initialization/prompt.py` — load quickmap + holdout-only early stages
+- `sub_agents/refinement/prompt.py` — ablation/implement fit on `train_part` only; no `test_df`
+- `sub_agents/tuning/prompt.py` — bake/search holdout metric only (no test/submission in tune scripts)
 - `shared_libraries/debug_prompt.py` — preserve holdout binding when fixing skrub code
 
 ### 16) Holdout data leakage — problem, impact, fix
@@ -354,17 +354,20 @@ Beyond the original `dataops_api_quickmap.md`, the skill now ships focused refer
 - `references/common_failure_fixes.md` — item **#15** (holdout leakage via full-data `skrub.var`)
 - `references/feature_engineering_skrub.md`, `selectors_routing_skrub.md` — examples use `train_part` in Block 1
 
-**Correct pattern (what agents should emit after rerun):**
+**Correct pattern (early stages — holdout metric only):**
 
 ```python
-# Block 1 — metric
 data_train = skrub.var("data", train_part)
 # ... build graph on data_train ...
 val_learner = pred.skb.make_learner(fitted=True)
 valid_pred = val_learner.predict({"data": valid_part})
 print(f"Final Validation Performance: {rmse}")
+# stop here in init / ablation / refinement / tuning
+```
 
-# Block 2 — test/submission (after metric print)
+**Submission stage only** (full train + test — not copied into early scripts; see §22):
+
+```python
 data_full = skrub.var("data", train_df)
 full_learner = full_pred.skb.make_learner(fitted=True)
 test_pred = full_learner.predict({"data": test_df})
@@ -459,9 +462,11 @@ Artifacts: `submissions/california-housing-prices/gpt-5.4-mini/tuning-agents-add
 | 1 | Tool-only agent turns treated as code | `code_util.py` compile/empty gates; finish criteria in refinement/ensemble agents |
 | 2 | Tune loop stuck on numpy JSON | `normalize_tuning_best_params`, prompt `default=str` |
 | 3 | `data_op__N` in `tune_best_params` | `map_tuning_best_params` + `choices_hparam_pattern.md` bake mapping note |
-| 4 | Optimistic validation RMSE (skrub bind) | Skill docs two-block holdout + prompt one-liners |
-| 5 | Ablation RMSE ≠ solution RMSE | Ablation contract + FE reference; holdout bind alignment (ongoing) |
-| 6 | `final_state.json` bloated by tune stdout | Still open — truncate before persist (see future improvements) |
+| 4 | Optimistic validation RMSE (skrub bind) | Skill docs holdout Block 1 + prompt one-liners |
+| 5 | Ablation RMSE ≠ solution RMSE | Ablation contract + FE reference; holdout bind alignment |
+| 6 | `final_state.json` bloated by tune stdout | Still open — truncate before persist |
+| 7 | Block 2 copied into every stage (runtime) | §22 stage-aware skill docs + prompt alignment |
+| 8 | Ensemble 5×3× CatBoost grid (runtime) | §23 ensemble prompt guardrails |
 
 ### Files touched (recent holdout + tuning + leakage work)
 
@@ -487,6 +492,7 @@ agents/.../sub_agents/
   refinement/prompt.py
   tuning/prompt.py
   tuning/agent.py
+  ensemble/prompt.py                      # §23 runtime guardrails
 
 test-scripts/analyze_run.py
 docs/WORKING_PROGRESS_MLE_STAR_SKRUB.md        # this file
@@ -494,17 +500,175 @@ docs/WORKING_PROGRESS_MLE_STAR_SKRUB.md        # this file
 
 ### Known open items (updated)
 
-- Re-run California Housing (or new task) **after holdout skill update**; confirm Block 1 in generated scripts and rising-but-honest RMSE.
-- Confirm `map_tuning_best_params` in `final_state.json` on fresh run (`r4` snapshot may still show `data_op__*` if captured before fix).
-- Enable `use_data_leakage_checker=True` once holdout docs stabilize; monitor checker doesn’t block on tool-only turns.
+- Re-run after **§22 stage-aware skill update**; early scripts should match `ablation_0.py` pattern (metric only, no `test_df`).
+- Confirm `map_tuning_best_params` in `final_state.json` on fresh run.
+- Enable `use_data_leakage_checker=True` once holdout docs stabilize.
 - Truncate tune search stdout before state write; feed TableReport to planners (not only ablation).
 - Unified validation harness / same-pipeline ablation still desirable for planner trust.
+- Monitor ensemble runtime after §23 prompt guardrails (prior run: 5-fold × 3-seed CatBoost grid).
 
 ### TL;DR (current prototype state)
 
 - **MLE-STAR + skrub:** OpenAI/ChatAI-compatible runtime, native ADK `skrub-dataops-pipeline` skill, structural refinement with TableReport-guided ablation, and a **separate terminal tuning stage** (`choose_*` → search → bake → promote).
-- **Main correctness push:** holdout data leakage from `skrub.var("data", train_df)` + early `make_learner(fitted=True)` — fixed in skill references and light prompt patches; optional leakage checker loads `holdout_data_leakage.md`.
+- **Holdout correctness:** Block 1 (`train_part` bind) validated in post-fix rerun; full-train + test moved to **submission only** in skill docs + prompts (§22).
+- **Runtime:** ensemble prompt guardrails added (§23) after 5×3× CatBoost grid blew up wall-clock; early-stage Block 2 copy removed from templates.
 - **Tuning hardening:** JSON-safe best params, `data_op__N` → plan name mapping, bake placeholder gate, promotion from **`train_tune_baked.py`** only.
-- **Results:** `r4` tuning promoted (`~23k` vs structural `~24k` RMSE) but cross-stage scores were misleading pre-holdout fix; re-run needed for trustworthy comparison.
-- **Next:** honest holdout rerun, enable leakage checker optionally, stdout/state slimming, planner+ablation pipeline alignment.
+- **Next:** full pipeline rerun with holdout-only early scripts; optional leakage checker; stdout/state slimming.
+
+---
+
+## Progress update (2026-06-10): holdout rerun validation, stage-aware templates, ensemble runtime guardrails
+
+Follow-up after the §16 holdout skill-doc pass. User reran with leakage checker still disabled (`use_data_leakage_checker=False`); run stopped early at ensemble due to long runtime (`adk_run_20260610_113310`, workspace `california-housing-prices/`).
+
+### 22) Stage-aware holdout templates (early = metric only; submission = full train + test)
+
+**Problem:** The initial holdout fix put Block 1 + Block 2 in `SKILL.md` and `dataops_api_quickmap.md` default examples. Agents copied full-train refit + `test_df` + `submission.csv` into **every** stage (init, refinement, tune bake/search), doubling CatBoost training per script execution. Vanilla MLE-STAR intent: holdout scoring in dev loops; full `train_df` + test export at **submission** only.
+
+**Fix applied:**
+
+| Area | Change |
+|------|--------|
+| `SKILL.md` | Default template = holdout metric only; Block 2 relegated to “Submission stage only” pointer |
+| `dataops_api_quickmap.md` | Split “Default script (early stages)” vs “Submission stage only”; Option C labeled submission-only |
+| `choices_hparam_pattern.md` | Tune search/bake = holdout + params only; no test/submission in examples |
+| `holdout_data_leakage.md` | Block 2 = submission-stage only; early scripts without test are not flagged |
+| `common_failure_fixes.md` | #15 fix: remove test/full-train from early scripts |
+
+**Prompt alignment (same pass):**
+
+- `initialization/prompt.py` — holdout-only early stages
+- `refinement/prompt.py` — no `test_df` / full-train refit in implement
+- `tuning/prompt.py` — removed test/submission from `tune_implement` and `tune_bake`
+- `ensemble/prompt.py` — holdout metric only unless plan explicitly needs test export
+
+**Expected script shape after this update:**
+
+```python
+# init / ablation / refinement / tune — stop here
+data_train = skrub.var("data", train_part)
+val_learner = pred.skb.make_learner(fitted=True)
+valid_pred = val_learner.predict({"data": valid_part})
+print(f"Final Validation Performance: {rmse}")
+```
+
+### 23) Ensemble runtime guardrails (`ensemble/prompt.py`)
+
+**Problem (rerun):** `ensemble0.py` implemented 5-fold KFold × 3 random seeds × (holdout fit + full-train test predict) ≈ **30× CatBoost@5000 iterations** — run appeared stuck at `ensemble_plan_implement_initial_agent`.
+
+**Fix:** One concise line per ensemble prompt stage (plan / implement / refine):
+- Prefer prediction-level merge (average/stack holdout preds); avoid multi-fold, multi-seed, or repeated full retrains unless quality gain clearly justifies cost.
+- Quality still matters slightly more than runtime — not a hard ban on CV, just a strong default toward lightweight ensembling.
+
+### 24) Post-fix rerun analysis (`adk_run_20260610_113310`)
+
+Workspace: `agents/.../workspace/california-housing-prices/`
+
+| Check | Result |
+|-------|--------|
+| **Holdout Block 1** | **Working** — `skrub.var("data", train_part)` before metric in init, refinement, tune search/bake |
+| **Ablation** | **Good reference** — `ablation_0.py` holdout-only, no Block 2 (model to copy going forward) |
+| **Tuning search** | **Correct** — `search.fit({"data": train_part})`, `best_learner_.predict({"data": valid_part})`, `TUNING_BEST_PARAMS` |
+| **Tuning bake** | Block 1 correct; baked literals applied; promoted to `train1.py` |
+| **Block 2 in early stages** | **Still present in this run** (pre-§22 templates) — all `1/*.py` had full-train + `submission.csv` |
+| **Ensemble** | Holdout bind OK per fold, but **5×3 retrain grid + Block 2 in loop** → runtime explosion |
+| **Score comparability** | Ensemble used KFold OOF metric vs upstream `train_test_split(0.2)` — still not apples-to-apples |
+| **Truncated artifacts** | `train0_improve0.py` / `train0_improve1.py` only 27 lines (header only); `train1.py` complete |
+
+**Refinement / tuning working as intended?** Yes structurally (ablation → plan → implement → tune plan → search → bake → promote). Operationally, pre-§22 Block 2 copy and ensemble grid cost dominated runtime; §22–§23 address both.
+
+### Files touched (2026-06-10 pass)
+
+```
+agents/.../skills/skrub-dataops-pipeline/
+  SKILL.md
+  references/dataops_api_quickmap.md
+  references/choices_hparam_pattern.md
+  references/holdout_data_leakage.md
+  references/common_failure_fixes.md
+
+agents/.../sub_agents/
+  initialization/prompt.py
+  refinement/prompt.py
+  tuning/prompt.py
+  ensemble/prompt.py
+
+docs/WORKING_PROGRESS_MLE_STAR_SKRUB.md
+```
+
+### TL;DR (2026-06-10)
+
+- Holdout **leakage fix confirmed** in rerun (Block 1 on `train_part`); ablation already showed the right early-stage shape.
+- **New issue found:** two-block template taught agents to full-train + predict test every stage → fixed by stage-aware skill docs + prompt lines (§22).
+- **Ensemble runtime:** lightweight-merge defaults added to ensemble prompts (§23) after 5×3 CatBoost grid stalled the run.
+- **Next rerun** should show holdout-only scripts through tuning and faster ensemble; submission agent still owns full train + `./final/submission.csv`.
+
+---
+
+## Progress update (2026-06-11) — P0/P2/P3 + rerun `adk_run_20260611_165054`
+
+### 25) Runtime guardrails shipped (P0, P2, P3, tune fail-fast)
+
+| Change | Purpose | Files |
+|--------|---------|-------|
+| **P0** plan_implement no-op gates | Stop tool-only / unchanged baseline re-eval passing as refinement | `debug_util.py`, `refinement/agent.py`, `refinement/prompt.py` |
+| **P2** inline `choose_*` on apply + search required in exec gate | Prevent NumericChoice in estimator kwargs; block debug scripts without search | `choices_hparam_pattern.md`, `common_failure_fixes.md` #16, `tuning/prompt.py`, `code_util.py`, `debug_util.py` |
+| **P3** ablation `.apply_func` / DataOp | Reduce deferred-helper pandas mistakes | `common_failure_fixes.md` #17, `refinement/prompt.py` |
+| **Tune fail-fast** | One implement attempt per rollback → debug with stderr | `tuning/agent.py` `check_tune_implement_finish` |
+
+### 26) Rerun results (`adk_run_20260611_165054`)
+
+Workspace: `agents/.../workspace/california-housing-prices/`
+
+| Stage | Holdout RMSE | Verdict |
+|-------|-------------|---------|
+| Init | 54645.59 | OK |
+| Refinement initial implement | **51830.74** | **P0 success** — ratio FE, −2815 RMSE |
+| Refinement inner implement | 71685.11 (Ridge) | Debug fixed DataOp bug but **backbone drift**; not promoted |
+| Tuning search | n/a | **Failed** — NumericChoice persists |
+| Tuning bake | 51830.74 | **Structural re-copy**; `tune_best_params` absent; `tune_winner_source: structural` |
+| Submission | 51830.74 | OK |
+
+**What worked**
+
+- P0: initial `plan_implement_initial` produced real code (no silent `list_skills`-only pass).
+- P3: ablation completed with holdout `@skrub.deferred` ratios; good planner signal.
+- Tune fail-fast: debug engaged quickly; `get_run_code_condition` rejected no-search RF scripts.
+- Promotion: best-of-inner-loop kept CatBoost 51830 over Ridge 71685.
+
+**What still needs work**
+
+1. **Refinement inner `plan_implement`:** 10 vanilla retries on `"households" in X_train.columns` (DataOp membership) before debug — propose **fail-fast** (P1b) + skill **#18**.
+2. **Tuning:** agent still binds `choose_*` to variables → NumericChoice; debug removes search anyway → **P1 bake gate** + plan-default fallback when search exhausts.
+3. **Debug drift:** Ridge / RF swaps despite backbone + preserve-search prompts — tighten with deterministic gates.
+
+See `docs/todo.md` for prioritized backlog (P1, P1b, P1c, P1d).
+
+### Files touched (2026-06-11 pass)
+
+```
+agents/.../shared_libraries/
+  debug_util.py          # P0 plan_implement gates; P2 tune debug line
+  code_util.py           # P2 tune search exec gate
+
+agents/.../sub_agents/
+  refinement/agent.py    # P0 finish gate
+  refinement/prompt.py     # P0, P3 ablation line
+  tuning/agent.py        # tune fail-fast
+  tuning/prompt.py       # P2 inline choose line
+
+agents/.../skills/.../references/
+  choices_hparam_pattern.md
+  common_failure_fixes.md  # #16, #17
+
+docs/todo.md
+docs/WORKING_PROGRESS_MLE_STAR_SKRUB.md
+```
+
+### TL;DR (2026-06-11)
+
+- **P0 worked:** refinement initial implement now changes code and score (51830 vs 54645 init).
+- **P2/P3 docs + gates help** but **NumericChoice tuning bug persists** in LLM output; bake still runs without search handoff (**P1 next**).
+- **Keep tune fail-fast**; add bake gate + plan-default fallback — do **not** revert to 10 blind tune retries.
+- **Refinement inner implement** should adopt fail-fast too (10 blind retries on same DataOp error before debug).
 

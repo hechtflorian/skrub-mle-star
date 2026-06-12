@@ -25,7 +25,7 @@ BUG_REFINE_INSTR = """# Task description
 - If unsure about skrub DataOps usage to keep the pipeline structure, make focused `load_skill_resource` and load at least `references/dataops_api_quickmap.md` and `references/skrub_general_api.md` before major edits.
 - When fixing validation logic, preserve honest holdout binding: metric line uses `train_part`, not full `train_df` (see holdout section in `dataops_api_quickmap.md`).
 - Only if skrub DataOps usage uncertainty remains even after skill tool calls, use `site:skrub-data.org` web search and patch only the uncertain call.
-- You must preserve the existing model in the solution code; only change it if absolutely necessary.
+- You must keep the same backbone estimator/model as the input code; do not swap it unless the error is truly unfixable without a class change.
 - Provide the improved, self-contained Python script again.
 - There should be no additional headings or text in your response.
 - All the provided input data is stored in \"./input\" directory.

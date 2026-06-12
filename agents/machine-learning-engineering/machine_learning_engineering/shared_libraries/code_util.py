@@ -298,6 +298,10 @@ def get_run_code_condition(
             return False
         if "choose_" not in raw_code:
             return False
+        if "make_randomized_search" not in raw_code:
+            return False
+        if "search.fit" not in raw_code:
+            return False
         if "debug_agent" not in agent_name:
             return True
         if "exit()" not in raw_code:

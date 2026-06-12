@@ -23,9 +23,11 @@ ADD_TEST_FINAL_INSTR = """# Introduction
 - This is a very easy task because the only thing to do is to load test samples and then replace the validation samples with the test samples. Then you should use the full training set for the final model!
 
 # Required
+- You must load `references/dataops_api_quickmap.md` via `list_skills` -> `load_skill`(`skrub-dataops-pipeline`) and use `load_skill_resource() to load `references/dataops_api_quickmap.md` before editing (use the **Submission stage only** section for full-train refit, `test_df` predict, and export).
 - Do not modify the given Python solution code too much. Try to integarte test submission with minimal changes.
 - Keep the existing skrub DataOps pipeline structure intact in the final script; submission changes should focus on full-train fitting and test prediction/export, not preprocessing/modeling rewrites.
 - The pipeline is pre-tuned with fixed parameters; do not add `choose_*` or re-run hyperparameter search.
+- Tool calls are prep only — finish with runnable code in the same turn.
 - There should be no additional headings or text in your response.
 - The code should be a single-file Python program that is self-contained and can be executed as-is.
 - Your response should only contain a single code block.

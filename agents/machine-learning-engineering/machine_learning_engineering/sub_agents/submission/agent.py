@@ -4,7 +4,7 @@ from google.adk.agents import callback_context as callback_context_module
 from google.adk.models import llm_request as llm_request_module
 from google.adk.models import llm_response as llm_response_module
 
-from machine_learning_engineering.shared_libraries import debug_util
+from machine_learning_engineering.shared_libraries import debug_util, skill_tool_util
 from machine_learning_engineering.sub_agents.submission import prompt
 
 
@@ -72,4 +72,5 @@ submission_agent = debug_util.get_run_and_debug_agent(
     agent_description="Add codes for creating a submission file.",
     instruction_func=get_submission_and_debug_agent_instruction,
     before_model_callback=check_submission_finish,
+    tools=[skill_tool_util.get_skill_toolset()],
 )

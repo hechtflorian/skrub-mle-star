@@ -326,11 +326,21 @@ def check_plan_implement_finish(
     result_dict = callback_context.state.get(
         f"train_code_improve_exec_result_{suffix}", {}
     )
+    improved_code = callback_context.state.get(
+        f"train_code_improve_{suffix}", ""
+    )
+    prev_code = callback_context.state.get(
+        f"train_code_{step}_{task_id}", ""
+    )
     callback_context.state[
         f"plan_implement_skip_data_leakage_check_{suffix}"
     ] = True
-    # new check: if no improvements, don't advance loop and keep previous solution
-    if result_dict.get("returncode", 1) == 0 and "score" in result_dict:
+    if (
+        result_dict.get("returncode", 1) == 0
+        and "score" in result_dict
+        and improved_code.strip()
+        and improved_code != prev_code
+    ):
         return llm_response_module.LlmResponse()
     callback_context.state[
         f"plan_implement_skip_data_leakage_check_{suffix}"

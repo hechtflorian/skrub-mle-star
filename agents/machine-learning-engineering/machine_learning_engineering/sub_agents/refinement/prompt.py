@@ -255,14 +255,14 @@ IMPLEMENT_PLAN_INSTR = """# Introduction
 - Do not label default-choice `.skb.make_learner(...)` / `.skb.eval(...)` behavior as tuned.
 - Keep search localized to the selected impactful block, preserve existing DataOps architecture, and keep the search space compact.
 - The printed `Final Validation Performance` must be computed from a direct holdout RMSE (`mean_squared_error(y_val, y_pred) ** 0.5`) on a real validation split.
-- Fit the metric line on `train_part` only (`skrub.var("data", train_part)`); do not load `test_df` or refit on full `train_df` (submission stage handles test export).
+- Fit the metric line on `train_part` only (`skrub.var("data", train_part)`); do not load `test_df` or refit on full `train_df` (submission stage agent handles test export).
 - Do not use transformed generic CV scores (e.g., `sqrt(mean(test_score))`) as the final refinement score line.
-- You must always return your final runnable Python code block in the same response, even if you call tools via `list_skills`/`load_skill`/`load_skill_resource`.
 
 # Response format
 - Your response should be a single markdown code block (wrapped in ```) which is the improved code block.
 - There should be no additional headings or text in your response.
 - You must finish by returning executable Python code for the improved code block in this same response.
 - Tool calls are preparation only; you must always finish by returning runnable Python code.
+- Do not end your turn after `list_skills`/`load_skill` alone — the same turn must always include the runnable improved code block.
 - Never return plain text such as "No more outputs are needed."; always return a runnable Python code block for this step.
 """
