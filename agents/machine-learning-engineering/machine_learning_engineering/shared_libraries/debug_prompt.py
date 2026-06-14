@@ -20,8 +20,6 @@ BUG_REFINE_INSTR = """# Task description
 - Please revise the code to fix the error.
 - If the error is a 'module not found` error, then install the necessary module. You can use `pip install <module>`, where `<module>` is the name of the module to install.
 - Do not remove subsampling if exists.
-- Preserve the existing DataOps pipeline structure while fixing errors (`skrub.var`/`skrub.X`/`skrub.y` / `.skb.mark_as_X()`/`.skb.mark_as_y()` + `.skb.apply(...)`); correct API usage but do not rewrite the main workflow as sklearn-only orchestration.
-- When a skrub/DataOps API call is uncertain, first use the web search tool with `site:skrub-data.org` queries (for example: `site:skrub-data.org DataOp.skb.apply` or `site:skrub-data.org skrub.choose_from` or `site:skrub-data.org <symbol_name>`) and patch only that call.
 - Provide the improved, self-contained Python script again.
 - There should be no additional headings or text in your response.
 - All the provided input data is stored in \"./input\" directory.
