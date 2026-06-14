@@ -16,15 +16,10 @@ MODEL_RETRIEVAL_INSTR = """# Competition
 
 # Your task
 - List {num_model_candidates} recent effective models and their example codes to win the above competition.
-- Prefer model/code patterns that are directly implementable as `skrub` DataOps pipelines.
 
 # Requirement
 - The example code should be concise and simple.
 - You must provide an example code, i.e., do not just mention GitHubs or papers.
-- Prefer examples that explicitly use DataOps primitives (`skrub.var` or `skrub.X`/`skrub.y` or `DataOp.skb.mark_as_X()`/`DataOp.skb.mark_as_y()`, `DataOp.skb.apply(...)`).
-- Avoid examples where `skrub` is only incidental (e.g., just `TableVectorizer`) while the main pipeline is sklearn-only orchestration.
-- If any DataOps call is uncertain, you must use the web search tool before finalizing and prefer official sources with `site:skrub-data.org`.
-- Use targeted queries such as: `site:skrub-data.org DataOp.skb.apply`, `site:skrub-data.org DataOp.skb.mark_as_X`, `site:skrub-data.org DataOp.skb.mark_as_y`, `site:skrub-data.org skrub.choose_from`.
 
 Use this JSON schema:
 Model = {{'model_name': str, 'example_code': str}}
@@ -50,10 +45,6 @@ MODEL_EVAL_INSTR = """# Introduction
 - All the provided data is already prepared and available in the `./input` directory. There is no need to unzip any files.
 - Do not include other models that are not directly related to the model described.
 - Use PyTorch rather than TensorFlow. Use CUDA if you need. All the necessary libraries are installed.
-- The full ML pipeline must be implemented as a `skrub` DataOps workflow, not as sklearn-only orchestration.
-- Use DataOps primitives for pipeline structure: variables (`skrub.var` or `skrub.X`/`skrub.y`), dataframe/table transforms, and estimator application via `.skb.apply(...)`.
-- If multiple related tables exist, assemble them in the same DataOps workflow (join/aggregate/select before learner application), consistent with official multi-table DataOps usage.
-- Keep the model in the model description, but integrate its preprocessing/training path inside the DataOps workflow.
 - The code should implement the proposed solution and print the value of the evaluation metric computed on a hold-out validation set.
 - Only use the provided train data in the `./input` directory.
 
@@ -62,8 +53,6 @@ MODEL_EVAL_INSTR = """# Introduction
 - Print out or return a final performance metric in your answer in a clear format with the exact words: 'Final Validation Performance: {{final_validation_score}}'.
 - The code should be a single-file Python program that is self-contained and can be executed as-is.
 - Your response should only contain a single code block.
-- A response is invalid if DataOps primitives are missing from the main pipeline (`skrub.var`/`skrub.X`/`skrub.y / .skb.mark_as_X()`/`.skb.mark_as_y()` + `.skb.apply(...)`) or if the main workflow is sklearn-only.
-- If unsure about a specific `skrub` API detail, keep the DataOps architecture unchanged and only adjust the uncertain call signature.
 - Do not use exit() function in the Python code.
 - Do not use try: and except: or if else to ignore unintended behavior.
 """
@@ -87,9 +76,6 @@ BUG_REFINE_INSTR = """# Task description
 # Your task
 - Please revise the code to fix the error.
 - Do not remove subsampling if exists.
-- If you hit a `skrub` argument/API issue, fix it by consulting current `skrub` docs and keep the solution in `skrub` DataOps.
-- When a skrub/DataOps API call is uncertain, first use the web search tool with `site:skrub-data.org` queries (for example: `site:skrub-data.org DataOp.skb.apply` or `site:skrub-data.org <symbol_name>`) and patch only that call.
-- Preserve the existing `skrub` DataOps architecture while fixing the error (do not rewrite into sklearn-only pipeline code).
 - Provide the improved, self-contained Python script again.
 - There should be no additional headings or text in your response.
 - All the provided input data is stored in \"./input\" directory.
@@ -121,8 +107,6 @@ CODE_INTEGRATION_INSTR = """# Introduction
 - When integrating, try to keep code with similar functionality in the same place (e.g., all preprocessing should be done and then all training).
 - When integrating, ensemble the models.
 - The solution design should be relatively simple.
-- The integrated solution must keep a `skrub` DataOps pipeline as the main workflow (`skrub.var`/`skrub.X`/`skrub.y` / `.skb.mark_as_X()`/`.skb.mark_as_y()` + `.skb.apply(...)`).
-- Do not merge by replacing the base with sklearn-only pipeline orchestration or by reducing `skrub` usage to incidental components only.
 - The code should implement the proposed solution and print the value of the evaluation metric computed on a hold-out validation set.
 - Only use the provided train data in the `./input` directory.
 

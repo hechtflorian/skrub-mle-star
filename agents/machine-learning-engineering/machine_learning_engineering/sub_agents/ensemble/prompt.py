@@ -11,7 +11,6 @@ INIT_ENSEMBLE_PLAN_INSTR = """# Introduction
 - Suggest a plan to ensemble the {num_solutions} solutions. You should concentrate how to merge, not the other parts like hyperparameters.
 - The suggested plan should be easy to novel, effective, and easy to implement.
 - All the provided data is already prepared and available in the `./input` directory. There is no need to unzip any files.
-- Favor plans that preserve and combine existing DataOps workflows instead of rewriting from scratch.
 
 # Respone format
 - Your response should be an outline/sketch of your proposed solution in natural language.
@@ -33,8 +32,6 @@ ENSEMBLE_PLAN_IMPLEMENT_INSTR = """# Introduction
 - Unless mentioned in the ensemble plan, do not modify the origianl Python Solutions too much.
 - All the provided data is already prepared and available in the `./input` directory. There is no need to unzip any files.
 - The code should implement the proposed solution and print the value of the evaluation metric computed on a hold-out validation set.
-- Keep DataOps-based preprocessing/feature workflows from source solutions intact unless the plan explicitly improves them.
-- The merged solution must keep a DataOps pipeline as the main structure (`skrub.var`/`skrub.X`/`skrub.y` / `.skb.mark_as_X()`/`.skb.mark_as_y()` + `.skb.apply(...)`), not sklearn-only orchestration.
 
 # Response format required
 - Your response should be a single markdown code block (wrapped in ```) which is the ensemble of {num_solutions} Python Solutions.
@@ -60,7 +57,6 @@ ENSEMBLE_PLAN_REFINE_INSTR = """# Introduction
 - Suggest a better plan to ensemble the {num_solutions} solutions. You should concentrate how to merge, not the other parts like hyperparameters.
 - The suggested plan must be easy to implement, novel, and effective.
 - The suggested plan should be differ from the previous plans you have tried and should receive a {criteria} score.
-- Favor plans that preserve and combine existing DataOps workflows instead of rewriting from scratch.
 
 # Response format
 - Your response should be an outline/sketch of your proposed solution in natural language.
