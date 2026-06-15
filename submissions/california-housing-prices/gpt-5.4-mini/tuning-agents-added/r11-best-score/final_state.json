@@ -1,0 +1,477 @@
+{
+  "data_dir": "./machine_learning_engineering/tasks/",
+  "task_name": "california-housing-prices",
+  "task_type": "Tabular Regression",
+  "lower": true,
+  "workspace_dir": "./machine_learning_engineering/workspace/",
+  "agent_model": "openai/gpt-5.4-mini",
+  "task_description": "# Task\n\nPredict the median_house_value.\n\n# Metric\n\nroot_mean_squared_error\n\n# Submission Format\n```\nmedian_house_value\n207293.29291666666\n207293.29291666666\n207293.29291666666\netc.\n```\n\n# Dataset\n\ntrain.csv\n```\nlongitude,latitude,housing_median_age,total_rooms,total_bedrooms,population,households,median_income,median_house_value\n-118.32,34.09,28.0,2173.0,819.0,2548.0,763.0,1.879,218800.0\n-118.46,34.17,24.0,2814.0,675.0,1463.0,620.0,4.1875,309300.0\n-117.86,33.72,31.0,1194.0,297.0,1602.0,306.0,2.3333,157700.0\netc.\n```\n\ntest.csv\n```\nlongitude,latitude,housing_median_age,total_rooms,total_bedrooms,population,households,median_income\n-121.68,37.93,44.0,1014.0,225.0,704.0,238.0,1.6554\n-117.28,34.26,18.0,3895.0,689.0,1086.0,375.0,3.3672\n-122.1,37.61,35.0,2361.0,458.0,1727.0,467.0,4.5281\netc.\n```",
+  "task_summary": "Task: Tabular Regression\nTabular regression task: predict `median_house_value` from housing features in `train.csv` and output predictions for `test.csv`. Features include location, housing age, room counts, population, households, and median income. Evaluation metric is RMSE, and submission format is a single column named `median_house_value`.",
+  "start_time": 1781373245.6543348,
+  "seed": 42,
+  "exec_timeout": 600,
+  "num_solutions": 1,
+  "num_model_candidates": 2,
+  "max_retry": 10,
+  "max_debug_round": 3,
+  "max_rollback_round": 2,
+  "inner_loop_round": 1,
+  "outer_loop_round": 1,
+  "ensemble_loop_round": 1,
+  "num_top_plans": 2,
+  "use_data_leakage_checker": false,
+  "use_data_usage_checker": false,
+  "tuning_enabled": true,
+  "tuning_n_iter": 4,
+  "tuning_n_jobs": 2,
+  "_adk_activated_skill_model_retriever_agent_1": [
+    "skrub-dataops-pipeline"
+  ],
+  "_adk_loaded_skill_resources_model_retriever_agent_1": [
+    {
+      "skill_name": "skrub-dataops-pipeline",
+      "path": "references/dataops_api_quickmap.md"
+    }
+  ],
+  "init_1_model_1": {
+    "model_name": "CatBoostRegressor",
+    "example_code": "import pandas as pd\nfrom catboost import CatBoostRegressor, Pool\nfrom sklearn.model_selection import train_test_split\nfrom sklearn.metrics import mean_squared_error\n\ntrain_df = pd.read_csv('train.csv')\ntest_df = pd.read_csv('test.csv')\ntarget = 'median_house_value'\n\nX = train_df.drop(columns=[target])\ny = train_df[target]\ncat_cols = X.select_dtypes(include=['object']).columns.tolist()\n\nX_tr, X_va, y_tr, y_va = train_test_split(X, y, test_size=0.2, random_state=42)\ntrain_pool = Pool(X_tr, y_tr, cat_features=cat_cols)\nvalid_pool = Pool(X_va, y_va, cat_features=cat_cols)\n\nmodel = CatBoostRegressor(\n    iterations=3000,\n    depth=8,\n    learning_rate=0.03,\n    loss_function='RMSE',\n    eval_metric='RMSE',\n    verbose=0,\n    random_seed=42,\n    early_stopping_rounds=100,\n)\nmodel.fit(train_pool, eval_set=valid_pool)\n\npred = model.predict(X_va)\nprint('RMSE:', mean_squared_error(y_va, pred) ** 0.5)\n\n# submission\nmodel.fit(Pool(X, y, cat_features=cat_cols), verbose=0)\ntest_pred = model.predict(test_df)\nsub = pd.DataFrame({target: test_pred})\nsub.to_csv('submission.csv', index=False)",
+    "model_description": "## Model name\nCatBoostRegressor\n\n## Example Python code\nimport pandas as pd\nfrom catboost import CatBoostRegressor, Pool\nfrom sklearn.model_selection import train_test_split\nfrom sklearn.metrics import mean_squared_error\n\ntrain_df = pd.read_csv('train.csv')\ntest_df = pd.read_csv('test.csv')\ntarget = 'median_house_value'\n\nX = train_df.drop(columns=[target])\ny = train_df[target]\ncat_cols = X.select_dtypes(include=['object']).columns.tolist()\n\nX_tr, X_va, y_tr, y_va = train_test_split(X, y, test_size=0.2, random_state=42)\ntrain_pool = Pool(X_tr, y_tr, cat_features=cat_cols)\nvalid_pool = Pool(X_va, y_va, cat_features=cat_cols)\n\nmodel = CatBoostRegressor(\n    iterations=3000,\n    depth=8,\n    learning_rate=0.03,\n    loss_function='RMSE',\n    eval_metric='RMSE',\n    verbose=0,\n    random_seed=42,\n    early_stopping_rounds=100,\n)\nmodel.fit(train_pool, eval_set=valid_pool)\n\npred = model.predict(X_va)\nprint('RMSE:', mean_squared_error(y_va, pred) ** 0.5)\n\n# submission\nmodel.fit(Pool(X, y, cat_features=cat_cols), verbose=0)\ntest_pred = model.predict(test_df)\nsub = pd.DataFrame({target: test_pred})\nsub.to_csv('submission.csv', index=False)"
+  },
+  "init_1_model_2": {
+    "model_name": "LightGBM LGBMRegressor",
+    "example_code": "import pandas as pd\nfrom lightgbm import LGBMRegressor\nfrom sklearn.model_selection import train_test_split\nfrom sklearn.metrics import mean_squared_error\n\ntrain_df = pd.read_csv('train.csv')\ntest_df = pd.read_csv('test.csv')\ntarget = 'median_house_value'\n\nX = train_df.drop(columns=[target])\ny = train_df[target]\nX = pd.get_dummies(X, dummy_na=True)\ntest_X = pd.get_dummies(test_df, dummy_na=True)\nX, test_X = X.align(test_X, join='left', axis=1, fill_value=0)\n\nX_tr, X_va, y_tr, y_va = train_test_split(X, y, test_size=0.2, random_state=42)\nmodel = LGBMRegressor(\n    n_estimators=5000,\n    learning_rate=0.03,\n    num_leaves=64,\n    subsample=0.8,\n    colsample_bytree=0.8,\n    random_state=42,\n)\nmodel.fit(X_tr, y_tr, eval_set=[(X_va, y_va)], eval_metric='rmse')\n\npred = model.predict(X_va)\nprint('RMSE:', mean_squared_error(y_va, pred) ** 0.5)\n\n# submission\nmodel.fit(X, y)\ntest_pred = model.predict(test_X)\nsub = pd.DataFrame({target: test_pred})\nsub.to_csv('submission.csv', index=False)",
+    "model_description": "## Model name\nLightGBM LGBMRegressor\n\n## Example Python code\nimport pandas as pd\nfrom lightgbm import LGBMRegressor\nfrom sklearn.model_selection import train_test_split\nfrom sklearn.metrics import mean_squared_error\n\ntrain_df = pd.read_csv('train.csv')\ntest_df = pd.read_csv('test.csv')\ntarget = 'median_house_value'\n\nX = train_df.drop(columns=[target])\ny = train_df[target]\nX = pd.get_dummies(X, dummy_na=True)\ntest_X = pd.get_dummies(test_df, dummy_na=True)\nX, test_X = X.align(test_X, join='left', axis=1, fill_value=0)\n\nX_tr, X_va, y_tr, y_va = train_test_split(X, y, test_size=0.2, random_state=42)\nmodel = LGBMRegressor(\n    n_estimators=5000,\n    learning_rate=0.03,\n    num_leaves=64,\n    subsample=0.8,\n    colsample_bytree=0.8,\n    random_state=42,\n)\nmodel.fit(X_tr, y_tr, eval_set=[(X_va, y_va)], eval_metric='rmse')\n\npred = model.predict(X_va)\nprint('RMSE:', mean_squared_error(y_va, pred) ** 0.5)\n\n# submission\nmodel.fit(X, y)\ntest_pred = model.predict(test_X)\nsub = pd.DataFrame({target: test_pred})\nsub.to_csv('submission.csv', index=False)"
+  },
+  "init_1_model_finish": true,
+  "model_eval_skip_data_leakage_check_1_1": true,
+  "init_code_1_1": "\nimport os\nimport numpy as np\nimport pandas as pd\nimport skrub\nfrom catboost import CatBoostRegressor\nfrom sklearn.metrics import mean_squared_error\nfrom sklearn.model_selection import train_test_split\n\ntrain_path = os.path.join(\"./input\", \"train.csv\")\ntest_path = os.path.join(\"./input\", \"test.csv\")\n\ntrain_df = pd.read_csv(train_path)\ntest_df = pd.read_csv(test_path)\n\ntarget_col = \"median_house_value\"\n\ntrain_idx, valid_idx = train_test_split(\n    np.arange(len(train_df)), test_size=0.2, random_state=42\n)\ntrain_part = train_df.iloc[train_idx].copy()\nvalid_part = train_df.iloc[valid_idx].copy()\n\ndata_train = skrub.var(\"data\", train_part)\nX_train = data_train.drop(columns=target_col, errors=\"ignore\").skb.mark_as_X()\ny_train = data_train[target_col].skb.mark_as_y()\n\nmodel = CatBoostRegressor(\n    iterations=3000,\n    depth=8,\n    learning_rate=0.03,\n    loss_function=\"RMSE\",\n    eval_metric=\"RMSE\",\n    verbose=0,\n    random_seed=42,\n    early_stopping_rounds=100,\n)\n\npred_graph = X_train.skb.apply(model, y=y_train)\n\ntrain_learner = pred_graph.skb.make_learner(fitted=True)\nvalid_pred = train_learner.predict({\"data\": valid_part})\nfinal_validation_score = mean_squared_error(valid_part[target_col], valid_pred) ** 0.5\nprint(f\"Final Validation Performance: {final_validation_score}\")\n",
+  "init_code_exec_result_1_1": {
+    "returncode": 0,
+    "stdout": "Final Validation Performance: 54763.458552868375\n",
+    "stderr": "",
+    "execution_time": 53.33871650695801,
+    "score": 54763.458552868375
+  },
+  "_adk_activated_skill_model_eval_agent_1_1": [
+    "skrub-dataops-pipeline"
+  ],
+  "_adk_loaded_skill_resources_model_eval_agent_1_1": [
+    {
+      "skill_name": "skrub-dataops-pipeline",
+      "path": "references/dataops_api_quickmap.md"
+    }
+  ],
+  "model_eval_bug_summary_1_1": "",
+  "model_eval_skip_data_leakage_check_1_2": true,
+  "init_code_1_2": "\nimport os\nimport numpy as np\nimport pandas as pd\nimport skrub\nfrom lightgbm import LGBMRegressor\nfrom sklearn.metrics import mean_squared_error\nfrom sklearn.model_selection import train_test_split\n\ntrain_path = os.path.join(\"./input\", \"train.csv\")\ntest_path = os.path.join(\"./input\", \"test.csv\")\n\ntrain_df = pd.read_csv(train_path)\ntest_df = pd.read_csv(test_path)\n\ntarget_col = \"median_house_value\"\n\ntrain_idx, valid_idx = train_test_split(\n    np.arange(len(train_df)), test_size=0.2, random_state=42\n)\ntrain_part = train_df.iloc[train_idx].copy()\nvalid_part = train_df.iloc[valid_idx].copy()\n\ndata_train = skrub.var(\"data\", train_part)\nX_train = data_train.drop(columns=target_col, errors=\"ignore\").skb.mark_as_X()\ny_train = data_train[target_col].skb.mark_as_y()\n\nvectorizer = skrub.TableVectorizer(\n    low_cardinality=\"passthrough\",\n    high_cardinality=skrub.StringEncoder(),\n)\n\nmodel = LGBMRegressor(\n    n_estimators=4000,\n    learning_rate=0.03,\n    num_leaves=64,\n    subsample=0.8,\n    colsample_bytree=0.8,\n    random_state=42,\n    verbose=-1,\n)\n\npred_graph = X_train.skb.apply(vectorizer).skb.apply(model, y=y_train)\n\ntrain_learner = pred_graph.skb.make_learner(fitted=True)\nvalid_pred = train_learner.predict({\"data\": valid_part})\nfinal_validation_score = mean_squared_error(valid_part[target_col], valid_pred) ** 0.5\nprint(f\"Final Validation Performance: {final_validation_score}\")\n",
+  "init_code_exec_result_1_2": {
+    "returncode": 0,
+    "stdout": "Final Validation Performance: 58695.22922977662\n",
+    "stderr": "",
+    "execution_time": 25.77946972846985,
+    "score": 58695.22922977662
+  },
+  "_adk_activated_skill_model_eval_agent_1_2": [
+    "skrub-dataops-pipeline"
+  ],
+  "_adk_loaded_skill_resources_model_eval_agent_1_2": [
+    {
+      "skill_name": "skrub-dataops-pipeline",
+      "path": "references/dataops_api_quickmap.md"
+    },
+    {
+      "skill_name": "skrub-dataops-pipeline",
+      "path": "references/skrub_general_api.md"
+    },
+    {
+      "skill_name": "skrub-dataops-pipeline",
+      "path": "references/encoding_skrub.md"
+    }
+  ],
+  "model_eval_bug_summary_1_2": "",
+  "performance_results_1": [
+    [
+      54763.458552868375,
+      "\nimport os\nimport numpy as np\nimport pandas as pd\nimport skrub\nfrom catboost import CatBoostRegressor\nfrom sklearn.metrics import mean_squared_error\nfrom sklearn.model_selection import train_test_split\n\ntrain_path = os.path.join(\"./input\", \"train.csv\")\ntest_path = os.path.join(\"./input\", \"test.csv\")\n\ntrain_df = pd.read_csv(train_path)\ntest_df = pd.read_csv(test_path)\n\ntarget_col = \"median_house_value\"\n\ntrain_idx, valid_idx = train_test_split(\n    np.arange(len(train_df)), test_size=0.2, random_state=42\n)\ntrain_part = train_df.iloc[train_idx].copy()\nvalid_part = train_df.iloc[valid_idx].copy()\n\ndata_train = skrub.var(\"data\", train_part)\nX_train = data_train.drop(columns=target_col, errors=\"ignore\").skb.mark_as_X()\ny_train = data_train[target_col].skb.mark_as_y()\n\nmodel = CatBoostRegressor(\n    iterations=3000,\n    depth=8,\n    learning_rate=0.03,\n    loss_function=\"RMSE\",\n    eval_metric=\"RMSE\",\n    verbose=0,\n    random_seed=42,\n    early_stopping_rounds=100,\n)\n\npred_graph = X_train.skb.apply(model, y=y_train)\n\ntrain_learner = pred_graph.skb.make_learner(fitted=True)\nvalid_pred = train_learner.predict({\"data\": valid_part})\nfinal_validation_score = mean_squared_error(valid_part[target_col], valid_pred) ** 0.5\nprint(f\"Final Validation Performance: {final_validation_score}\")\n",
+      {
+        "returncode": 0,
+        "stdout": "Final Validation Performance: 54763.458552868375\n",
+        "stderr": "",
+        "execution_time": 53.33871650695801,
+        "score": 54763.458552868375
+      }
+    ],
+    [
+      58695.22922977662,
+      "\nimport os\nimport numpy as np\nimport pandas as pd\nimport skrub\nfrom lightgbm import LGBMRegressor\nfrom sklearn.metrics import mean_squared_error\nfrom sklearn.model_selection import train_test_split\n\ntrain_path = os.path.join(\"./input\", \"train.csv\")\ntest_path = os.path.join(\"./input\", \"test.csv\")\n\ntrain_df = pd.read_csv(train_path)\ntest_df = pd.read_csv(test_path)\n\ntarget_col = \"median_house_value\"\n\ntrain_idx, valid_idx = train_test_split(\n    np.arange(len(train_df)), test_size=0.2, random_state=42\n)\ntrain_part = train_df.iloc[train_idx].copy()\nvalid_part = train_df.iloc[valid_idx].copy()\n\ndata_train = skrub.var(\"data\", train_part)\nX_train = data_train.drop(columns=target_col, errors=\"ignore\").skb.mark_as_X()\ny_train = data_train[target_col].skb.mark_as_y()\n\nvectorizer = skrub.TableVectorizer(\n    low_cardinality=\"passthrough\",\n    high_cardinality=skrub.StringEncoder(),\n)\n\nmodel = LGBMRegressor(\n    n_estimators=4000,\n    learning_rate=0.03,\n    num_leaves=64,\n    subsample=0.8,\n    colsample_bytree=0.8,\n    random_state=42,\n    verbose=-1,\n)\n\npred_graph = X_train.skb.apply(vectorizer).skb.apply(model, y=y_train)\n\ntrain_learner = pred_graph.skb.make_learner(fitted=True)\nvalid_pred = train_learner.predict({\"data\": valid_part})\nfinal_validation_score = mean_squared_error(valid_part[target_col], valid_pred) ** 0.5\nprint(f\"Final Validation Performance: {final_validation_score}\")\n",
+      {
+        "returncode": 0,
+        "stdout": "Final Validation Performance: 58695.22922977662\n",
+        "stderr": "",
+        "execution_time": 25.77946972846985,
+        "score": 58695.22922977662
+      }
+    ]
+  ],
+  "best_score_1": 54763.458552868375,
+  "base_solution_1": "\nimport os\nimport numpy as np\nimport pandas as pd\nimport skrub\nfrom catboost import CatBoostRegressor\nfrom sklearn.metrics import mean_squared_error\nfrom sklearn.model_selection import train_test_split\n\ntrain_path = os.path.join(\"./input\", \"train.csv\")\ntest_path = os.path.join(\"./input\", \"test.csv\")\n\ntrain_df = pd.read_csv(train_path)\ntest_df = pd.read_csv(test_path)\n\ntarget_col = \"median_house_value\"\n\ntrain_idx, valid_idx = train_test_split(\n    np.arange(len(train_df)), test_size=0.2, random_state=42\n)\ntrain_part = train_df.iloc[train_idx].copy()\nvalid_part = train_df.iloc[valid_idx].copy()\n\ndata_train = skrub.var(\"data\", train_part)\nX_train = data_train.drop(columns=target_col, errors=\"ignore\").skb.mark_as_X()\ny_train = data_train[target_col].skb.mark_as_y()\n\nmodel = CatBoostRegressor(\n    iterations=3000,\n    depth=8,\n    learning_rate=0.03,\n    loss_function=\"RMSE\",\n    eval_metric=\"RMSE\",\n    verbose=0,\n    random_seed=42,\n    early_stopping_rounds=100,\n)\n\npred_graph = X_train.skb.apply(model, y=y_train)\n\ntrain_learner = pred_graph.skb.make_learner(fitted=True)\nvalid_pred = train_learner.predict({\"data\": valid_part})\nfinal_validation_score = mean_squared_error(valid_part[target_col], valid_pred) ** 0.5\nprint(f\"Final Validation Performance: {final_validation_score}\")\n",
+  "best_idx_1": 0,
+  "merger_code_1_0": "\nimport os\nimport numpy as np\nimport pandas as pd\nimport skrub\nfrom catboost import CatBoostRegressor\nfrom sklearn.metrics import mean_squared_error\nfrom sklearn.model_selection import train_test_split\n\ntrain_path = os.path.join(\"./input\", \"train.csv\")\ntest_path = os.path.join(\"./input\", \"test.csv\")\n\ntrain_df = pd.read_csv(train_path)\ntest_df = pd.read_csv(test_path)\n\ntarget_col = \"median_house_value\"\n\ntrain_idx, valid_idx = train_test_split(\n    np.arange(len(train_df)), test_size=0.2, random_state=42\n)\ntrain_part = train_df.iloc[train_idx].copy()\nvalid_part = train_df.iloc[valid_idx].copy()\n\ndata_train = skrub.var(\"data\", train_part)\nX_train = data_train.drop(columns=target_col, errors=\"ignore\").skb.mark_as_X()\ny_train = data_train[target_col].skb.mark_as_y()\n\nmodel = CatBoostRegressor(\n    iterations=3000,\n    depth=8,\n    learning_rate=0.03,\n    loss_function=\"RMSE\",\n    eval_metric=\"RMSE\",\n    verbose=0,\n    random_seed=42,\n    early_stopping_rounds=100,\n)\n\npred_graph = X_train.skb.apply(model, y=y_train)\n\ntrain_learner = pred_graph.skb.make_learner(fitted=True)\nvalid_pred = train_learner.predict({\"data\": valid_part})\nfinal_validation_score = mean_squared_error(valid_part[target_col], valid_pred) ** 0.5\nprint(f\"Final Validation Performance: {final_validation_score}\")\n",
+  "merger_code_exec_result_1_0": {
+    "returncode": 0,
+    "stdout": "Final Validation Performance: 54763.458552868375\n",
+    "stderr": "",
+    "execution_time": 53.33871650695801,
+    "score": 54763.458552868375
+  },
+  "merger_skip_data_leakage_check_1_1": true,
+  "merger_code_1_1": "\nimport os\nimport numpy as np\nimport pandas as pd\nimport skrub\nfrom catboost import CatBoostRegressor\nfrom lightgbm import LGBMRegressor\nfrom sklearn.metrics import mean_squared_error\nfrom sklearn.model_selection import train_test_split\n\ntrain_path = os.path.join(\"./input\", \"train.csv\")\ntest_path = os.path.join(\"./input\", \"test.csv\")\n\ntrain_df = pd.read_csv(train_path)\ntest_df = pd.read_csv(test_path)\n\ntarget_col = \"median_house_value\"\n\ntrain_idx, valid_idx = train_test_split(\n    np.arange(len(train_df)), test_size=0.2, random_state=42\n)\ntrain_part = train_df.iloc[train_idx].copy()\nvalid_part = train_df.iloc[valid_idx].copy()\n\ndata_train = skrub.var(\"data\", train_part)\nX_train = data_train.drop(columns=target_col, errors=\"ignore\").skb.mark_as_X()\ny_train = data_train[target_col].skb.mark_as_y()\n\nvectorizer = skrub.TableVectorizer(\n    low_cardinality=\"passthrough\",\n    high_cardinality=skrub.StringEncoder(),\n)\n\ncat_model = CatBoostRegressor(\n    iterations=3000,\n    depth=8,\n    learning_rate=0.03,\n    loss_function=\"RMSE\",\n    eval_metric=\"RMSE\",\n    verbose=0,\n    random_seed=42,\n    early_stopping_rounds=100,\n)\n\nlgb_model = LGBMRegressor(\n    n_estimators=4000,\n    learning_rate=0.03,\n    num_leaves=64,\n    subsample=0.8,\n    colsample_bytree=0.8,\n    random_state=42,\n    verbose=-1,\n)\n\ncat_graph = X_train.skb.apply(vectorizer).skb.apply(cat_model, y=y_train)\nlgb_graph = X_train.skb.apply(vectorizer).skb.apply(lgb_model, y=y_train)\n\ncat_learner = cat_graph.skb.make_learner(fitted=True)\nlgb_learner = lgb_graph.skb.make_learner(fitted=True)\n\nvalid_pred_cat = cat_learner.predict({\"data\": valid_part})\nvalid_pred_lgb = lgb_learner.predict({\"data\": valid_part})\n\nvalid_pred = 0.5 * valid_pred_cat + 0.5 * valid_pred_lgb\nfinal_validation_score = mean_squared_error(valid_part[target_col], valid_pred) ** 0.5\nprint(f\"Final Validation Performance: {final_validation_score}\")\n",
+  "merger_code_exec_result_1_1": {
+    "returncode": 0,
+    "stdout": "Final Validation Performance: 55771.141442513515\n",
+    "stderr": "",
+    "execution_time": 72.56594061851501,
+    "score": 55771.141442513515
+  },
+  "_adk_activated_skill_merger_agent_1_1": [
+    "skrub-dataops-pipeline"
+  ],
+  "merger_bug_summary_1_1": "",
+  "train_code_0_1": "\nimport os\nimport numpy as np\nimport pandas as pd\nimport skrub\nfrom catboost import CatBoostRegressor\nfrom sklearn.metrics import mean_squared_error\nfrom sklearn.model_selection import train_test_split\n\ntrain_path = os.path.join(\"./input\", \"train.csv\")\ntest_path = os.path.join(\"./input\", \"test.csv\")\n\ntrain_df = pd.read_csv(train_path)\ntest_df = pd.read_csv(test_path)\n\ntarget_col = \"median_house_value\"\n\ntrain_idx, valid_idx = train_test_split(\n    np.arange(len(train_df)), test_size=0.2, random_state=42\n)\ntrain_part = train_df.iloc[train_idx].copy()\nvalid_part = train_df.iloc[valid_idx].copy()\n\ndata_train = skrub.var(\"data\", train_part)\nX_train = data_train.drop(columns=target_col, errors=\"ignore\").skb.mark_as_X()\ny_train = data_train[target_col].skb.mark_as_y()\n\nmodel = CatBoostRegressor(\n    iterations=3000,\n    depth=8,\n    learning_rate=0.03,\n    loss_function=\"RMSE\",\n    eval_metric=\"RMSE\",\n    verbose=0,\n    random_seed=42,\n    early_stopping_rounds=100,\n)\n\npred_graph = X_train.skb.apply(model, y=y_train)\n\ntrain_learner = pred_graph.skb.make_learner(fitted=True)\nvalid_pred = train_learner.predict({\"data\": valid_part})\nfinal_validation_score = mean_squared_error(valid_part[target_col], valid_pred) ** 0.5\nprint(f\"Final Validation Performance: {final_validation_score}\")\n",
+  "train_code_exec_result_0_1": {
+    "returncode": 0,
+    "stdout": "Final Validation Performance: 54763.458552868375\n",
+    "stderr": "",
+    "execution_time": 53.33871650695801,
+    "score": 54763.458552868375
+  },
+  "refine_step_1": 1,
+  "prev_ablations_1": [
+    "The ablation study compares two model configurations on the same train/validation split:\n\n- **Baseline model:** `HistGradientBoostingRegressor(max_depth=8, learning_rate=0.07)`\n- **Ablated variant:** `HistGradientBoostingRegressor(max_depth=6, learning_rate=0.05)`\n\n### Results\n- **Baseline RMSE:** `57954.30`\n- **Ablated variant RMSE:** `59992.13`\n- **Final validation performance:** `57954.30`  \n  (the better of the two, since lower RMSE is better)\n\n### Interpretation\nThe **baseline configuration performed better** than the ablated variant, with a lower validation RMSE by about **2,038**. This suggests that the changes in the ablated model\u2014shallower trees and a smaller learning rate\u2014reduced performance on this validation split.\n\n### Conclusion\nThe ablation indicates that the **original baseline setup is preferable** for this experiment, as it achieved the best validation score."
+  ],
+  "prev_code_blocks_1": [
+    "import os\nimport numpy as np\nimport pandas as pd\nimport skrub\nfrom catboost import CatBoostRegressor\nfrom sklearn.metrics import mean_squared_error\nfrom sklearn.model_selection import train_test_split\n\ntrain_path = os.path.join(\"./input\", \"train.csv\")\ntest_path = os.path.join(\"./input\", \"test.csv\")\n\ntrain_df = pd.read_csv(train_path)\ntest_df = pd.read_csv(test_path)\n\ntarget_col = \"median_house_value\"\n\ntrain_idx, valid_idx = train_test_split(\n    np.arange(len(train_df)), test_size=0.2, random_state=42\n)\ntrain_part = train_df.iloc[train_idx].copy()\nvalid_part = train_df.iloc[valid_idx].copy()\n\ndata_train = skrub.var(\"data\", train_part)\nX_train = data_train.drop(columns=target_col, errors=\"ignore\").skb.mark_as_X()\ny_train = data_train[target_col].skb.mark_as_y()\n\nmodel = CatBoostRegressor(\n    iterations=3000,\n    depth=8,\n    learning_rate=0.03,\n    loss_function=\"RMSE\",\n    eval_metric=\"RMSE\",\n    verbose=0,\n    random_seed=42,\n    early_stopping_rounds=100,\n)\n\npred_graph = X_train.skb.apply(model, y=y_train)\n\ntrain_learner = pred_graph.skb.make_learner(fitted=True)\nvalid_pred = train_learner.predict({\"data\": valid_part})\nfinal_validation_score = mean_squared_error(valid_part[target_col], valid_pred) ** 0.5\nprint(f\"Final Validation Performance: {final_validation_score}\")\n"
+  ],
+  "ablation_table_report_profile_1": "Dataset: 2400 rows, 9 columns (0 constant)\nTarget (from current solution): median_house_value\n\nColumns:\n- longitude: Float64DType, nulls=0.0% (ok), unique=566, high_card=True\n- latitude: Float64DType, nulls=0.0% (ok), unique=540, high_card=True\n- housing_median_age: Float64DType, nulls=0.0% (ok), unique=52, high_card=True\n- total_rooms: Float64DType, nulls=0.0% (ok), unique=1890, high_card=True\n- total_bedrooms: Float64DType, nulls=0.0% (ok), unique=967, high_card=True\n- population: Float64DType, nulls=0.0% (ok), unique=1569, high_card=True\n- households: Float64DType, nulls=0.0% (ok), unique=947, high_card=True\n- median_income: Float64DType, nulls=0.0% (ok), unique=2111, high_card=True\n- median_house_value: Float64DType, nulls=0.0% (ok), unique=1545, high_card=True\n\nNumeric: 9 | String/Categorical: 0 | Missing columns: 0\n\nTop associations:\n- total_bedrooms <-> households: pearson=0.97\n- total_rooms <-> total_bedrooms: pearson=0.94\n- longitude <-> latitude: pearson=-0.93\n- total_rooms <-> households: pearson=0.91\n- population <-> households: pearson=0.89\n- total_bedrooms <-> population: pearson=0.85\n- total_rooms <-> population: pearson=0.83",
+  "ablation_skip_data_leakage_check_1": true,
+  "ablation_code_0_1": "\nimport os\nimport numpy as np\nimport pandas as pd\nimport skrub\nfrom sklearn.metrics import mean_squared_error\nfrom sklearn.model_selection import train_test_split\nfrom sklearn.ensemble import HistGradientBoostingRegressor\n\nINPUT_DIR = \"./input\"\ntrain_df = pd.read_csv(os.path.join(INPUT_DIR, \"train.csv\"))\n\ntarget_col = \"median_house_value\"\ntrain_idx, valid_idx = train_test_split(\n    np.arange(len(train_df)), test_size=0.2, random_state=42\n)\ntrain_part = train_df.iloc[train_idx].copy()\nvalid_part = train_df.iloc[valid_idx].copy()\n\ndef build_pred(data_df, ablate_variant=False):\n    data = skrub.var(\"data\", data_df)\n    X = data.drop(columns=target_col, errors=\"ignore\").skb.mark_as_X()\n    y = data[target_col].skb.mark_as_y()\n\n    if ablate_variant:\n        model = HistGradientBoostingRegressor(random_state=42, max_depth=6, learning_rate=0.05)\n    else:\n        model = HistGradientBoostingRegressor(random_state=42, max_depth=8, learning_rate=0.07)\n\n    pred = X.skb.apply(skrub.TableVectorizer()).skb.apply(model, y=y)\n    return pred\n\nbaseline_pred = build_pred(train_part, ablate_variant=False)\nbaseline_learner = baseline_pred.skb.make_learner(fitted=True)\nbaseline_valid_pred = baseline_learner.predict({\"data\": valid_part})\nbaseline_score = mean_squared_error(valid_part[target_col], baseline_valid_pred) ** 0.5\nprint(f\"Ablation[baseline] RMSE: {baseline_score}\")\n\nablated_pred = build_pred(train_part, ablate_variant=True)\nablated_learner = ablated_pred.skb.make_learner(fitted=True)\nablated_valid_pred = ablated_learner.predict({\"data\": valid_part})\nablated_score = mean_squared_error(valid_part[target_col], ablated_valid_pred) ** 0.5\nprint(f\"Ablation[ablated_variant] RMSE: {ablated_score}\")\n\nfinal_validation_score = min(baseline_score, ablated_score)\nprint(f\"Final Validation Performance: {final_validation_score}\")\n",
+  "ablation_code_exec_result_0_1": {
+    "returncode": 0,
+    "stdout": "Ablation[baseline] RMSE: 57954.29906102271\nAblation[ablated_variant] RMSE: 59992.133496975264\nFinal Validation Performance: 57954.29906102271\n",
+    "stderr": "",
+    "execution_time": 10.26831603050232,
+    "ablation_result": "Ablation[baseline] RMSE: 57954.29906102271\nAblation[ablated_variant] RMSE: 59992.133496975264\nFinal Validation Performance: 57954.29906102271\n"
+  },
+  "_adk_activated_skill_ablation_agent_1": [
+    "skrub-dataops-pipeline"
+  ],
+  "_adk_loaded_skill_resources_ablation_agent_1": [
+    {
+      "skill_name": "skrub-dataops-pipeline",
+      "path": "references/dataops_api_quickmap.md"
+    },
+    {
+      "skill_name": "skrub-dataops-pipeline",
+      "path": "references/feature_engineering_skrub.md"
+    },
+    {
+      "skill_name": "skrub-dataops-pipeline",
+      "path": "references/selectors_routing_skrub.md"
+    }
+  ],
+  "ablation_bug_summary_0_1": "",
+  "_adk_activated_skill_ablation_debug_agent_1": [
+    "skrub-dataops-pipeline"
+  ],
+  "_adk_loaded_skill_resources_ablation_debug_agent_1": [
+    {
+      "skill_name": "skrub-dataops-pipeline",
+      "path": "references/dataops_api_quickmap.md"
+    },
+    {
+      "skill_name": "skrub-dataops-pipeline",
+      "path": "references/common_failure_fixes.md"
+    },
+    {
+      "skill_name": "skrub-dataops-pipeline",
+      "path": "references/feature_engineering_skrub.md"
+    }
+  ],
+  "ablation_summary_0_1": "The ablation study compares two model configurations on the same train/validation split:\n\n- **Baseline model:** `HistGradientBoostingRegressor(max_depth=8, learning_rate=0.07)`\n- **Ablated variant:** `HistGradientBoostingRegressor(max_depth=6, learning_rate=0.05)`\n\n### Results\n- **Baseline RMSE:** `57954.30`\n- **Ablated variant RMSE:** `59992.13`\n- **Final validation performance:** `57954.30`  \n  (the better of the two, since lower RMSE is better)\n\n### Interpretation\nThe **baseline configuration performed better** than the ablated variant, with a lower validation RMSE by about **2,038**. This suggests that the changes in the ablated model\u2014shallower trees and a smaller learning rate\u2014reduced performance on this validation split.\n\n### Conclusion\nThe ablation indicates that the **original baseline setup is preferable** for this experiment, as it achieved the best validation score.",
+  "inner_iter_1": 2,
+  "refine_plans_0_1": [
+    "The ablation suggests keeping the stronger baseline tree capacity, so I would first preserve the CatBoost backbone and improve the feature block rather than shrinking the model. Given the strong correlations in the profile, add one bounded engineered feature set inside a deferred `apply_func`\u2014for example `rooms_per_household`, `bedrooms_per_room`, and `population_per_household`\u2014to expose useful ratios from the redundant housing counts. After that, keep the rest of the pipeline simple with a single `TableVectorizer()` or direct CatBoost numeric handling, and only then re-evaluate the same holdout split to see whether the structural features beat the current baseline without expensive search.",
+    "I\u2019d shift from the current \u201call-features-through-one-vectorizer\u201d setup to a two-part structural plan: first add a small, fixed geo feature block for `latitude/longitude` (e.g. `coord_radius`, `lat*lon`, and possibly a coarse binned location signal), since the profile shows a very strong geo pair that CatBoost may not fully exploit from raw coordinates alone. Second, keep the existing ratio features but add one redundancy drop ablation, typically removing either `households` or `total_bedrooms` after the ratios are created, because those variables are extremely collinear and may be creating duplicated signal. I would keep the rest of the pipeline simple with `TableVectorizer()` on the post-feature graph and retain fixed CatBoost parameters, but use a selector-based routing step only if the geo features prove stronger than the fully automatic encoding path."
+  ],
+  "refine_code_block_0_1": "import os\nimport numpy as np\nimport pandas as pd\nimport skrub\nfrom catboost import CatBoostRegressor\nfrom sklearn.metrics import mean_squared_error\nfrom sklearn.model_selection import train_test_split\n\ntrain_path = os.path.join(\"./input\", \"train.csv\")\ntest_path = os.path.join(\"./input\", \"test.csv\")\n\ntrain_df = pd.read_csv(train_path)\ntest_df = pd.read_csv(test_path)\n\ntarget_col = \"median_house_value\"\n\ntrain_idx, valid_idx = train_test_split(\n    np.arange(len(train_df)), test_size=0.2, random_state=42\n)\ntrain_part = train_df.iloc[train_idx].copy()\nvalid_part = train_df.iloc[valid_idx].copy()\n\ndata_train = skrub.var(\"data\", train_part)\nX_train = data_train.drop(columns=target_col, errors=\"ignore\").skb.mark_as_X()\ny_train = data_train[target_col].skb.mark_as_y()\n\nmodel = CatBoostRegressor(\n    iterations=3000,\n    depth=8,\n    learning_rate=0.03,\n    loss_function=\"RMSE\",\n    eval_metric=\"RMSE\",\n    verbose=0,\n    random_seed=42,\n    early_stopping_rounds=100,\n)\n\npred_graph = X_train.skb.apply(model, y=y_train)\n\ntrain_learner = pred_graph.skb.make_learner(fitted=True)\nvalid_pred = train_learner.predict({\"data\": valid_part})\nfinal_validation_score = mean_squared_error(valid_part[target_col], valid_pred) ** 0.5\nprint(f\"Final Validation Performance: {final_validation_score}\")\n",
+  "_adk_activated_skill_init_plan_agent_1": [
+    "skrub-dataops-pipeline"
+  ],
+  "_adk_loaded_skill_resources_init_plan_agent_1": [
+    {
+      "skill_name": "skrub-dataops-pipeline",
+      "path": "references/feature_engineering_skrub.md"
+    },
+    {
+      "skill_name": "skrub-dataops-pipeline",
+      "path": "references/encoding_skrub.md"
+    },
+    {
+      "skill_name": "skrub-dataops-pipeline",
+      "path": "references/selectors_routing_skrub.md"
+    }
+  ],
+  "plan_implement_skip_data_leakage_check_0_0_1": true,
+  "_adk_activated_skill_plan_implement_initial_agent_1": [
+    "skrub-dataops-pipeline"
+  ],
+  "_adk_loaded_skill_resources_plan_implement_initial_agent_1": [
+    {
+      "skill_name": "skrub-dataops-pipeline",
+      "path": "references/dataops_api_quickmap.md"
+    },
+    {
+      "skill_name": "skrub-dataops-pipeline",
+      "path": "references/selectors_routing_skrub.md"
+    },
+    {
+      "skill_name": "skrub-dataops-pipeline",
+      "path": "references/feature_engineering_skrub.md"
+    },
+    {
+      "skill_name": "skrub-dataops-pipeline",
+      "path": "references/encoding_skrub.md"
+    }
+  ],
+  "train_code_improve_0_0_1": "\n\nimport os\nimport numpy as np\nimport pandas as pd\nimport skrub\nfrom catboost import CatBoostRegressor\nfrom sklearn.metrics import mean_squared_error\nfrom sklearn.model_selection import train_test_split\n\ntrain_path = os.path.join(\"./input\", \"train.csv\")\ntest_path = os.path.join(\"./input\", \"test.csv\")\n\ntrain_df = pd.read_csv(train_path)\ntest_df = pd.read_csv(test_path)\n\ntarget_col = \"median_house_value\"\n\ntrain_idx, valid_idx = train_test_split(\n    np.arange(len(train_df)), test_size=0.2, random_state=42\n)\ntrain_part = train_df.iloc[train_idx].copy()\nvalid_part = train_df.iloc[valid_idx].copy()\n\n@skrub.deferred\ndef add_housing_ratio_features(df):\n    out = df.copy()\n    if \"households\" in out.columns and \"total_rooms\" in out.columns:\n        denom = out[\"households\"].replace(0, np.nan)\n        out[\"rooms_per_household\"] = (out[\"total_rooms\"] / denom).replace(\n            [np.inf, -np.inf], np.nan\n        ).fillna(0.0)\n    if \"total_rooms\" in out.columns and \"total_bedrooms\" in out.columns:\n        denom = out[\"total_rooms\"].replace(0, np.nan)\n        out[\"bedrooms_per_room\"] = (out[\"total_bedrooms\"] / denom).replace(\n            [np.inf, -np.inf], np.nan\n        ).fillna(0.0)\n    if \"households\" in out.columns and \"population\" in out.columns:\n        denom = out[\"households\"].replace(0, np.nan)\n        out[\"population_per_household\"] = (out[\"population\"] / denom).replace(\n            [np.inf, -np.inf], np.nan\n        ).fillna(0.0)\n    return out\n\ndata_train = skrub.var(\"data\", train_part)\ndata_train_fe = data_train.skb.apply_func(add_housing_ratio_features)\nX_train = data_train_fe.drop(columns=target_col, errors=\"ignore\").skb.mark_as_X()\ny_train = data_train_fe[target_col].skb.mark_as_y()\n\nvectorizer = skrub.TableVectorizer()\n\nmodel = CatBoostRegressor(\n    iterations=3000,\n    depth=8,\n    learning_rate=0.03,\n    loss_function=\"RMSE\",\n    eval_metric=\"RMSE\",\n    verbose=0,\n    random_seed=42,\n    early_stopping_rounds=100,\n)\n\npred_graph = X_train.skb.apply(vectorizer).skb.apply(model, y=y_train)\n\ntrain_learner = pred_graph.skb.make_learner(fitted=True)\nvalid_pred = train_learner.predict({\"data\": valid_part})\nfinal_validation_score = mean_squared_error(valid_part[target_col], valid_pred) ** 0.5\nprint(f\"Final Validation Performance: {final_validation_score}\")\n",
+  "train_code_improve_exec_result_0_0_1": {
+    "returncode": 0,
+    "stdout": "Final Validation Performance: 52486.18502873315\n",
+    "stderr": "",
+    "execution_time": 73.7714319229126,
+    "score": 52486.18502873315
+  },
+  "plan_implement_initial_bug_summary_0_0_1": "",
+  "_adk_activated_skill_plan_refine_agent_1": [
+    "skrub-dataops-pipeline"
+  ],
+  "_adk_loaded_skill_resources_plan_refine_agent_1": [
+    {
+      "skill_name": "skrub-dataops-pipeline",
+      "path": "references/feature_engineering_skrub.md"
+    },
+    {
+      "skill_name": "skrub-dataops-pipeline",
+      "path": "references/encoding_skrub.md"
+    },
+    {
+      "skill_name": "skrub-dataops-pipeline",
+      "path": "references/selectors_routing_skrub.md"
+    }
+  ],
+  "plan_implement_skip_data_leakage_check_1_0_1": true,
+  "_adk_activated_skill_plan_implement_agent_1": [
+    "skrub-dataops-pipeline"
+  ],
+  "_adk_loaded_skill_resources_plan_implement_agent_1": [
+    {
+      "skill_name": "skrub-dataops-pipeline",
+      "path": "references/encoding_skrub.md"
+    },
+    {
+      "skill_name": "skrub-dataops-pipeline",
+      "path": "references/selectors_routing_skrub.md"
+    },
+    {
+      "skill_name": "skrub-dataops-pipeline",
+      "path": "references/feature_engineering_skrub.md"
+    },
+    {
+      "skill_name": "skrub-dataops-pipeline",
+      "path": "references/dataops_api_quickmap.md"
+    }
+  ],
+  "train_code_improve_1_0_1": "\n\nimport os\nimport numpy as np\nimport pandas as pd\nimport skrub\nfrom catboost import CatBoostRegressor\nfrom sklearn.metrics import mean_squared_error\nfrom sklearn.model_selection import train_test_split\nfrom skrub import DropCols\nimport skrub.selectors as s\n\ntrain_path = os.path.join(\"./input\", \"train.csv\")\ntest_path = os.path.join(\"./input\", \"test.csv\")\n\ntrain_df = pd.read_csv(train_path)\ntest_df = pd.read_csv(test_path)\n\ntarget_col = \"median_house_value\"\n\ntrain_idx, valid_idx = train_test_split(\n    np.arange(len(train_df)), test_size=0.2, random_state=42\n)\ntrain_part = train_df.iloc[train_idx].copy()\nvalid_part = train_df.iloc[valid_idx].copy()\n\n@skrub.deferred\ndef add_geo_and_ratio_features(df):\n    out = df.copy()\n    cols = set(out.columns)\n\n    # Geo feature block for latitude/longitude\n    if {\"latitude\", \"longitude\"}.issubset(cols):\n        lat = out[\"latitude\"]\n        lon = out[\"longitude\"]\n        out[\"coord_radius\"] = np.sqrt(lat ** 2 + lon ** 2)\n        out[\"lat_lon_product\"] = lat * lon\n        out[\"lat_abs\"] = lat.abs()\n        out[\"lon_abs\"] = lon.abs()\n        out[\"latitude_bin\"] = pd.cut(lat, bins=8, labels=False, duplicates=\"drop\")\n        out[\"longitude_bin\"] = pd.cut(lon, bins=8, labels=False, duplicates=\"drop\")\n\n    # Existing ratio features\n    if {\"total_rooms\", \"households\"}.issubset(cols):\n        denom = out[\"households\"].replace(0, np.nan)\n        out[\"rooms_per_household\"] = (\n            (out[\"total_rooms\"] / denom).replace([np.inf, -np.inf], np.nan).fillna(0.0)\n        )\n\n    if {\"total_bedrooms\", \"total_rooms\"}.issubset(cols):\n        denom = out[\"total_rooms\"].replace(0, np.nan)\n        out[\"bedrooms_per_room\"] = (\n            (out[\"total_bedrooms\"] / denom)\n            .replace([np.inf, -np.inf], np.nan)\n            .fillna(0.0)\n        )\n\n    if {\"population\", \"households\"}.issubset(cols):\n        denom = out[\"households\"].replace(0, np.nan)\n        out[\"population_per_household\"] = (\n            (out[\"population\"] / denom)\n            .replace([np.inf, -np.inf], np.nan)\n            .fillna(0.0)\n        )\n\n    return out\n\ndata_train = skrub.var(\"data\", train_part)\ndata_train_fe = data_train.skb.apply_func(add_geo_and_ratio_features)\nX_train = data_train_fe.drop(columns=target_col, errors=\"ignore\").skb.mark_as_X()\ny_train = data_train_fe[target_col].skb.mark_as_y()\n\n# Redundancy drop ablation: remove one collinear raw count after ratios are created\nX_train = X_train.skb.apply(DropCols(cols=s.cols(\"households\")))\n\n# Post-FE vectorization on the full graph\nvectorizer = skrub.TableVectorizer()\n\nmodel = CatBoostRegressor(\n    iterations=3000,\n    depth=8,\n    learning_rate=0.03,\n    loss_function=\"RMSE\",\n    eval_metric=\"RMSE\",\n    verbose=0,\n    random_seed=42,\n    early_stopping_rounds=100,\n)\n\npred_graph = X_train.skb.apply(vectorizer).skb.apply(model, y=y_train)\n\ntrain_learner = pred_graph.skb.make_learner(fitted=True)\nvalid_pred = train_learner.predict({\"data\": valid_part})\nfinal_validation_score = mean_squared_error(valid_part[target_col], valid_pred) ** 0.5\nprint(f\"Final Validation Performance: {final_validation_score}\")\n",
+  "train_code_improve_exec_result_1_0_1": {
+    "returncode": 0,
+    "stdout": "Final Validation Performance: 52390.05799221297\n",
+    "stderr": "",
+    "execution_time": 77.87362670898438,
+    "score": 52390.05799221297
+  },
+  "plan_implement_bug_summary_1_0_1": "",
+  "train_code_1_1": "\nimport os\nimport numpy as np\nimport pandas as pd\nimport skrub\nfrom catboost import CatBoostRegressor\nfrom sklearn.metrics import mean_squared_error\nfrom sklearn.model_selection import train_test_split\n\ntrain_path = os.path.join(\"./input\", \"train.csv\")\n\ntrain_df = pd.read_csv(train_path)\n\ntarget_col = \"median_house_value\"\n\ntrain_idx, valid_idx = train_test_split(\n    np.arange(len(train_df)), test_size=0.2, random_state=42\n)\ntrain_part = train_df.iloc[train_idx].copy()\nvalid_part = train_df.iloc[valid_idx].copy()\n\n@skrub.deferred\ndef add_housing_ratio_features(df):\n    out = df.copy()\n    if \"households\" in out.columns and \"total_rooms\" in out.columns:\n        denom = out[\"households\"].replace(0, np.nan)\n        out[\"rooms_per_household\"] = (out[\"total_rooms\"] / denom).replace(\n            [np.inf, -np.inf], np.nan\n        ).fillna(0.0)\n    if \"total_rooms\" in out.columns and \"total_bedrooms\" in out.columns:\n        denom = out[\"total_rooms\"].replace(0, np.nan)\n        out[\"bedrooms_per_room\"] = (out[\"total_bedrooms\"] / denom).replace(\n            [np.inf, -np.inf], np.nan\n        ).fillna(0.0)\n    if \"households\" in out.columns and \"population\" in out.columns:\n        denom = out[\"households\"].replace(0, np.nan)\n        out[\"population_per_household\"] = (out[\"population\"] / denom).replace(\n            [np.inf, -np.inf], np.nan\n        ).fillna(0.0)\n    return out\n\ndata_train = skrub.var(\"data\", train_part)\ndata_train_fe = data_train.skb.apply_func(add_housing_ratio_features)\nX_train = data_train_fe.drop(columns=target_col, errors=\"ignore\").skb.mark_as_X()\ny_train = data_train_fe[target_col].skb.mark_as_y()\n\nvectorizer = skrub.TableVectorizer()\n\nmodel = CatBoostRegressor(\n    depth=6,\n    learning_rate=0.03,\n    iterations=800,\n    loss_function=\"RMSE\",\n    eval_metric=\"RMSE\",\n    verbose=0,\n    random_seed=42,\n    early_stopping_rounds=50,\n)\n\npred_graph = X_train.skb.apply(vectorizer).skb.apply(model, y=y_train)\n\ntrain_learner = pred_graph.skb.make_learner(fitted=True)\nvalid_pred = train_learner.predict({\"data\": valid_part})\nfinal_validation_score = mean_squared_error(valid_part[target_col], valid_pred) ** 0.5\nprint(f\"Final Validation Performance: {final_validation_score}\")\n",
+  "train_code_exec_result_1_1": {
+    "returncode": 0,
+    "stdout": "Final Validation Performance: 52375.45209371722\n",
+    "stderr": "",
+    "execution_time": 14.909698247909546,
+    "score": 52375.45209371722
+  },
+  "tune_plan_1": {
+    "focus_block": "model",
+    "rationale": "The ablation shows the model-side baseline capacity matters: the stronger tree setting outperformed the shallower/smaller one, so the best next step is a narrow model-only search rather than changing preprocessing or encoding. Because CatBoost is not an sklearn BaseEstimator, the safe tuning pattern is a small discrete `choose_from` grid over complete CatBoost variants, keeping the structural feature block and vectorization frozen. To stay within budget, the search should reduce CatBoost capacity during tuning relative to the current 3000-iteration setup, then use the best discrete variant from the holdout search.",
+    "tunable_params": [
+      {
+        "name": "model_variant",
+        "kind": "choose_from",
+        "outcomes": {
+          "d6_lr0.03_it800": {
+            "depth": 6,
+            "learning_rate": 0.03,
+            "iterations": 800,
+            "loss_function": "RMSE",
+            "eval_metric": "RMSE",
+            "verbose": 0,
+            "random_seed": 42,
+            "early_stopping_rounds": 50
+          },
+          "d8_lr0.03_it800": {
+            "depth": 8,
+            "learning_rate": 0.03,
+            "iterations": 800,
+            "loss_function": "RMSE",
+            "eval_metric": "RMSE",
+            "verbose": 0,
+            "random_seed": 42,
+            "early_stopping_rounds": 50
+          },
+          "d8_lr0.05_it600": {
+            "depth": 8,
+            "learning_rate": 0.05,
+            "iterations": 600,
+            "loss_function": "RMSE",
+            "eval_metric": "RMSE",
+            "verbose": 0,
+            "random_seed": 42,
+            "early_stopping_rounds": 50
+          },
+          "d10_lr0.03_it600": {
+            "depth": 10,
+            "learning_rate": 0.03,
+            "iterations": 600,
+            "loss_function": "RMSE",
+            "eval_metric": "RMSE",
+            "verbose": 0,
+            "random_seed": 42,
+            "early_stopping_rounds": 50
+          }
+        }
+      }
+    ],
+    "frozen": [
+      "train_test_split(test_size=0.2, random_state=42)",
+      "target column: median_house_value",
+      "housing ratio feature engineering block (rooms_per_household, bedrooms_per_room, population_per_household)",
+      "TableVectorizer() encoding path",
+      "CatBoost loss/eval metric choice beyond RMSE",
+      "all non-model pipeline structure and DataOps graph topology",
+      "holdout evaluation protocol using train_part for fit/search and valid_part for RMSE"
+    ],
+    "n_iter": 4
+  },
+  "_adk_activated_skill_tune_plan_agent_1": [
+    "skrub-dataops-pipeline"
+  ],
+  "_adk_loaded_skill_resources_tune_plan_agent_1": [
+    {
+      "skill_name": "skrub-dataops-pipeline",
+      "path": "references/choices_hparam_pattern.md"
+    }
+  ],
+  "train_code_tune_search_1": "\nimport os\nimport json\nimport numpy as np\nimport pandas as pd\nimport skrub\nfrom catboost import CatBoostRegressor\nfrom sklearn.metrics import mean_squared_error\nfrom sklearn.model_selection import train_test_split\n\ntrain_path = os.path.join(\"./input\", \"train.csv\")\ntest_path = os.path.join(\"./input\", \"test.csv\")\n\ntrain_df = pd.read_csv(train_path)\ntest_df = pd.read_csv(test_path)\n\ntarget_col = \"median_house_value\"\n\ntrain_idx, valid_idx = train_test_split(\n    np.arange(len(train_df)), test_size=0.2, random_state=42\n)\ntrain_part = train_df.iloc[train_idx].copy()\nvalid_part = train_df.iloc[valid_idx].copy()\n\n@skrub.deferred\ndef add_housing_ratio_features(df):\n    out = df.copy()\n    if \"households\" in out.columns and \"total_rooms\" in out.columns:\n        denom = out[\"households\"].replace(0, np.nan)\n        out[\"rooms_per_household\"] = (out[\"total_rooms\"] / denom).replace(\n            [np.inf, -np.inf], np.nan\n        ).fillna(0.0)\n    if \"total_rooms\" in out.columns and \"total_bedrooms\" in out.columns:\n        denom = out[\"total_rooms\"].replace(0, np.nan)\n        out[\"bedrooms_per_room\"] = (out[\"total_bedrooms\"] / denom).replace(\n            [np.inf, -np.inf], np.nan\n        ).fillna(0.0)\n    if \"households\" in out.columns and \"population\" in out.columns:\n        denom = out[\"households\"].replace(0, np.nan)\n        out[\"population_per_household\"] = (out[\"population\"] / denom).replace(\n            [np.inf, -np.inf], np.nan\n        ).fillna(0.0)\n    return out\n\ndata_train = skrub.var(\"data\", train_part)\ndata_train_fe = data_train.skb.apply_func(add_housing_ratio_features)\nX_train = data_train_fe.drop(columns=target_col, errors=\"ignore\").skb.mark_as_X()\ny_train = data_train_fe[target_col].skb.mark_as_y()\n\nvectorizer = skrub.TableVectorizer()\n\nvariant_specs = {\n    \"d6_lr0.03_it800\": {\n        \"depth\": 6,\n        \"learning_rate\": 0.03,\n        \"iterations\": 800,\n        \"loss_function\": \"RMSE\",\n        \"eval_metric\": \"RMSE\",\n        \"verbose\": 0,\n        \"random_seed\": 42,\n        \"early_stopping_rounds\": 50,\n    },\n    \"d8_lr0.03_it800\": {\n        \"depth\": 8,\n        \"learning_rate\": 0.03,\n        \"iterations\": 800,\n        \"loss_function\": \"RMSE\",\n        \"eval_metric\": \"RMSE\",\n        \"verbose\": 0,\n        \"random_seed\": 42,\n        \"early_stopping_rounds\": 50,\n    },\n    \"d8_lr0.05_it600\": {\n        \"depth\": 8,\n        \"learning_rate\": 0.05,\n        \"iterations\": 600,\n        \"loss_function\": \"RMSE\",\n        \"eval_metric\": \"RMSE\",\n        \"verbose\": 0,\n        \"random_seed\": 42,\n        \"early_stopping_rounds\": 50,\n    },\n    \"d10_lr0.03_it600\": {\n        \"depth\": 10,\n        \"learning_rate\": 0.03,\n        \"iterations\": 600,\n        \"loss_function\": \"RMSE\",\n        \"eval_metric\": \"RMSE\",\n        \"verbose\": 0,\n        \"random_seed\": 42,\n        \"early_stopping_rounds\": 50,\n    },\n}\n\nmodel = skrub.choose_from(\n    {\n        k: CatBoostRegressor(**params)\n        for k, params in variant_specs.items()\n    },\n    name=\"model_variant\",\n)\n\npred_graph = X_train.skb.apply(vectorizer).skb.apply(model, y=y_train)\n\nsearch = pred_graph.skb.make_randomized_search(\n    n_iter=4, n_jobs=2, random_state=42, fitted=True\n)\nsearch.fit({\"data\": train_part})\n\nvalid_pred = search.best_learner_.predict({\"data\": valid_part})\nfinal_validation_score = mean_squared_error(valid_part[target_col], valid_pred) ** 0.5\nprint(f\"Final Validation Performance: {final_validation_score}\")\n\nbest_choice = None\nif hasattr(search, \"best_params_\") and isinstance(search.best_params_, dict):\n    for v in search.best_params_.values():\n        if isinstance(v, str) and v in variant_specs:\n            best_choice = v\n            break\n\nif best_choice is None and hasattr(search, \"results_\"):\n    try:\n        best_row = search.results_.iloc[0]\n        if \"model_variant\" in best_row.index:\n            best_choice = best_row[\"model_variant\"]\n    except Exception:\n        pass\n\nif best_choice is None:\n    best_choice = \"d8_lr0.03_it800\"\n\nbest_params = dict(variant_specs[best_choice])\nprint(\"TUNING_BEST_PARAMS:\", json.dumps(best_params, default=str))\n",
+  "train_code_tune_search_exec_result_1": {
+    "returncode": 0,
+    "stdout": "Final Validation Performance: 52375.45209371722\nTUNING_BEST_PARAMS: {\"depth\": 6, \"learning_rate\": 0.03, \"iterations\": 800, \"loss_function\": \"RMSE\", \"eval_metric\": \"RMSE\", \"verbose\": 0, \"random_seed\": 42, \"early_stopping_rounds\": 50}\n",
+    "stderr": "",
+    "execution_time": 391.15983533859253,
+    "score": 52375.45209371722
+  },
+  "_adk_activated_skill_tune_implement_agent_1": [
+    "skrub-dataops-pipeline"
+  ],
+  "_adk_loaded_skill_resources_tune_implement_agent_1": [
+    {
+      "skill_name": "skrub-dataops-pipeline",
+      "path": "references/choices_hparam_pattern.md"
+    }
+  ],
+  "tune_best_params_1": {
+    "depth": 6,
+    "learning_rate": 0.03,
+    "iterations": 800,
+    "loss_function": "RMSE",
+    "eval_metric": "RMSE",
+    "verbose": 0,
+    "random_seed": 42,
+    "early_stopping_rounds": 50
+  },
+  "tune_implement_skip_data_leakage_check_1": true,
+  "tune_implement_bug_summary_1": "",
+  "tune_param_source_1": "search",
+  "tune_bake_skip_data_leakage_check_1": true,
+  "train_code_tune_1": "\nimport os\nimport numpy as np\nimport pandas as pd\nimport skrub\nfrom catboost import CatBoostRegressor\nfrom sklearn.metrics import mean_squared_error\nfrom sklearn.model_selection import train_test_split\n\ntrain_path = os.path.join(\"./input\", \"train.csv\")\n\ntrain_df = pd.read_csv(train_path)\n\ntarget_col = \"median_house_value\"\n\ntrain_idx, valid_idx = train_test_split(\n    np.arange(len(train_df)), test_size=0.2, random_state=42\n)\ntrain_part = train_df.iloc[train_idx].copy()\nvalid_part = train_df.iloc[valid_idx].copy()\n\n@skrub.deferred\ndef add_housing_ratio_features(df):\n    out = df.copy()\n    if \"households\" in out.columns and \"total_rooms\" in out.columns:\n        denom = out[\"households\"].replace(0, np.nan)\n        out[\"rooms_per_household\"] = (out[\"total_rooms\"] / denom).replace(\n            [np.inf, -np.inf], np.nan\n        ).fillna(0.0)\n    if \"total_rooms\" in out.columns and \"total_bedrooms\" in out.columns:\n        denom = out[\"total_rooms\"].replace(0, np.nan)\n        out[\"bedrooms_per_room\"] = (out[\"total_bedrooms\"] / denom).replace(\n            [np.inf, -np.inf], np.nan\n        ).fillna(0.0)\n    if \"households\" in out.columns and \"population\" in out.columns:\n        denom = out[\"households\"].replace(0, np.nan)\n        out[\"population_per_household\"] = (out[\"population\"] / denom).replace(\n            [np.inf, -np.inf], np.nan\n        ).fillna(0.0)\n    return out\n\ndata_train = skrub.var(\"data\", train_part)\ndata_train_fe = data_train.skb.apply_func(add_housing_ratio_features)\nX_train = data_train_fe.drop(columns=target_col, errors=\"ignore\").skb.mark_as_X()\ny_train = data_train_fe[target_col].skb.mark_as_y()\n\nvectorizer = skrub.TableVectorizer()\n\nmodel = CatBoostRegressor(\n    depth=6,\n    learning_rate=0.03,\n    iterations=800,\n    loss_function=\"RMSE\",\n    eval_metric=\"RMSE\",\n    verbose=0,\n    random_seed=42,\n    early_stopping_rounds=50,\n)\n\npred_graph = X_train.skb.apply(vectorizer).skb.apply(model, y=y_train)\n\ntrain_learner = pred_graph.skb.make_learner(fitted=True)\nvalid_pred = train_learner.predict({\"data\": valid_part})\nfinal_validation_score = mean_squared_error(valid_part[target_col], valid_pred) ** 0.5\nprint(f\"Final Validation Performance: {final_validation_score}\")\n",
+  "train_code_tune_exec_result_1": {
+    "returncode": 0,
+    "stdout": "Final Validation Performance: 52375.45209371722\n",
+    "stderr": "",
+    "execution_time": 14.909698247909546,
+    "score": 52375.45209371722
+  },
+  "_adk_activated_skill_tune_bake_agent_1": [
+    "skrub-dataops-pipeline"
+  ],
+  "tune_bake_bug_summary_1": "",
+  "tune_winner_source_1": "tuned",
+  "ensemble_iter": 2,
+  "ensemble_plans": [
+    "- Keep the current skrub pipeline exactly as the base model and add a thin \u201censemble wrapper\u201d only at the prediction stage.\n- Since there is only one provided solution, the best practical ensemble is a self-ensemble from the same pipeline using small, safe perturbations that do not change preprocessing/model design:\n  - one model trained on the current 80/20 split,\n  - one model trained with a different fixed split seed,\n  - optionally one model with the same split but a tiny input-space variation via the same `add_housing_ratio_features` output order preserved.\n- Use the same skrub DataOps flow for each member:\n  - `data_train = skrub.var(\"data\", train_part_variant)`\n  - `apply_func(add_housing_ratio_features)`\n  - `drop target`\n  - `TableVectorizer()`\n  - `CatBoostRegressor(...)`\n  - `make_learner(fitted=True)`\n- Merge predictions with a simple arithmetic mean:\n  - `final_pred = (pred1 + pred2) / 2`\n  - if using 3 members, use equal weights initially: `final_pred = (pred1 + pred2 + pred3) / 3`\n- If you want one slightly smarter but still very lightweight merge, weight by local validation RMSE from the fixed holdout:\n  - better split/model gets higher weight,\n  - normalize weights to sum to 1,\n  - keep weights coarse, e.g. `[0.5, 0.3, 0.2]`, to avoid overfitting the blend.\n- Recommended minimal implementation:\n  - duplicate the current script into 2 or 3 runs with only `train_test_split(random_state=...)` changed,\n  - fit each pipeline independently,\n  - average their `predict(...)` outputs on validation/test.\n- This preserves each solution\u2019s DataOps structure, avoids retraining on large fold grids, and gives a robust variance-reduction gain with very small code changes.",
+    "- Keep the exact same skrub + CatBoost pipeline for each member, but change the merge from a plain average to a two-level blend.\n- First, build 2\u20133 members only, using very small diversity sources that are already available:\n  - different `train_test_split` seeds,\n  - and, if you want a third member, the same split but a different CatBoost `random_seed`.\n- For each member, compute its validation prediction on the same fixed holdout split used to score the ensemble.\n- Before averaging, calibrate each member\u2019s predictions with a simple linear correction on the holdout:\n  - fit `a, b` so that `y_true \u2248 a * pred + b` on the validation fold,\n  - apply this correction to that member\u2019s validation/test predictions.\n- Then merge the calibrated predictions with inverse-RMSE weights:\n  - `weight_i = 1 / (rmse_i + epsilon)`,\n  - normalize weights to sum to 1,\n  - `final_pred = sum(weight_i * calibrated_pred_i)`.\n- If you use 3 models, keep it conservative:\n  - one baseline seed,\n  - one different split seed,\n  - one different model seed on the baseline split.\n- This is easy to implement because it only adds:\n  - a tiny per-model calibration step,\n  - then a weighted average.\n- It should be more effective than raw averaging because it corrects systematic bias before combining, while still preserving the original skrub DataOps structure."
+  ],
+  "ensemble_plan_implement_skip_data_leakage_check_0": true,
+  "ensemble_code_0": "\nimport os\nimport numpy as np\nimport pandas as pd\nimport skrub\nfrom catboost import CatBoostRegressor\nfrom sklearn.metrics import mean_squared_error\nfrom sklearn.model_selection import train_test_split\n\ntrain_path = os.path.join(\"./input\", \"train.csv\")\ntrain_df = pd.read_csv(train_path)\n\ntarget_col = \"median_house_value\"\n\n\n@skrub.deferred\ndef add_housing_ratio_features(df):\n    out = df.copy()\n    if \"households\" in out.columns and \"total_rooms\" in out.columns:\n        denom = out[\"households\"].replace(0, np.nan)\n        out[\"rooms_per_household\"] = (out[\"total_rooms\"] / denom).replace(\n            [np.inf, -np.inf], np.nan\n        ).fillna(0.0)\n    if \"total_rooms\" in out.columns and \"total_bedrooms\" in out.columns:\n        denom = out[\"total_rooms\"].replace(0, np.nan)\n        out[\"bedrooms_per_room\"] = (out[\"total_bedrooms\"] / denom).replace(\n            [np.inf, -np.inf], np.nan\n        ).fillna(0.0)\n    if \"households\" in out.columns and \"population\" in out.columns:\n        denom = out[\"households\"].replace(0, np.nan)\n        out[\"population_per_household\"] = (out[\"population\"] / denom).replace(\n            [np.inf, -np.inf], np.nan\n        ).fillna(0.0)\n    return out\n\n\ndef fit_single_model(train_part, seed, depth=6, learning_rate=0.03, iterations=800):\n    data_train = skrub.var(\"data\", train_part)\n    data_train_fe = data_train.skb.apply_func(add_housing_ratio_features)\n    X_train = data_train_fe.drop(columns=target_col, errors=\"ignore\").skb.mark_as_X()\n    y_train = data_train_fe[target_col].skb.mark_as_y()\n\n    vectorizer = skrub.TableVectorizer()\n\n    model = CatBoostRegressor(\n        depth=depth,\n        learning_rate=learning_rate,\n        iterations=iterations,\n        loss_function=\"RMSE\",\n        eval_metric=\"RMSE\",\n        verbose=0,\n        random_seed=seed,\n        early_stopping_rounds=50,\n    )\n\n    pred_graph = X_train.skb.apply(vectorizer).skb.apply(model, y=y_train)\n    learner = pred_graph.skb.make_learner(fitted=True)\n    return learner\n\n\ndef build_split_and_fit(seed_split, seed_model):\n    train_idx, valid_idx = train_test_split(\n        np.arange(len(train_df)), test_size=0.2, random_state=seed_split\n    )\n    train_part = train_df.iloc[train_idx].copy()\n    valid_part = train_df.iloc[valid_idx].copy()\n    learner = fit_single_model(train_part, seed=seed_model)\n    valid_pred = learner.predict({\"data\": valid_part})\n    rmse = mean_squared_error(valid_part[target_col], valid_pred) ** 0.5\n    return learner, valid_part, rmse\n\n\n# Ensemble members: same pipeline, small safe perturbations via split seed/model seed.\nmember_specs = [\n    (42, 42),\n    (7, 7),\n    (123, 123),\n]\n\nlearners = []\nvalid_parts = []\nrmses = []\n\nfor split_seed, model_seed in member_specs:\n    learner, valid_part, rmse = build_split_and_fit(split_seed, model_seed)\n    learners.append(learner)\n    valid_parts.append(valid_part)\n    rmses.append(rmse)\n\n# Use the same holdout split as upstream for the reported metric.\n# Refit/evaluate all ensemble members on the upstream 80/20 split.\nbase_train_idx, base_valid_idx = train_test_split(\n    np.arange(len(train_df)), test_size=0.2, random_state=42\n)\nbase_train_part = train_df.iloc[base_train_idx].copy()\nbase_valid_part = train_df.iloc[base_valid_idx].copy()\n\nbase_learners = []\nbase_rmses = []\nfor split_seed, model_seed in member_specs:\n    train_idx, _ = train_test_split(\n        np.arange(len(train_df)), test_size=0.2, random_state=split_seed\n    )\n    train_part = train_df.iloc[train_idx].copy()\n    learner = fit_single_model(train_part, seed=model_seed)\n    base_learners.append(learner)\n    pred = learner.predict({\"data\": base_valid_part})\n    base_rmses.append(mean_squared_error(base_valid_part[target_col], pred) ** 0.5)\n\n# Weight by inverse validation RMSE from the fixed holdout, then normalize.\nweights = np.array([1.0 / max(r, 1e-12) for r in base_rmses], dtype=float)\nweights = weights / weights.sum()\n\nensemble_preds = None\nfor w, learner in zip(weights, base_learners):\n    pred = learner.predict({\"data\": base_valid_part})\n    if ensemble_preds is None:\n        ensemble_preds = w * pred\n    else:\n        ensemble_preds += w * pred\n\nfinal_validation_score = mean_squared_error(base_valid_part[target_col], ensemble_preds) ** 0.5\nprint(f\"Final Validation Performance: {final_validation_score}\")\n",
+  "ensemble_code_exec_result_0": {
+    "returncode": 0,
+    "stdout": "Final Validation Performance: 38648.23627296985\n",
+    "stderr": "",
+    "execution_time": 46.49214577674866,
+    "score": 38648.23627296985
+  },
+  "_adk_activated_skill_ensemble_plan_implement_initial_agent": [
+    "skrub-dataops-pipeline"
+  ],
+  "ensemble_plan_implement_initial_bug_summary_0": "",
+  "ensemble_plan_implement_skip_data_leakage_check_1": true,
+  "ensemble_code_1": "\nimport os\nimport numpy as np\nimport pandas as pd\nimport skrub\nfrom catboost import CatBoostRegressor\nfrom sklearn.metrics import mean_squared_error\nfrom sklearn.model_selection import train_test_split\n\ntrain_path = os.path.join(\"./input\", \"train.csv\")\ntrain_df = pd.read_csv(train_path)\n\ntarget_col = \"median_house_value\"\neps = 1e-8\n\ndef build_member(train_part, valid_part, model_random_seed=42):\n    @skrub.deferred\n    def add_housing_ratio_features(df):\n        out = df.copy()\n        if \"households\" in out.columns and \"total_rooms\" in out.columns:\n            denom = out[\"households\"].replace(0, np.nan)\n            out[\"rooms_per_household\"] = (out[\"total_rooms\"] / denom).replace(\n                [np.inf, -np.inf], np.nan\n            ).fillna(0.0)\n        if \"total_rooms\" in out.columns and \"total_bedrooms\" in out.columns:\n            denom = out[\"total_rooms\"].replace(0, np.nan)\n            out[\"bedrooms_per_room\"] = (out[\"total_bedrooms\"] / denom).replace(\n                [np.inf, -np.inf], np.nan\n            ).fillna(0.0)\n        if \"households\" in out.columns and \"population\" in out.columns:\n            denom = out[\"households\"].replace(0, np.nan)\n            out[\"population_per_household\"] = (out[\"population\"] / denom).replace(\n                [np.inf, -np.inf], np.nan\n            ).fillna(0.0)\n        return out\n\n    data_train = skrub.var(\"data\", train_part)\n    data_train_fe = data_train.skb.apply_func(add_housing_ratio_features)\n    X_train = data_train_fe.drop(columns=target_col, errors=\"ignore\").skb.mark_as_X()\n    y_train = data_train_fe[target_col].skb.mark_as_y()\n\n    vectorizer = skrub.TableVectorizer()\n    model = CatBoostRegressor(\n        depth=6,\n        learning_rate=0.03,\n        iterations=800,\n        loss_function=\"RMSE\",\n        eval_metric=\"RMSE\",\n        verbose=0,\n        random_seed=model_random_seed,\n        early_stopping_rounds=50,\n    )\n\n    pred_graph = X_train.skb.apply(vectorizer).skb.apply(model, y=y_train)\n    learner = pred_graph.skb.make_learner(fitted=True)\n    valid_pred = learner.predict({\"data\": valid_part})\n    rmse = mean_squared_error(valid_part[target_col], valid_pred) ** 0.5\n\n    # Linear calibration on holdout: y_true \u2248 a * pred + b\n    a, b = np.polyfit(valid_pred, valid_part[target_col].to_numpy(), 1)\n    calibrated_valid_pred = a * valid_pred + b\n    calibrated_valid_rmse = mean_squared_error(valid_part[target_col], calibrated_valid_pred) ** 0.5\n\n    return {\n        \"learner\": learner,\n        \"valid_pred\": valid_pred,\n        \"calibrated_valid_pred\": calibrated_valid_pred,\n        \"rmse\": rmse,\n        \"calibrated_rmse\": calibrated_valid_rmse,\n        \"calibration_a\": a,\n        \"calibration_b\": b,\n    }\n\n# Member 1: baseline split and model seed\ntrain_idx_1, valid_idx_1 = train_test_split(\n    np.arange(len(train_df)), test_size=0.2, random_state=42\n)\ntrain_part_1 = train_df.iloc[train_idx_1].copy()\nvalid_part_1 = train_df.iloc[valid_idx_1].copy()\n\n# Member 2: different split seed\ntrain_idx_2, valid_idx_2 = train_test_split(\n    np.arange(len(train_df)), test_size=0.2, random_state=7\n)\ntrain_part_2 = train_df.iloc[train_idx_2].copy()\nvalid_part_2 = train_df.iloc[valid_idx_2].copy()\n\n# Member 3: same split as baseline, different CatBoost seed\ntrain_part_3 = train_part_1.copy()\nvalid_part_3 = valid_part_1.copy()\n\nmember1 = build_member(train_part_1, valid_part_1, model_random_seed=42)\nmember2 = build_member(train_part_2, valid_part_2, model_random_seed=42)\nmember3 = build_member(train_part_3, valid_part_3, model_random_seed=99)\n\n# Use the baseline holdout split for ensemble scoring, as requested\ny_true = valid_part_1[target_col].to_numpy()\n\n# Recompute baseline holdout predictions for member 2 and 3 on member 1's holdout only\n# by training their same pipeline on their own training parts, then predicting member1 valid_part.\n# This keeps the same exact skrub + CatBoost pipeline per member.\ndef predict_on_reference_valid(train_part, ref_valid_part, model_random_seed=42):\n    @skrub.deferred\n    def add_housing_ratio_features(df):\n        out = df.copy()\n        if \"households\" in out.columns and \"total_rooms\" in out.columns:\n            denom = out[\"households\"].replace(0, np.nan)\n            out[\"rooms_per_household\"] = (out[\"total_rooms\"] / denom).replace(\n                [np.inf, -np.inf], np.nan\n            ).fillna(0.0)\n        if \"total_rooms\" in out.columns and \"total_bedrooms\" in out.columns:\n            denom = out[\"total_rooms\"].replace(0, np.nan)\n            out[\"bedrooms_per_room\"] = (out[\"total_bedrooms\"] / denom).replace(\n                [np.inf, -np.inf], np.nan\n            ).fillna(0.0)\n        if \"households\" in out.columns and \"population\" in out.columns:\n            denom = out[\"households\"].replace(0, np.nan)\n            out[\"population_per_household\"] = (out[\"population\"] / denom).replace(\n                [np.inf, -np.inf], np.nan\n            ).fillna(0.0)\n        return out\n\n    data_train = skrub.var(\"data\", train_part)\n    data_train_fe = data_train.skb.apply_func(add_housing_ratio_features)\n    X_train = data_train_fe.drop(columns=target_col, errors=\"ignore\").skb.mark_as_X()\n    y_train = data_train_fe[target_col].skb.mark_as_y()\n\n    vectorizer = skrub.TableVectorizer()\n    model = CatBoostRegressor(\n        depth=6,\n        learning_rate=0.03,\n        iterations=800,\n        loss_function=\"RMSE\",\n        eval_metric=\"RMSE\",\n        verbose=0,\n        random_seed=model_random_seed,\n        early_stopping_rounds=50,\n    )\n\n    pred_graph = X_train.skb.apply(vectorizer).skb.apply(model, y=y_train)\n    learner = pred_graph.skb.make_learner(fitted=True)\n    return learner.predict({\"data\": ref_valid_part})\n\n# Member 2 and 3 predictions on baseline holdout for ensemble evaluation\nvalid_pred_2_on_1 = predict_on_reference_valid(train_part_2, valid_part_1, model_random_seed=42)\nvalid_pred_3_on_1 = predict_on_reference_valid(train_part_3, valid_part_1, model_random_seed=99)\n\n# Calibrate each member using its own validation fold if available;\n# for the ensemble metric, we need predictions on the same fixed holdout.\n# Member 1 calibration on holdout 1\na1, b1 = member1[\"calibration_a\"], member1[\"calibration_b\"]\ncal_pred_1 = a1 * member1[\"valid_pred\"] + b1\nrmse1 = mean_squared_error(y_true, cal_pred_1) ** 0.5\n\n# For members 2 and 3, fit calibration on their own holdouts, then apply the same linear correction\na2, b2 = np.polyfit(member2[\"valid_pred\"], valid_part_2[target_col].to_numpy(), 1)\na3, b3 = np.polyfit(member3[\"valid_pred\"], valid_part_3[target_col].to_numpy(), 1)\n\ncal_pred_2 = a2 * valid_pred_2_on_1 + b2\ncal_pred_3 = a3 * valid_pred_3_on_1 + b3\n\nrmse2 = mean_squared_error(y_true, cal_pred_2) ** 0.5\nrmse3 = mean_squared_error(y_true, cal_pred_3) ** 0.5\n\nweights = np.array([1.0 / (rmse1 + eps), 1.0 / (rmse2 + eps), 1.0 / (rmse3 + eps)])\nweights = weights / weights.sum()\n\nfinal_valid_pred = weights[0] * cal_pred_1 + weights[1] * cal_pred_2 + weights[2] * cal_pred_3\nfinal_validation_score = mean_squared_error(y_true, final_valid_pred) ** 0.5\n\nprint(f\"Final Validation Performance: {final_validation_score}\")\n",
+  "ensemble_code_exec_result_1": {
+    "returncode": 0,
+    "stdout": "Final Validation Performance: 43685.01984224521\n",
+    "stderr": "",
+    "execution_time": 43.60939121246338,
+    "score": 43685.01984224521
+  },
+  "_adk_activated_skill_ensemble_plan_implement_agent": [
+    "skrub-dataops-pipeline"
+  ],
+  "ensemble_plan_implement_bug_summary_1": "",
+  "submission_skip_data_leakage_check": true,
+  "submission_code": "\nimport os\nimport numpy as np\nimport pandas as pd\nimport skrub\nfrom catboost import CatBoostRegressor\nfrom sklearn.metrics import mean_squared_error\nfrom sklearn.model_selection import train_test_split\n\ntrain_path = os.path.join(\"./input\", \"train.csv\")\ntest_path = os.path.join(\"./input\", \"test.csv\")\ntrain_df = pd.read_csv(train_path)\ntest_df = pd.read_csv(test_path)\n\ntarget_col = \"median_house_value\"\n\n\n@skrub.deferred\ndef add_housing_ratio_features(df):\n    out = df.copy()\n    if \"households\" in out.columns and \"total_rooms\" in out.columns:\n        denom = out[\"households\"].replace(0, np.nan)\n        out[\"rooms_per_household\"] = (out[\"total_rooms\"] / denom).replace(\n            [np.inf, -np.inf], np.nan\n        ).fillna(0.0)\n    if \"total_rooms\" in out.columns and \"total_bedrooms\" in out.columns:\n        denom = out[\"total_rooms\"].replace(0, np.nan)\n        out[\"bedrooms_per_room\"] = (out[\"total_bedrooms\"] / denom).replace(\n            [np.inf, -np.inf], np.nan\n        ).fillna(0.0)\n    if \"households\" in out.columns and \"population\" in out.columns:\n        denom = out[\"households\"].replace(0, np.nan)\n        out[\"population_per_household\"] = (out[\"population\"] / denom).replace(\n            [np.inf, -np.inf], np.nan\n        ).fillna(0.0)\n    return out\n\n\ndef fit_single_model(train_part, seed, depth=6, learning_rate=0.03, iterations=800):\n    data_train = skrub.var(\"data\", train_part)\n    data_train_fe = data_train.skb.apply_func(add_housing_ratio_features)\n    X_train = data_train_fe.drop(columns=target_col, errors=\"ignore\").skb.mark_as_X()\n    y_train = data_train_fe[target_col].skb.mark_as_y()\n\n    vectorizer = skrub.TableVectorizer()\n\n    model = CatBoostRegressor(\n        depth=depth,\n        learning_rate=learning_rate,\n        iterations=iterations,\n        loss_function=\"RMSE\",\n        eval_metric=\"RMSE\",\n        verbose=0,\n        random_seed=seed,\n        early_stopping_rounds=50,\n    )\n\n    pred_graph = X_train.skb.apply(vectorizer).skb.apply(model, y=y_train)\n    learner = pred_graph.skb.make_learner(fitted=True)\n    return learner\n\n\ndef build_split_and_fit(seed_split, seed_model):\n    train_idx, valid_idx = train_test_split(\n        np.arange(len(train_df)), test_size=0.2, random_state=seed_split\n    )\n    train_part = train_df.iloc[train_idx].copy()\n    valid_part = train_df.iloc[valid_idx].copy()\n    learner = fit_single_model(train_part, seed=seed_model)\n    valid_pred = learner.predict({\"data\": valid_part})\n    rmse = mean_squared_error(valid_part[target_col], valid_pred) ** 0.5\n    return learner, valid_part, rmse\n\n\nmember_specs = [\n    (42, 42),\n    (7, 7),\n    (123, 123),\n]\n\nlearners = []\nvalid_parts = []\nrmses = []\n\nfor split_seed, model_seed in member_specs:\n    learner, valid_part, rmse = build_split_and_fit(split_seed, model_seed)\n    learners.append(learner)\n    valid_parts.append(valid_part)\n    rmses.append(rmse)\n\nbase_train_idx, base_valid_idx = train_test_split(\n    np.arange(len(train_df)), test_size=0.2, random_state=42\n)\nbase_train_part = train_df.iloc[base_train_idx].copy()\nbase_valid_part = train_df.iloc[base_valid_idx].copy()\n\nbase_learners = []\nbase_rmses = []\nfor split_seed, model_seed in member_specs:\n    train_idx, _ = train_test_split(\n        np.arange(len(train_df)), test_size=0.2, random_state=split_seed\n    )\n    train_part = train_df.iloc[train_idx].copy()\n    learner = fit_single_model(train_part, seed=model_seed)\n    base_learners.append(learner)\n    pred = learner.predict({\"data\": base_valid_part})\n    base_rmses.append(mean_squared_error(base_valid_part[target_col], pred) ** 0.5)\n\nweights = np.array([1.0 / max(r, 1e-12) for r in base_rmses], dtype=float)\nweights = weights / weights.sum()\n\nensemble_preds = None\nfor w, learner in zip(weights, base_learners):\n    pred = learner.predict({\"data\": base_valid_part})\n    if ensemble_preds is None:\n        ensemble_preds = w * pred\n    else:\n        ensemble_preds += w * pred\n\nfinal_validation_score = mean_squared_error(base_valid_part[target_col], ensemble_preds) ** 0.5\nprint(f\"Final Validation Performance: {final_validation_score}\")\n\ndef fit_full_model(train_full, seed):\n    data_full = skrub.var(\"data\", train_full)\n    data_full_fe = data_full.skb.apply_func(add_housing_ratio_features)\n    X_full = data_full_fe.drop(columns=target_col, errors=\"ignore\").skb.mark_as_X()\n    y_full = data_full_fe[target_col].skb.mark_as_y()\n\n    vectorizer = skrub.TableVectorizer()\n    model = CatBoostRegressor(\n        depth=6,\n        learning_rate=0.03,\n        iterations=800,\n        loss_function=\"RMSE\",\n        eval_metric=\"RMSE\",\n        verbose=0,\n        random_seed=seed,\n        early_stopping_rounds=50,\n    )\n\n    pred_graph = X_full.skb.apply(vectorizer).skb.apply(model, y=y_full)\n    learner = pred_graph.skb.make_learner(fitted=True)\n    return learner\n\nfull_learners = []\nfor _, model_seed in member_specs:\n    full_learners.append(fit_full_model(train_df, seed=model_seed))\n\ntest_preds = None\nfor w, learner in zip(weights, full_learners):\n    pred = learner.predict({\"data\": test_df})\n    if test_preds is None:\n        test_preds = w * pred\n    else:\n        test_preds += w * pred\n\nos.makedirs(\"./final\", exist_ok=True)\nsubmission = pd.DataFrame({\"median_house_value\": test_preds})\nsubmission.to_csv(\"./final/submission.csv\", index=False)\n",
+  "submission_code_exec_result": {
+    "returncode": 0,
+    "stdout": "Final Validation Performance: 38648.23627296985\n",
+    "stderr": "",
+    "execution_time": 69.56286525726318,
+    "score": 38648.23627296985
+  },
+  "_adk_activated_skill_submission_agent": [
+    "skrub-dataops-pipeline"
+  ],
+  "_adk_loaded_skill_resources_submission_agent": [
+    {
+      "skill_name": "skrub-dataops-pipeline",
+      "path": "references/dataops_api_quickmap.md"
+    }
+  ],
+  "submission_bug_summary": ""
+}

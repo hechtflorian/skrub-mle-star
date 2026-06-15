@@ -98,7 +98,7 @@ class RunAnalysis:
     log_path: Path | None = None
     workspace_dir: Path | None = None
     task_id: str = "1"
-    lower_is_better: bool = True
+    lower_is_better: bool = True   # set
     model: str = ""
     scores: dict[str, float | None] = field(default_factory=dict)
     stage_timing: dict[str, StageTiming] = field(default_factory=dict)

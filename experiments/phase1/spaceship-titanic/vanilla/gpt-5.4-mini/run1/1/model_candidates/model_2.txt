@@ -1,0 +1,47 @@
+## Model name
+LightGBM (LGBMClassifier)
+
+## Example Python code
+import pandas as pd
+from lightgbm import LGBMClassifier
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import accuracy_score
+from sklearn.compose import ColumnTransformer
+from sklearn.pipeline import Pipeline
+from sklearn.impute import SimpleImputer
+from sklearn.preprocessing import OneHotEncoder
+
+train = pd.read_csv('train.csv')
+test = pd.read_csv('test.csv')
+
+def prep(df):
+    df = df.copy()
+    df[['Deck','Num','Side']] = df['Cabin'].str.split('/', expand=True)
+    df = df.drop(columns=['Cabin','Name'])
+    return df
+
+train_p = prep(train)
+test_p = prep(test)
+X = train_p.drop(columns=['Transported'])
+y = train_p['Transported'].astype(int)
+
+cat = X.select_dtypes(include='object').columns
+num = X.columns.difference(cat)
+
+pre = ColumnTransformer([
+    ('num', Pipeline([('imp', SimpleImputer(strategy='median'))]), num),
+    ('cat', Pipeline([('imp', SimpleImputer(strategy='most_frequent')), ('oh', OneHotEncoder(handle_unknown='ignore'))]), cat)
+])
+
+model = Pipeline([
+    ('pre', pre),
+    ('clf', LGBMClassifier(n_estimators=1000, learning_rate=0.03, num_leaves=31, random_state=42))
+])
+
+X_tr, X_va, y_tr, y_va = train_test_split(X, y, test_size=0.2, random_state=42, stratify=y)
+model.fit(X_tr, y_tr)
+print('val_acc:', accuracy_score(y_va, model.predict(X_va)))
+
+preds = model.predict(test_p)
+sub = pd.DataFrame({'PassengerId': test['PassengerId'], 'Transported': preds.astype(bool)})
+sub.to_csv('submission.csv', index=False)

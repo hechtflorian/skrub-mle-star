@@ -1,0 +1,29 @@
+## Model name
+CatBoost Regressor
+
+## Example Python code
+import pandas as pd
+from catboost import CatBoostRegressor
+from sklearn.model_selection import train_test_split
+
+train = pd.read_csv('train.csv')
+test = pd.read_csv('test.csv')
+X = train.drop(columns=['median_house_value'])
+y = train['median_house_value']
+
+X = X.fillna(X.median())
+test = test.fillna(X.median())
+
+X_tr, X_val, y_tr, y_val = train_test_split(X, y, test_size=0.2, random_state=42)
+model = CatBoostRegressor(
+    iterations=3000,
+    learning_rate=0.03,
+    depth=8,
+    loss_function='RMSE',
+    random_seed=42,
+    verbose=200
+)
+model.fit(X_tr, y_tr, eval_set=(X_val, y_val), use_best_model=True)
+
+preds = model.predict(test)
+pd.DataFrame({'median_house_value': preds}).to_csv('submission.csv', index=False)

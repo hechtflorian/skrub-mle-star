@@ -256,10 +256,9 @@ IMPLEMENT_PLAN_INSTR = """# Introduction
 - If you want to perform parameter search (e.g. over model family, encoding, or search-space nodes), load `references/choices_hparam_pattern.md` via `load_skill_resource` before finalizing code.
 - Do not add `choose_*` or run parameter search unless the improvement plan explicitly requires tuning in this step; terminal tuning is handled by dedicated tune agents after structural refinement.
 - If the plan is non-tuning or the change is minor, prefer reusing previous strong parameters or explicit fixed values.
-- Implement the plan directly as one resolved pipeline. Do not write runtime variant-chooser loops (building several pipeline variants and picking the best at runtime): variant comparison belongs to the ablation stage, and downstream agents must see a single unambiguous pipeline.
+- Implement the plan directly as one resolved pipeline. Do not write runtime variant-chooser loops (building several pipeline variants and picking the best at runtime): downstream agents must see a unambiguous pipeline.
 - Do not label default-choice `.skb.make_learner(...)` / `.skb.eval(...)` behavior as tuned.
 - Keep search localized to the selected impactful block, preserve existing DataOps architecture, and keep the search space compact.
-- The printed `Final Validation Performance` must be computed from a direct holdout RMSE (`mean_squared_error(y_val, y_pred) ** 0.5`) on a real validation split.
 - Fit the metric line on `train_part` only (`skrub.var("data", train_part)`); do not load `test_df` or refit on full `train_df` (submission stage agent handles test export).
 - Do not use transformed generic CV scores (e.g., `sqrt(mean(test_score))`) as the final refinement score line.
 

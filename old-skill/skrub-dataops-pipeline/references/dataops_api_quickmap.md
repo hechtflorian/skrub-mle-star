@@ -141,3 +141,11 @@ probabilities = search.best_learner_.predict_proba(
     {"baskets": new_baskets, "products": new_products}
 )
 ```
+
+## When to load other references
+- Load `choices_hparam_pattern.md` when adding `skrub.choose_*` / `skrub.choose_from(...)` or randomized/grid search for hyperparameter tuning.
+- Load `dataops_tuning_optuna.md` when using Optuna backend or trial-based search flows for tuning.
+- Load `encoding_skrub.md` when changing feature encoding, preprocessing, or selector-based routing.
+- Load `joining_across_columns.md` for multi-table merge/aggregation pipelines.
+- Load `common_failure_fixes.md` when runtime errors appear or metric parsing fails.
+- Load `skrub_subsampling.md` when iteration speed is the bottleneck and subsampling is required.

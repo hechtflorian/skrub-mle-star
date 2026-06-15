@@ -35,4 +35,4 @@ ADD_TEST_FINAL_INSTR = """# Introduction
 - Do not use exit() function in the Python code.
 - Do not use try: and except: or if else to ignore unintended behavior.
 - The final test predictions must be generated from model(s) trained on the full training set.
-- Before fitting on the full training set and writing `./final/submission.csv`, keep and run the solution's existing holdout validation block unchanged (same `train_test_split` size and `random_state`). Print only that holdout RMSE as `Final Validation Performance: {{final_validation_score}}`. Then refit on the full training set for final test predictions."""
+- Before fitting on the full training set and writing `./final/submission.csv`, keep and run the solution's existing holdout validation block unchanged (same `train_test_split` size and `random_state`). Print only that holdout validation score as `Final Validation Performance: {{final_validation_score}}`. Then refit on the full training set for final test predictions."""

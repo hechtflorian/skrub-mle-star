@@ -1,0 +1,30 @@
+## Model name
+LightGBM + simple feature engineering
+
+## Example Python code
+import pandas as pd
+from lightgbm import LGBMClassifier
+from sklearn.model_selection import train_test_split
+
+train = pd.read_csv('train.csv')
+test = pd.read_csv('test.csv')
+
+def prep(df):
+    df = df.copy()
+    df['Deck'] = df['Cabin'].astype(str).str.split('/').str[0]
+    df['Side'] = df['Cabin'].astype(str).str.split('/').str[2]
+    df['Group'] = df['PassengerId'].astype(str).str.split('_').str[0]
+    df['Spending'] = df[['RoomService','FoodCourt','ShoppingMall','Spa','VRDeck']].sum(axis=1)
+    df['AgeBin'] = pd.cut(df['Age'], bins=[-1,12,18,30,50,120], labels=False)
+    return pd.get_dummies(df.drop(columns=['Cabin','Name']))
+
+train_p = prep(train)
+test_p = prep(test).reindex(columns=train_p.drop(columns=['Transported']).columns, fill_value=0)
+X = train_p.drop(columns=['Transported'])
+y = train_p['Transported'].astype(int)
+
+model = LGBMClassifier(n_estimators=2000, learning_rate=0.03, num_leaves=64, subsample=0.8, colsample_bytree=0.8)
+model.fit(X, y)
+pred = model.predict(test_p)
+out = pd.DataFrame({'PassengerId': test['PassengerId'], 'Transported': pred.astype(bool)})
+out.to_csv('submission.csv', index=False)

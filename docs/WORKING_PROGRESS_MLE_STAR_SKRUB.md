@@ -672,3 +672,329 @@ docs/WORKING_PROGRESS_MLE_STAR_SKRUB.md
 - **Keep tune fail-fast**; add bake gate + plan-default fallback — do **not** revert to 10 blind tune retries.
 - **Refinement inner implement** should adopt fail-fast too (10 blind retries on same DataOp error before debug).
 
+---
+
+## Progress update (2026-06-12 → 2026-06-14): P1–P7 hardening, phase-1 eval, vanilla baseline, first housing comparison
+
+Follow-up after the June 11 run. Shipped tuning integrity + anti-drift + context fixes on `improve-refinement` (`b7e4adf`), bootstrapped a **vanilla MLE-STAR** worktree for controlled comparison, ran phase-1 California Housing (4/8 runs), and audited archived artifacts for metric validity.
+
+### 27) P1–P7 + context fixes (skrub-full prototype, `improve-refinement`)
+
+| Pass | What | Key outcome |
+|------|------|-------------|
+| **P1** | Tune search → bake integrity | Pattern 4 `choose_from` for non-sklearn estimators (CatBoost); `tune_param_source` (`search` / `plan_defaults` / `skipped`); bake gate; identity guard in `map_tuning_best_params` |
+| **P1b** | DataOp eager ops | Skill #18 + refinement implement pointer |
+| **P1c** | Debug backbone drift | Stronger `debug_prompt.py`; deterministic backbone injection in `debug_util` |
+| **P5** | Search compute budget | Reduced capacity during search; full capacity restored at bake |
+| **P7** | Ablation print contract | ≥2 `Ablation[...]` lines or synthetic exec failure |
+| **Anti-drift** | Minimal-diff debug | No full regeneration, no Block 2 in early stages, no variant/search removal |
+| **Context** | `ContextWindowExceededError` | Empty `code_block` guards; `truncate_for_state`; JSON-only init_plan; `verbose=0` in SKILL.md |
+| **FE-drop fix** | Tuning preserves structural pipeline | Refinement/tuning prompts: reproduce FE verbatim; tune cannot simplify to bare `TableVectorizer+model` |
+| **Tooling** | `analyze_run.py`, `aggregate_runs.py` | Stage scores, gains, sentinel cleaning, `to_row()` CSV export; batch walk of `experiments/phase1/` |
+
+See `docs/todo.md`, `docs/lessons.md`, and commit `b7e4adf` for file-level detail.
+
+### 28) Vanilla MLE-STAR baseline (git worktree + bootstrap script)
+
+**Goal:** apples-to-apples baseline without skrub skill, TableReport, or tuning stage.
+
+| Item | Detail |
+|------|--------|
+| Script | `scripts/bootstrap_vanilla_baseline.sh` |
+| Snapshot | `ffa365c` — ChatAI routing, DDG search, GPT-5 temperature, safe response parsing |
+| Branch | `vanilla-baseline` @ worktree `../mle-star_vanilla` (commit `eb59252`) |
+| Pure sklearn prompts | Optional `--revert-prompts` → restores `6c96e03` wording + drops skrub/optuna from `pyproject.toml` |
+| Marker | `mle-star_vanilla/VANILLA_BASELINE.md` records bootstrap flags |
+
+**Operational note:** first bootstrap ran **without** `--revert-prompts`, so `debug_prompt.py` still contained ffa365c skrub/DataOps preservation lines. When init code failed on missing packages (e.g. `lightgbm`), the debug agent rewrote toward skrub even though init/refinement prompts were sklearn-only. Fix for future vanilla runs: revert `debug_prompt.py` to `6c96e03` or bootstrap with `--revert-prompts`.
+
+### 29) Phase-1 experiment plan & archive layout
+
+Document: `docs/experiment_plan_evaluation.md`
+
+**Matrix:** 2 tasks × 2 systems × 2 repeats = 8 runs  
+**Task 1 (in progress):** `california-housing-prices` — vanilla + skrub-full, run1/run2  
+**Task 2 (pending):** `spaceship-titanic`
+
+Archive path pattern:
+
+```
+experiments/phase1/california-housing-prices/
+  vanilla/gpt-5.4-mini/run1|run2/
+  skrub-full/gpt-5.4-mini/run1|run2/
+```
+
+Each run: `meta.json`, `analysis.json`, `final_state.json`, `adk_run_*.log`, workspace snapshot (`1/`, `ensemble/`).
+
+**Parallel runs:** safe only in **separate checkouts/worktrees** or different `task_name`s — same repo shares `workspace/<task>/` and will clobber artifacts.
+
+### 30) Phase-1 California Housing — completed runs (holdout RMSE, lower better)
+
+All runs: `openai/gpt-5.4-mini`, `seed=42`, holdout `train_test_split(0.2, random_state=42)`.
+
+| System | Run | Init | Refine promoted | Ensemble / final | Honest? | Notes |
+|--------|-----|------|-----------------|------------------|---------|-------|
+| **vanilla** | run1 | 54 744 | 54 744 (no promote) | **50 095** | Mostly | Refine improve ~51 588 not promoted; ensemble blend tuning on val (mild optimism); `had_sentinel_failure` |
+| **vanilla** | run2 | 54 252 | **10 550** | **10 385** | **No** | **Full-train leak:** `fit(X,y)` then `predict(X_val)` printed as `Final Validation Performance` — reproduced exactly (54 276 → 10 550) |
+| **skrub-full** | run1 | 56 663 | 56 663 | **42 010** | **No** | CatBoost missing → **HistGradientBoosting** fallback; ensemble cross-split leak (~82% val rows in member B train) + val rank/linear calibration |
+| **skrub-full** | run2 | 55 450 | **52 788** | **52 740** | **Yes (best so far)** | Real refinement gain; tune search ran but structural won; ensemble modest; DataOps adherence 0.70 |
+
+**Interpretation for comparison (use honest band ~50–56k RMSE, not inflated finals):**
+
+- **skrub-full run2** is the first archived run with credible stage progression (refine −2.7k, ensemble stable).
+- **skrub-full run1** final 42k and **vanilla run2** final 10k are **internal metric artifacts**, not trustworthy generalization estimates.
+- **Vanilla run1** final ~50k is the most credible vanilla signal so far; run2 refine/final scores should be discarded.
+
+**CatBoost vs actual model:**
+
+- Vanilla run2: real CatBoost (pip-installed at runtime).
+- Skrub-full run1: intended CatBoost, actual **HGB** via `except ModuleNotFoundError` alias; skrub `TableVectorizer` pipeline otherwise correct.
+- Skrub-full run2: CatBoost available in venv; skrub DataOps + refinement FE improvements.
+
+### 31) Leakage patterns discovered in phase-1 archives (both systems)
+
+Common failure: agents conflate **“retrain on full train for submission”** with **“report holdout score.”**
+
+| Pattern | Where seen | Mechanism | Symptom |
+|---------|------------|-----------|---------|
+| **A. Full-train → eval holdout** | vanilla run2 `train0_improve0.py`, `train1.py`, ensemble | Grid on `X_tr`, then `final_model.fit(X,y)`, then `predict(X_val)` | RMSE ~10k (impossible for this task) |
+| **B. Cross-split ensemble member** | skrub-full run1 `final_solution.py` | Train member B on split seed 7, eval on `valid_part` from seed 42 | ~82.5% val rows already in B's train |
+| **C. Validation-set calibration** | skrub-full run1 ensemble | Rank → val target quantiles + `polyfit` on val labels; pick blend on val | Extra optimistic RMSE (~42k) |
+| **D. skrub bind on full `train_df`** | older runs (doc §16) | `skrub.var("data", train_df)` before split | Optimistic structural scores — mitigated in skill docs, still needs runtime checker |
+
+**Reproduction anchors:**
+
+- Vanilla run2 leaky refine: grid honest **54276.18** → post full-train eval **10550.38** (exact match).
+- Skrub-full run1: honest single model ~55k; raw median blend with leaky B ~43k; reported **42009.62**.
+
+Run notes captured under `experiments/phase1/.../run*/notes.md`.
+
+### 32) Evaluation tooling usage (phase-1)
+
+```bash
+# Per run
+python test-scripts/analyze_run.py \
+  --state experiments/phase1/california-housing-prices/skrub-full/gpt-5.4-mini/run2/final_state.json \
+  --workspace experiments/phase1/california-housing-prices/skrub-full/gpt-5.4-mini/run2 \
+  --json > experiments/phase1/.../run2/analysis.json
+
+# Batch
+python test-scripts/aggregate_runs.py --root experiments/phase1 --out experiments/phase1/results/phase1_all_runs.csv
+```
+
+**Still missing:** static leakage heuristics in `analyze_run.py` (e.g. flag `fit(X, y)` before holdout metric print, cross-split ensemble eval).
+
+### Known open items (updated 2026-06-14)
+
+- [ ] Fix vanilla `debug_prompt.py` on `vanilla-baseline` (or re-bootstrap with `--revert-prompts`).
+- [ ] Add prompt/exec guards: never print `Final Validation Performance` after full-data fit used for that metric.
+- [ ] Enable `use_data_leakage_checker=True` once checker covers patterns A–C.
+- [x] Complete phase-1 grid (12 runs) — see §33–36 below.
+- [ ] Tier-B holdout scoring (optional) under `experiments/phase1/eval/`.
+- [x] Compare honest bands in `experiments/phase1/results/phase1_summary.md` (init / refine / ensemble; leakage exclusions documented).
+
+### Files touched (2026-06-12 → 2026-06-14)
+
+```
+scripts/bootstrap_vanilla_baseline.sh
+docs/experiment_plan_evaluation.md
+test-scripts/analyze_run.py
+test-scripts/aggregate_runs.py
+experiments/phase1/california-housing-prices/   # archived run1/run2 × vanilla/skrub-full
+docs/todo.md, docs/lessons.md
+agents/.../ (P1–P7, context, FE-drop — see b7e4adf)
+```
+
+---
+
+## TL;DR — from vanilla MLE-STAR baseline to now (2026-06-14)
+
+**Vanilla baseline**
+
+- Bootstrapped **`vanilla-baseline`** worktree (`mle-star_vanilla`) from **`ffa365c`** via `bootstrap_vanilla_baseline.sh` — same ChatAI/DDG/GPT-5 infra as improved branch, **no** skrub skill, TableReport, or tuning stage.
+- Without `--revert-prompts`, **`debug_prompt.py` still nudged skrub** on package errors; init prompts stayed sklearn-only.
+
+**Skrub-full prototype (improved branch)**
+
+- Shipped **P1–P7**: CatBoost-safe **`choose_from` tuning**, bake integrity, search budget, ablation contract, anti-drift debug, context bloat fix, tuning must **preserve structural FE**.
+- **`analyze_run.py` / `aggregate_runs.py`** + **`experiment_plan_evaluation.md`** for phase-1 protocol.
+
+**Phase-1 California Housing (4/8 runs done)**
+
+- **skrub-full run2** (~53k final, ~53k refine): **credible** — best honest comparison point for skrub.
+- **skrub-full run1** (~42k final): **invalid** — HGB not CatBoost; ensemble cross-split + val calibration leakage.
+- **vanilla run1** (~50k final): **usable** with mild ensemble optimism; refine didn't promote.
+- **vanilla run2** (~10k refine/final): **invalid** — classic leak: train on full `X,y`, score `X_val`.
+
+**Cross-cutting lesson**
+
+- Parsed **`Final Validation Performance` is not trustworthy** without auditing the script; both systems can report fantasy RMSE when full-train refit or ensemble tricks meet the same holdout used for selection.
+- For papers/comparison, report **init / honest refine / ensemble0** (or manual re-exec with fixed protocol), not submission-stage inflated scores.
+- **Do not parallelize** multiple runs on the same task in one checkout (shared `workspace/`).
+
+**Next** *(see also §33–36, 2026-06-15)*
+
+- Backbone drift gate; leakage guards in `analyze_run.py`; fix vanilla debug prompt; selective post-P8 re-runs (not full 12-run grid until tune/refine stabilize).
+
+---
+
+## Progress update (2026-06-14 → 2026-06-15): full phase-1 grid, metric/tune fixes, results write-up
+
+### 33) Spaceship Titanic task + phase-1 grid completed
+
+- Added `tasks/spaceship-titanic/` (`task_description.txt`, Kaggle `train.csv` / `test.csv`); `config.py`: `lower=False`, classification.
+- Ran **12 archived runs**: 2 tasks × `{vanilla, skrub-full}` × 3 repeats under `experiments/phase1/<task>/<system>/gpt-5.4-mini/run{1,2,3}/`.
+- California housing extended from 4 → **6 runs** (added run3 both systems). Legacy `spaceship-titanic/skrub-full/.../legacy/run1` kept but excluded from main stats.
+
+### 34) First Spaceship skrub-full runs — analysis (pre-fix runs)
+
+- **Backbone drift:** CatBoost missing → debug/init swapped to HGB; `plan_implement` later emitted LogisticRegression / RF; anti-drift prompt alone insufficient.
+- **Wrong tune metric:** tuning prompts/skills hardcoded RMSE → `mean_squared_error` on classification runs; tune search scores meaningless.
+- **`tune_best_params` scramble:** positional `data_op__N` → plan name mapping assigned `max_depth=0.08`, `learning_rate=5` (Titanic run1).
+- **TableReport:** profile (~1.2k chars) fed ablation agent on all skrub runs; useful for plan text, did not yield Titanic score gains.
+- **Promotion:** housing skrub run2–3 refine promoted (+2.4k RMSE); Titanic `gain_refinement=0` all runs.
+
+### 35) P8 — task-general metrics + value-aware `map_tuning_best_params` (shipped)
+
+**No metric contract / no exec gates** (per design choice — prompt + skill only).
+
+| Area | Change |
+|------|--------|
+| `tuning/prompt.py`, `refinement/prompt.py`, `submission/prompt.py` | “Competition metric from task description” instead of RMSE mandates |
+| Skill docs (`SKILL.md`, `dataops_api_quickmap.md`, `choices_hparam_pattern.md`, `common_failure_fixes.md`, …) | Generic holdout score wording; RMSE only as regression example |
+| `code_util.map_tuning_best_params` | **Value-aware** match to plan `kind` / ranges (fixes `data_op__` order ≠ plan order) |
+| `tune_implement` prompt | Build human-named `TUNING_BEST_PARAMS`, not raw `data_op__N` keys |
+| `tests/test_code_util.py` | Titanic scramble case + identity + `choose_from` |
+
+**Not yet shipped:** deterministic **backbone drift gate** in `debug_util` / `code_util` (planned: extended estimator regex + set-equality check on debug / plan_implement / tune).
+
+### 36) Phase-1 results aggregation + `phase1_summary.md`
+
+Generated under `experiments/phase1/`:
+
+| Artifact | Role |
+|----------|------|
+| `manifest.csv` | 12-run index (paths, scores, debug, wall/exec) |
+| `results/phase1_all_runs_12.csv` | `analyze_run` rows (primary) |
+| `results/phase1_by_task_system.csv` | Means per (task, system) |
+| `results/phase1_summary.md` | Full write-up + **TL;DR** |
+| `README.md` | Layout + regenerate commands |
+
+**Analysis protocol (updated):**
+
+- Exclude probable leakage for score claims: **housing skrub run1**, **vanilla run2**; all Titanic runs kept.
+- Report **val scores by stage** (init → refine → tune → ensemble → submission).
+- Report **Python exec** (sum of scored `subprocess` times from `final_state.json`) **and wall time** (ADK log start→end), **Python fraction**, **exec runs per stage**, **`tune_winner_source`**, refinement promotion (`gain_refinement` / `gain_tuning`).
+- Timing definitions documented in summary (exec ≠ wall; exec includes retries/ablation scripts).
+
+**Headline results (clean runs, operational hypothesis):**
+
+| Signal | Housing (n=2) | Titanic (n=3) |
+|--------|-----------------|-----------------|
+| Val scores | ~tie (~52–56k RMSE) | vanilla **+2.5 pp** accuracy |
+| Python exec | skrub **~2.6× faster** | skrub **~42% faster** |
+| Wall time | skrub **~2.3× shorter** | skrub **~18% shorter** |
+| DataOps adherence | **~0.71** vs 0 | **~0.64** vs 0 |
+| Fewer debug rounds | **No** (more skrub refine debug) | **No** |
+| Tuning beat structural | — | **No** (`tune_winner_source=structural` all runs) |
+
+**Credit planning (estimate, not logged):** ~€2–3/skurb-full run, ~€0.45/vanilla; full 12-run grid ≈ €40–65; €25/mo budget → ~8–12 skrub runs or selective re-runs after P8/backbone fixes.
+
+### Known open items (updated 2026-06-15)
+
+- [x] Complete phase-1 grid (12 runs) + `phase1_summary.md`.
+- [x] P8 metric generalization + `map_tuning_best_params` value-aware fix + tests.
+- [ ] **Backbone drift gate** (extended regex + post-edit check in `get_code_from_response`).
+- [ ] Fix vanilla `debug_prompt.py` (or re-bootstrap with `--revert-prompts`).
+- [ ] Prompt/exec guards: no holdout metric after full-data fit (patterns A–C).
+- [ ] Enable `use_data_leakage_checker=True` once checker covers A–C.
+- [ ] Optional: log LiteLLM token usage into `meta.json`; static leakage flags in `analyze_run.py`.
+- [ ] Selective re-runs (post P8 + backbone gate) — not full 12-run grid until tune/refine stabilize.
+
+### Files touched (2026-06-14 → 2026-06-15)
+
+```
+agents/.../sub_agents/{tuning,refinement,submission}/prompt.py
+agents/.../shared_libraries/code_util.py          # map_tuning_best_params value match
+agents/.../skills/skrub-dataops-pipeline/       # metric-general wording
+agents/.../tests/test_code_util.py
+experiments/phase1/                               # 12-run archive + manifest
+experiments/phase1/results/phase1_summary.md
+experiments/phase1/README.md
+```
+
+### TL;DR (2026-06-15 addendum)
+
+- **Phase-1 done:** 12 runs archived; compared vanilla vs skrub-full on housing + Spaceship Titanic (3 repeats each).
+- **Scores:** housing tie on honest band; **vanilla wins Titanic**; exclude known leaky housing runs from claims.
+- **Skrub operational win:** faster Python + wall time, **~65% DataOps adherence**; **not** fewer debug rounds; **tuning never beat structural**.
+- **Shipped P8:** task-agnostic metric prompts + fixed `tune_best_params` mapping; **next:** backbone drift gate, then selective re-runs.
+
+### 37) `analyze_run.py` — phase-1 reporting fields
+
+Extended (or first used at scale) for archived run tables — not repeated in §32 tooling blurb:
+
+| Field / struct | Source | Used for |
+|----------------|--------|----------|
+| `stage_timing[stage].exec_seconds` | Sum `execution_time` on scored `*_exec_result_*` keys | Per-stage Python time |
+| `stage_timing[stage].exec_runs` | Count of those keys per stage | Retry/churn proxy |
+| `extras.log_wall_seconds` | ADK log `Script started on` → `Script done on` | Full session wall time |
+| `to_row()` gains | init vs refine/tune promoted | `gain_refinement`, `gain_tuning` |
+| `tune_winner_source` | `final_state.json` | Whether tune beat structural |
+
+**Note:** Python exec counts only **scored** subprocess runs (includes ablation/inner-loop retries); wall time includes all LLM/tools/waiting.
+
+### 38) `phase1_summary.md` — reporting revisions (post-aggregation)
+
+After initial 12-run aggregation, summary was revised in passes (without rewriting score/debug tables):
+
+1. **Leakage exclusions** for score claims: housing skrub `run1`, vanilla `run2`; Titanic all kept.
+2. **Per-stage val scores** (init → refine → tune → ensemble → submission) + per-stage Python exec + debug rounds.
+3. **Timing definitions** block: val score, Python exec, wall time, Python fraction, exec runs, debug — with derivation notes.
+4. **Run-level timing** per task: wall vs total Python exec side-by-side; Python fraction; exec runs per stage.
+5. **Promotion & tuning:** `gain_refinement` / `gain_tuning`; `tune_winner_source=structural` on all skrub runs.
+6. **Conclusion reframed** around **operational hypothesis** (faster exec, DataOps adherence, fewer debugs) vs score hope.
+7. **TL;DR appended** at file end: vanilla vs skrub, **TableReport** + **terminal tuning** novelty assessment, skrub benefits, bottom line.
+
+See `experiments/phase1/results/phase1_summary.md` (full tables + TL;DR).
+
+### 39) Backbone drift gate — design agreed, not shipped
+
+From Spaceship Titanic + housing phase-1 post-mortem (prompt-only anti-drift insufficient):
+
+| Gap | Detail |
+|-----|--------|
+| Regex | `\b([A-Z]\w*(?:Regressor\|Classifier))\b` misses `LogisticRegression`, `Ridge`, `SVC`, … → empty debug contract |
+| Enforcement | No exec gate on drift; promotion saved scores but wasted debug/exec |
+
+**Planned surgical fix (~50 LOC, deferred after P8):**
+
+- `extract_estimator_classes()` + `check_backbone_unchanged()` in `code_util.py` (extended regex)
+- Hook in `debug_util.get_code_from_response` → synthetic failure before `evaluate_code`
+- Check: `*debug*`, `plan_implement*`, `tune_implement` / `tune_bake` vs structural baseline
+- Skip: `model_eval`, `merger`, `ensemble_*`, `submission`
+
+### 40) API credit planning (estimate from archived runs)
+
+No token logging in `meta.json` today; estimated from `LiteLLM completion()` counts in ADK logs + list pricing for `gpt-5.4-mini`:
+
+| System | LLM calls/run (observed) | Planning €/run |
+|--------|--------------------------|----------------|
+| vanilla | ~22–36 | ~€0.35–0.55 |
+| skrub-full | ~86–179 (avg ~126) | ~€2.00–2.80 typical; up to ~€5 heavy debug |
+
+**€25/month:** full 10 tasks × 2 variants × 2–3 runs (40–60 runs) ≈ **€58–73** — not feasible at typical rates. Prefer **selective re-runs** post P8 + backbone gate (~8–12 skrub runs or ~10 tasks × 1 run × both variants). Optional later: log LiteLLM `usage` into `meta.json`.
+
+### Known open items (updated 2026-06-15, continued)
+
+- [x] Phase-1 summary reporting protocol (leakage exclusions, wall/exec/fraction, promotion, TL;DR) — §38.
+- [x] Document backbone drift gate design — §39; **implement** still pending.
+- [x] Credit/run budget estimate for scaled eval — §40.
+
+### Files touched (2026-06-15, continued)
+
+```
+test-scripts/analyze_run.py                    # stage_timing, wall, gains, tune_winner (phase-1 tables)
+experiments/phase1/results/phase1_summary.md   # revised reporting + TL;DR (multiple passes)
+```
+

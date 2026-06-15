@@ -1,0 +1,37 @@
+## Model name
+CatBoostClassifier
+
+## Example Python code
+import pandas as pd
+from catboost import CatBoostClassifier
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import accuracy_score
+
+train = pd.read_csv('train.csv')
+test = pd.read_csv('test.csv')
+
+# light feature engineering
+for df in [train, test]:
+    df[['Deck', 'Num', 'Side']] = df['Cabin'].fillna('M/0/S').str.split('/', expand=True)
+    df['Spending'] = df[['RoomService','FoodCourt','ShoppingMall','Spa','VRDeck']].fillna(0).sum(axis=1)
+    df['CryoSleep'] = df['CryoSleep'].astype('float').fillna(0)
+    df['VIP'] = df['VIP'].astype('float').fillna(0)
+
+cat_cols = ['HomePlanet','Destination','Deck','Side']
+num_cols = ['Age','CryoSleep','VIP','RoomService','FoodCourt','ShoppingMall','Spa','VRDeck','Spending']
+
+X = train[cat_cols + num_cols]
+y = train['Transported'].astype(int)
+X_train, X_valid, y_train, y_valid = train_test_split(X, y, test_size=0.2, random_state=42, stratify=y)
+
+model = CatBoostClassifier(
+    iterations=2000, depth=6, learning_rate=0.03,
+    loss_function='Logloss', eval_metric='Accuracy',
+    random_seed=42, verbose=0
+)
+model.fit(X_train, y_train, cat_features=cat_cols, eval_set=(X_valid, y_valid), use_best_model=True)
+print('valid acc:', accuracy_score(y_valid, model.predict(X_valid)))
+
+pred = model.predict(test[cat_cols + num_cols]).astype(bool).ravel()
+sub = pd.DataFrame({'PassengerId': test['PassengerId'], 'Transported': pred})
+sub.to_csv('submission.csv', index=False)

@@ -113,6 +113,9 @@ def init_outer_loop_states(
     callback_context.state[f"prev_ablations_{task_id}"] = []
     callback_context.state[f"prev_code_blocks_{task_id}"] = []
     profile_key = table_report_util.profile_state_key(task_id)
+    if not config.CONFIG.table_report_enabled:
+        callback_context.state[profile_key] = ""
+        return None
     workspace_dir = callback_context.state.get("workspace_dir", "")
     task_name = callback_context.state.get("task_name", "")
     run_cwd = os.path.join(workspace_dir, task_name, task_id)

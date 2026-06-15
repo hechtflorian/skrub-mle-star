@@ -100,23 +100,124 @@ def _data_op_sort_key(key: str) -> tuple[int, str]:
     return (10**9, key)
 
 
+def _normalize_param_value(value: Any) -> Any:
+    if hasattr(value, "item") and callable(value.item):
+        try:
+            value = value.item()
+        except (ValueError, TypeError):
+            pass
+    return value
+
+
+def _param_match_cost(value: Any, spec: dict) -> float:
+    """Return match cost; lower is better, inf means no match."""
+    value = _normalize_param_value(value)
+    kind = spec.get("kind", "")
+
+    if kind == "choose_int":
+        low = spec.get("low")
+        high = spec.get("high")
+        if low is None or high is None:
+            return 1.0
+        try:
+            iv = int(round(float(value)))
+        except (TypeError, ValueError):
+            return float("inf")
+        if low <= iv <= high:
+            return 0.0
+        if iv < low:
+            return float(low - iv)
+        return float(iv - high)
+
+    if kind == "choose_float":
+        low = spec.get("low")
+        high = spec.get("high")
+        if low is None or high is None:
+            return 1.0
+        try:
+            fv = float(value)
+        except (TypeError, ValueError):
+            return float("inf")
+        if low <= fv <= high:
+            return 0.0
+        denom = max(abs(low), abs(high), 1e-9)
+        if fv < low:
+            return (low - fv) / denom
+        return (fv - high) / denom
+
+    if kind == "choose_from":
+        outcomes = spec.get("outcomes") or spec.get("choices") or []
+        if isinstance(outcomes, dict):
+            keys = list(outcomes.keys())
+        elif isinstance(outcomes, list):
+            keys = outcomes
+        else:
+            keys = []
+        if value in keys or str(value) in keys:
+            return 0.0
+        return 1.0
+
+    return 1.0
+
+
+def _map_params_by_value_match(values: list[Any], specs: list[dict]) -> dict | None:
+    """Greedy min-cost assignment of search values to plan param names."""
+    if len(values) != len(specs):
+        return None
+    pairs: list[tuple[float, int, int]] = []
+    for value_idx, value in enumerate(values):
+        for spec_idx, spec in enumerate(specs):
+            cost = _param_match_cost(value, spec)
+            pairs.append((cost, value_idx, spec_idx))
+    pairs.sort()
+
+    used_values: set[int] = set()
+    used_specs: set[int] = set()
+    mapped: dict = {}
+    for cost, value_idx, spec_idx in pairs:
+        if cost == float("inf"):
+            continue
+        if value_idx in used_values or spec_idx in used_specs:
+            continue
+        name = specs[spec_idx].get("name")
+        if not name:
+            continue
+        mapped[name] = values[value_idx]
+        used_values.add(value_idx)
+        used_specs.add(spec_idx)
+
+    if len(mapped) == len(specs):
+        return mapped
+    return None
+
+
 def map_tuning_best_params(raw: dict, tune_plan: dict) -> dict:
-    """Map skrub search keys (e.g. data_op__0) to plan param names by order."""
+    """Map skrub search keys (e.g. data_op__0) to plan param names."""
     if not raw:
         return raw
     tunable = tune_plan.get("tunable_params") or []
-    names = [p.get("name") for p in tunable if isinstance(p, dict) and p.get("name")]
+    specs = [p for p in tunable if isinstance(p, dict) and p.get("name")]
+    names = [p["name"] for p in specs]
     if not names:
         return raw
+    raw = normalize_tuning_best_params(raw)
     if set(raw.keys()) == set(names):
-        # Script already printed human-named params (e.g. choose_from variant
-        # pattern); positional remapping would scramble value assignment.
-        return normalize_tuning_best_params(raw)
+        return raw
+
     ordered_values = [
-        value for _, value in sorted(raw.items(), key=lambda item: _data_op_sort_key(item[0]))
+        _normalize_param_value(value)
+        for _, value in sorted(raw.items(), key=lambda item: _data_op_sort_key(item[0]))
     ]
     if len(names) != len(ordered_values):
         return raw
+
+    if any(key.startswith("data_op__") for key in raw.keys()) or set(raw.keys()) != set(
+        names
+    ):
+        mapped = _map_params_by_value_match(ordered_values, specs)
+        if mapped:
+            return normalize_tuning_best_params(mapped)
+
     return normalize_tuning_best_params(
         {name: ordered_values[i] for i, name in enumerate(names)}
     )

@@ -53,6 +53,19 @@ set -a; source .env; set +a
 uv run adk web
 ```
 
+Capture run logs for evaluation:
+```bash
+script -q -c "uv run adk run machine_learning_engineering" "run-logs/adk_run_$(date +%Y%m%d_%H%M%S).log"
+
+# agent log:
+/tmp/agents_log/agent.20260603_220320.log
+
+# Checking
+rg "\[plan_implement_initial_agent_1\]" run-logs/<your_log>.log
+rg "\[plan_implement_agent_1\]" run-logs/<your_log>.log
+rg "make_randomized_search\(|make_grid_search\(|backend=\"optuna\"|backend='optuna'" machine_learning_engineering/workspace/california-housing-prices/1/*.py
+```
+
 Git problems:
 ```bash
 # Get auth popup

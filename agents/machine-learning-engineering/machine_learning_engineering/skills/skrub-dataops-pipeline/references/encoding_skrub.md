@@ -90,4 +90,4 @@ X2 = X1.skb.apply(ApplyToCols(skrub.StringEncoder(), cols=high_card))
 - Load `feature_engineering_skrub.md` for ratios, redundancy drops, cleaning, scaling.
 - Load `dataops_api_quickmap.md` for learner/predict contracts.
 - Load `choices_hparam_pattern.md` when encoding options are tuned via `choose_*`.
-- Load `common_failure_fixes.md` for pipeline breakages and metric contract issues.
+- Load `common_failure_fixes.md` for pipeline breakages and holdout scoring issues.

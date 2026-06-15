@@ -9,11 +9,11 @@ class DefaultConfig:
     """Default configuration."""
 
     data_dir: str = "./machine_learning_engineering/tasks/"  # the directory path where the machine learning tasks and their data are stored.
-    task_name: str = "california-housing-prices"  # The name of the specific task to be loaded and processed.
+    task_name: str = "spaceship-titanic"  # The name of the specific task to be loaded and processed.
     task_type: str = (
-        "Tabular Regression"  # The type of machine learning problem.
+        "Tabular Classification"  # The type of machine learning problem.
     )
-    lower: bool = True  # True if a lower value of the metric is better.
+    lower: bool = False  # True if a lower value of the metric is better.
     workspace_dir: str = "./machine_learning_engineering/workspace/"  # Directory used for saving intermediate outputs, results, logs.
     agent_model: str = os.environ.get(
         "ROOT_AGENT_MODEL", "gemini-2.0-flash-001"
@@ -38,9 +38,10 @@ class DefaultConfig:
     num_top_plans: int = 2  # The number of highest-scoring plans or strategies to select or retain. (DEFAULT: 2)
     use_data_leakage_checker: bool = False  # Enable (`True`) or disable (`False`) a check for data leakage in the machine learning pipeline. (DEFAULT: False)
     use_data_usage_checker: bool = False  # Enable (`True`) or disable (`False`) a check for how data is being used, potentially for compliance or best practices. (DEFAULT: False)
+    table_report_enabled: bool = True  # Build TableReport data profile for refinement prompts (ablation + planners).
     tuning_enabled: bool = True  # Run terminal choose_* search after refinement.
     tuning_n_iter: int = 4  # Max randomized search iterations for terminal tuning.
-    tuning_n_jobs: int = 2  # Parallel jobs for terminal randomized search.
+    tuning_n_jobs: int = 1  # Parallel jobs for terminal randomized search.
 
 
 CONFIG = DefaultConfig()

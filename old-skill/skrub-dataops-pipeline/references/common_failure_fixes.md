@@ -21,3 +21,10 @@ Use this during debugging. Keep DataOps architecture unchanged.
 ## 5) Hidden sklearn-only fallback
 - If the main training path is not on `.skb.apply(...)`, rewrite to DataOps-first orchestration.
 - Keep any auxiliary utilities minimal and non-central.
+
+## When to load other references
+- Load `dataops_api_quickmap.md` when rebuilding a broken DataOps path from a known-good template.
+- Load `encoding_skrub.md` if failures are tied to weak/default encoding or routing strategy.
+- Load `choices_hparam_pattern.md` for `choose_*` semantics, fake-tuning prevention, or grid/randomized search fixes.
+- Load `dataops_tuning_optuna.md` for Optuna-specific search/debug patterns.
+- Load `joining_across_columns.md` for multi-table merge/aggregation correctness.

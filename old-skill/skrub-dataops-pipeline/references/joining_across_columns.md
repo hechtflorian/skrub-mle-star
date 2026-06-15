@@ -72,3 +72,9 @@ y = (y > 0).astype(int)
 X_train, X_test, y_train, y_test = train_test_split(X, y, random_state=seed)
 pipeline_hgb.fit(X_train, y_train).score(X_test, y_test)
 ```
+
+## When to load other references
+- Load `dataops_api_quickmap.md` for the baseline DataOps graph and execution contracts.
+- Load `encoding_skrub.md` when joined features require targeted encoding/preprocessing.
+- Load `choices_hparam_pattern.md` / `dataops_tuning_optuna.md` if join-derived features are included in tuning.
+- Load `common_failure_fixes.md` for merge-key mismatch, aggregation errors, or runtime debugging.

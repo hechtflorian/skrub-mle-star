@@ -46,7 +46,7 @@ Return: TunePlan"""
 
 TUNE_IMPLEMENT_INSTR = """# Introduction
 - Implement the terminal tuning plan on the structural solution below.
-- Run **real** holdout randomized search with in-graph `choose_*` nodes, then report best holdout RMSE.
+- Run **real** holdout randomized search with in-graph `choose_*` nodes, then report the best holdout validation score.
 - Follow `references/choices_hparam_pattern.md` for the tuning search contract.
 
 # Structural solution
@@ -68,12 +68,12 @@ TUNE_IMPLEMENT_INSTR = """# Introduction
 - Inject `choose_*` only on the plan `focus_block`.
 - Keep `choose_*` inside the DataOps `.skb.apply(...)` graph only — never assign a `choose_*` to a variable and pass it into an estimator constructor. For sklearn-API estimators use inline kwargs on `.skb.apply(Estimator(param=skrub.choose_float(...)), y=y)`; for non-sklearn estimators (e.g. CatBoost) inline kwargs do **not** resolve — use the `choose_from` variant-grid pattern (`choices_hparam_pattern.md` Pattern 4) and print the winning variant's literal params as `TUNING_BEST_PARAMS`.
 - You must keep the same DataOps pipeline architecture as the structural solution; only add `choose_*` on the focus block.
-- Reproduce the structural pipeline **verbatim** — every `@skrub.deferred` feature function, `.skb.apply_func(...)` step, scaler, encoder, and column-routing step must appear unchanged in your script. Dropping feature engineering makes the search measure the wrong pipeline and the result unusable. If the structural solution compares variants at runtime, reproduce only its winning variant.
+- Reproduce the structural pipeline **verbatim** — every `@skrub.deferred` feature function, `.skb.apply_func(...)` step, scaler, encoder, and column-routing step must appear unchanged in your script; If the structural solution compares variants at runtime, reproduce only its winning variant.
 - Run search from the final prediction DataOp: `search = pred.skb.make_randomized_search(n_iter={n_iter}, n_jobs={n_jobs}, random_state=42, fitted=True)`
 - **Must** fit search on the training fold only: `search.fit({{"data": train_part}})`
-- Evaluate holdout RMSE with `search.best_learner_.predict({{"data": valid_part}})` (after `search.fit`).
-- Build a JSON-serializable `best_params` dict (native Python floats/ints, not numpy scalars).
-- Print holdout RMSE as: `Final Validation Performance: {{score}}`
+- Evaluate holdout score with `search.best_learner_.predict({{"data": valid_part}})` (after `search.fit`).
+- Build a JSON-serializable `best_params` dict keyed by plan `tunable_params[].name` (native Python floats/ints, not numpy scalars). Map each value from `search.best_params_` to the matching plan param by kind/range — do **not** forward raw `data_op__N` keys.
+- Print holdout score as: `Final Validation Performance: {{score}}`
 - Print best params as one line using: `print("TUNING_BEST_PARAMS:", json.dumps(best_params, default=str))`
 - Do **not** load `test_df`, refit on full `train_df`, or write `submission.csv` — holdout metric only (submission stage agent adds test export later).
 - This script **must** contain `make_randomized_search`, `search.fit`, `choose_*`, and the `TUNING_BEST_PARAMS` print.
@@ -106,7 +106,7 @@ TUNE_BAKE_INSTR = """# Introduction
 - **No** `choose_*`, `make_randomized_search`, or `make_grid_search` in final code.
 - Keep the same DataOps architecture and frozen blocks from the plan.
 - Carry over the structural solution's full pipeline verbatim (deferred feature functions, `.skb.apply_func(...)` steps, scalers, encoders); only the tuned literals may differ.
-- Same holdout split; print `Final Validation Performance: {{holdout_rmse}}` from Block 1 (`skrub.var("data", train_part)` + predict on `valid_part`) — not from a learner fit on full `train_df`.
+- Same holdout split; print `Final Validation Performance: {{holdout_score}}` from Block 1 (`skrub.var("data", train_part)` + predict on `valid_part`) using the competition metric — not from a learner fit on full `train_df`.
 - Do **not** load `test_df`, refit on full `train_df`, or write `submission.csv`.
 
 # Response format

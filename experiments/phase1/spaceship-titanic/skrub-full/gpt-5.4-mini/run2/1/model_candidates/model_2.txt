@@ -1,0 +1,35 @@
+## Model name
+LightGBM
+
+## Example Python code
+import pandas as pd
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import accuracy_score
+from lightgbm import LGBMClassifier
+
+train = pd.read_csv('train.csv')
+test = pd.read_csv('test.csv')
+
+def prep(df):
+    df = df.copy()
+    df['CabinDeck'] = df['Cabin'].str.split('/').str[0]
+    df['CabinSide'] = df['Cabin'].str.split('/').str[2]
+    df['LastName'] = df['Name'].fillna('').str.split(' ').str[-1]
+    return df.drop(columns=['Cabin', 'Name'])
+
+X = prep(train.drop(columns='Transported'))
+y = train['Transported'].astype(int)
+X_test = prep(test)
+
+X = pd.get_dummies(X, dummy_na=True)
+X_test = pd.get_dummies(X_test, dummy_na=True)
+X, X_test = X.align(X_test, join='left', axis=1, fill_value=0)
+
+X_tr, X_va, y_tr, y_va = train_test_split(X, y, test_size=0.2, random_state=42, stratify=y)
+model = LGBMClassifier(n_estimators=5000, learning_rate=0.02, num_leaves=31, subsample=0.8, colsample_bytree=0.8)
+model.fit(X_tr, y_tr, eval_set=[(X_va, y_va)], eval_metric='binary_error')
+print('val acc:', accuracy_score(y_va, (model.predict_proba(X_va)[:, 1] > 0.5).astype(int)))
+
+pred = model.predict(X_test).astype(bool)
+sub = pd.DataFrame({'PassengerId': test['PassengerId'], 'Transported': pred})
+sub.to_csv('submission.csv', index=False)

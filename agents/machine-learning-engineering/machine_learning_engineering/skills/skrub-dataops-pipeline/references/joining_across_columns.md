@@ -13,7 +13,6 @@ Use this reference when features and targets come from related tables.
 ```python
 import pandas as pd
 import skrub
-from sklearn.ensemble import HistGradientBoostingClassifier
 
 dataset = skrub.datasets.fetch_credit_fraud(split="train")
 baskets = skrub.var("baskets", pd.read_csv(dataset.baskets_path))
@@ -44,7 +43,7 @@ augmented_baskets = basket_ids.merge(
 ).drop(columns=["ID", "basket_ID"])
 
 pred = augmented_baskets.skb.apply(
-    HistGradientBoostingClassifier(
+    YourModel(
         learning_rate=skrub.choose_float(0.01, 0.9, log=True, name="learning_rate")
     ),
     y=fraud_flags,
@@ -55,3 +54,9 @@ pred = augmented_baskets.skb.apply(
 - Keep table linkage logic in the DataOps graph, not external disconnected preprocessing.
 - Mark `X` and `y` on the correct base table columns before model application.
 - Aggregate child-table features to the prediction unit before final estimator.
+
+## When to load other references
+- Load `dataops_api_quickmap.md` for the baseline DataOps graph and execution contracts.
+- Load `encoding_skrub.md` when joined features require targeted encoding/preprocessing.
+- Load `choices_hparam_pattern.md` / `dataops_tuning_optuna.md` if join-derived features are included in tuning.
+- Load `common_failure_fixes.md` for merge-key mismatch, aggregation errors, or runtime debugging.

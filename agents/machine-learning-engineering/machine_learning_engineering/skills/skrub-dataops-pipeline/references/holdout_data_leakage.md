@@ -11,8 +11,8 @@ The learner must **not** see validation (or test) rows before the validation met
 1. **Train scope before validation print:** model/preprocessing fit uses only `train_part` (or equivalent train fold), not full `train_df`.
 2. **Validation eval:** `predict({"data": valid_part})` uses a learner fit on train rows only.
 3. **Preprocessing fit scope:** transformers / `.skb.apply_func` stats (median, mean, encoders) must not learn from validation/test rows at metric time — bind `train_part` in Block 1.
-4. **Full train timing:** `skrub.var("data", train_df)` and full-data `make_learner(fitted=True)` belong in **submission** (optional late ensemble export) — **after** printing `Final Validation Performance`, not in init/refinement/tuning scripts.
-5. **Tuning (if present):** `search.fit({"data": train_part})` and `search.best_learner_.predict({"data": valid_part})`; not `search.fit({"data": train_df})` (search on full trainset) for holdout scoring.
+4. **Full train timing:** `skrub.var("data", train_df)` and full-data `make_learner(fitted=True)` belong in **submission** — **after** printing `Final Validation Performance`, not in init/refinement/tuning scripts, i.e. use only if submission is expected.
+5. **Tuning (if present):** `search.fit({"data": train_part})` and `search.best_learner_.predict({"data": valid_part})`; not `search.fit({"data": full_train_df})` for holdout scoring.
 6. **Data splitting:** The `train_df` is split correctly into a `train_part` and `val_part` before further preprocessing, transforming, model fit etc. 
 
 ## Leakage signals (flag as leakage)
@@ -20,7 +20,7 @@ The learner must **not** see validation (or test) rows before the validation met
 | Pattern | Why it leaks |
 |---|---|
 | `skrub.var("data", full_train_df)` → split → `make_learner(fitted=True)` → `predict({"data": valid_part})` for metric | Fit includes validation rows |
-| Reusing a learner already fit on full `full_train_df` for holdout RMSE | Same as above |
+| Reusing a learner already fit on full `full_train_df` for holdout validation score | Same as above |
 | `search.fit({"data": full_train_df})` then holdout eval on `valid_part` | Search trained on validation rows |
 | Global pandas stats on full `full_train_df` used to transform `train_part` before metric (e.g. `train_df[col].median()` in shared prep) | Validation rows influenced preprocessing |
 | Fitting encoders/scalers on concatenated train+val before split eval | Validation rows in fit |
@@ -36,7 +36,7 @@ valid_pred = val_learner.predict({"data": valid_part})
 print(f"Final Validation Performance: ...")
 ```
 
-**Block 2 — submission stage only (after metric print):**
+**Block 2 — test/submission stage only (after metric print):**
 ```python
 data_full = skrub.var("data", train_df)
 full_learner = full_pred.skb.make_learner(fitted=True)

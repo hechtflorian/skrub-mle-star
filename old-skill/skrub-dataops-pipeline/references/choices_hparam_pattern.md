@@ -94,3 +94,10 @@ search = pred.skb.make_randomized_search(
 )
 #search.plot_results()
 ```
+
+## When to load other references
+- Load `dataops_api_quickmap.md` for canonical DataOps pipeline shape and safe fit/predict patterns.
+- Load `dataops_tuning_optuna.md` when using Optuna backend or trial-based search flows for tuning.
+- Load `common_failure_fixes.md` when runtime errors appear, for fake-tuning, `choose_from` key-type, or scoring/debug issues.
+- Load `encoding_skrub.md` when tuning scope includes encoding/preprocessing choices.
+- Load `skrub_subsampling.md` when iteration speed is the bottleneck and subsampling is required.

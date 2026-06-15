@@ -152,3 +152,5 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
+
+#python test-scripts/aggregate_runs.py --root submissions --out runs.csv

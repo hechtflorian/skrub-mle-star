@@ -1,0 +1,25 @@
+## Model name
+CatBoostRegressor (strong default for tabular regression)
+
+## Example Python code
+import pandas as pd
+from catboost import CatBoostRegressor
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import root_mean_squared_error
+
+train = pd.read_csv('train.csv')
+test = pd.read_csv('test.csv')
+X = train.drop(columns=['median_house_value'])
+y = train['median_house_value']
+
+X_tr, X_val, y_tr, y_val = train_test_split(X, y, test_size=0.2, random_state=42)
+model = CatBoostRegressor(
+    depth=8, learning_rate=0.05, iterations=3000,
+    loss_function='RMSE', eval_metric='RMSE',
+    random_seed=42, verbose=200
+)
+model.fit(X_tr, y_tr, eval_set=(X_val, y_val), use_best_model=True)
+print('val RMSE:', root_mean_squared_error(y_val, model.predict(X_val)))
+
+pred = model.predict(test)
+pd.DataFrame({'median_house_value': pred}).to_csv('submission.csv', index=False)

@@ -62,10 +62,10 @@ Use this during debugging. Keep DataOps architecture unchanged.
   - For quick baseline: do not claim tuning; either keep default-choice behavior explicitly as baseline or replace `choose_*` with fixed constants for clarity.
   - Reuse prior best params when only minor non-hparam changes are made; avoid rerunning full search unless search-space-sensitive parts changed.
 
-## 8) RMSE incompatibility in local sklearn version
+## 8) `mean_squared_error(..., squared=False)` incompatibility (regression tasks)
 - Symptom: `TypeError: got an unexpected keyword argument 'squared'` from `mean_squared_error(..., squared=False)`.
 - Fix:
-  - Compute RMSE as `mean_squared_error(y_true, y_pred) ** 0.5`.
+  - For RMSE tasks, compute as `mean_squared_error(y_true, y_pred) ** 0.5`.
 
 ## 9) Slow iteration during development
 - Symptom: preview/build loop is too slow.
@@ -88,7 +88,7 @@ Use this during debugging. Keep DataOps architecture unchanged.
   - Load `references/encoding_skrub.md` and `references/selectors_routing_skrub.md` for routing choices.
   - Load `references/feature_engineering_skrub.md` if ablation should test ratios, drops, or cleaning.
   - Explicitly decide low/high-cardinality handling based on model family and data.
-  - Keep the encoding changes in the DataOps path and validate with direct holdout RMSE.
+  - Keep the encoding changes in the DataOps path and validate with direct holdout score on the competition metric.
 
 ## 12) Redundant target-column drop (`KeyError: '[target_col]' not found in axis`)
 - Symptom: script crashes near prediction/inference with a pandas `KeyError` when doing something like `df.drop(columns=target_col)`.
@@ -105,7 +105,7 @@ Use this during debugging. Keep DataOps architecture unchanged.
   - Keep train/validation/test feature preparation in one reusable function/path.
 
 ## 13) Refinement score equals baseline after adding derived features
-- Symptom: RMSE unchanged after `.skb.apply_func(...)` adds new columns.
+- Symptom: holdout score unchanged after `.skb.apply_func(...)` adds new columns.
 - Root cause: column routing used pre-FE pandas lists (`train_part.select_dtypes(...)`) so new
   columns never reach the model.
 - Fix:
@@ -114,15 +114,15 @@ Use this during debugging. Keep DataOps architecture unchanged.
 - Prevention: do not build feature column lists from raw train data before FE transforms.
 
 ## 14) Ablation uses a different model than the solution under refinement (without explicit model-change hypothesis)
-- Symptom: ablation RMSE (~56k HGB) does not match solution RMSE (~54k CatBoost); planner picks variants that regress.
+- Symptom: ablation holdout score does not match solution holdout score on the same split/backbone; planner picks variants that regress.
 - Root cause: ablation script swaps backbone model or split while testing feature blocks.
 - Fix:
   - Reload `references/feature_engineering_skrub.md` and keep the same model family/params as `train_code`.
-  - Ablate only the feature/preprocessing block; compare holdout RMSE on the same split.
+  - Ablate only the feature/preprocessing block; compare holdout score on the same split.
 - Prevention: ablation prompt requires same backbone unless model swap is the explicit hypothesis.
 
-## 15) Holdout leakage via full-data `skrub.var` (optimistic validation RMSE)
-- Symptom: validation RMSE looks unusually good; script binds `skrub.var("data", train_df)`, splits `train_part`/`valid_part`, then `make_learner(fitted=True)` and `predict({"data": valid_part})`.
+## 15) Holdout leakage via full-data `skrub.var` (optimistic validation score)
+- Symptom: validation score looks unusually good; script binds `skrub.var("data", train_df)`, splits `train_part`/`valid_part`, then `make_learner(fitted=True)` and `predict({"data": valid_part})`.
 - Root cause: `make_learner(fitted=True)` trains on **all** bound rows (including validation), so the metric is not a true holdout score.
 - Fix:
   - Block 1 (metric): `data_train = skrub.var("data", train_part)`, build graph, `val_learner = pred.skb.make_learner(fitted=True)`, `val_learner.predict({"data": valid_part})`.

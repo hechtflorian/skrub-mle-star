@@ -50,14 +50,14 @@ pred = X.skb.apply(encoder).skb.apply(clf, y=y)
 data = skrub.var("data", train_df)  # full train bound
 # ... split train_part / valid_part ...
 learner = pred.skb.make_learner(fitted=True)  # trained on ALL rows including valid_part
-valid_pred = learner.predict({"data": valid_part})  # optimistic RMSE
+valid_pred = learner.predict({"data": valid_part})  # optimistic validation score
 ```
 
-**Default script (early stages — holdout metric only; no test, no submission.csv):**
+**Default script (early stages — holdout metric only):**
 ```python
 import numpy as np
-from sklearn.metrics import mean_squared_error
 from sklearn.model_selection import train_test_split
+# Use the competition metric from task_description.txt (# Metric section)
 
 train_idx, valid_idx = train_test_split(
     np.arange(len(train_df)), test_size=0.2, random_state=42
@@ -71,11 +71,11 @@ y_train = data_train[target_col].skb.mark_as_y()
 pred = X_train.skb.apply(encoder).skb.apply(model, y=y_train)
 val_learner = pred.skb.make_learner(fitted=True)
 valid_pred = val_learner.predict({"data": valid_part})
-rmse = mean_squared_error(valid_part[target_col], valid_pred) ** 0.5
-print(f"Final Validation Performance: {rmse}")
+holdout_score = your_metric_fn(valid_part[target_col], valid_pred)
+print(f"Final Validation Performance: {holdout_score}")
 ```
 
-**Submission stage only** (after printing validation score; not for init/refinement/tuning):
+**Submission stage only** (after printing validation score; only if submission export is demanded and `full_train_df` usage allowed, i.e. not for init/refinement/tuning):
 ```python
 data_full = skrub.var("data", train_df)
 X_full = data_full.drop(columns=target_col, errors="ignore").skb.mark_as_X()
@@ -86,8 +86,8 @@ test_pred = full_learner.predict({"data": test_df})
 ```
 
 Rules:
-- Early stages: Block 1 only — bind **`train_part`**, print holdout metric, stop.
-- Submission (optional late ensemble export): add Block 2 on **`train_df`** after the metric print.
+- Early stages: Block 1 only — bind **`train_part`**, print holdout metric.
+- Submission: add Block 2 on **`train_df`** after the metric print, i.e. you can use the full trainset to refit.
 - Keep the same split (`test_size`, `random_state`) across stages.
 - Preprocessing inside `.skb.apply_func` / transformers learns from bound rows only — binding `train_part` prevents val/test rows from influencing fit-time stats.
 - Tuning search: `search.fit({"data": train_part})`, eval with `search.best_learner_.predict({"data": valid_part})` — see `choices_hparam_pattern.md`.
@@ -112,7 +112,7 @@ pred_test = full_learner.predict({"data": test_df})
 ## Never do this
 - `pred.fit(X, y)` where `pred` is a DataOps expression.
 - `learner.predict(test_data_op)` with a raw DataOp node.
-- `mean_squared_error(..., squared=False)` in this runtime.
+- `mean_squared_error(..., squared=False)` in this runtime (use `** 0.5` for RMSE tasks instead).
 
 ## Multi-table pattern
 ```python

@@ -129,15 +129,15 @@ search.fit({"data": train_part})  # train fold only — not full train_df, not v
 best_learner = search.best_learner_
 
 valid_pred = best_learner.predict({"data": valid_part})
-rmse = mean_squared_error(valid_part[target_col].values, valid_pred) ** 0.5
-print(f"Final Validation Performance: {rmse}")
+holdout_score = your_metric_fn(valid_part[target_col].values, valid_pred)
+print(f"Final Validation Performance: {holdout_score}")
 
 print(pred.skb.describe_param_grid())  # inspect param names before bake, returns string
 best_params = {}
-for name, value in search.best_params_.items():
-    if hasattr(value, "item"):
-        value = value.item()
-    best_params[name] = value
+for spec in tune_plan["tunable_params"]:  # use plan param names, not data_op__ keys
+    name = spec["name"]
+    # map each search.best_params_ value to the matching spec by kind/range/outcomes
+    ...
 print("TUNING_BEST_PARAMS:", json.dumps(best_params, default=str))
 ```
 Tune agents should prefer explicit holdout `search.fit` above when structural code splits train/val.
@@ -149,7 +149,7 @@ Tune agents should prefer explicit holdout `search.fit` above when structural co
 - Correct (inline on apply, sklearn-API estimators only): `pred = X.skb.apply(Estimator(lr=skrub.choose_float(0.01, 0.1, name="lr")), y=y)` then `search = pred.skb.make_randomized_search(...)` — no intermediate variable holding a choice object. For non-sklearn estimators (e.g. CatBoost) this also fails — use Pattern 4.
 - Anti-pattern (terminal tune crash): call `json.dumps(best_params)` on skrub/search params without `default=str` or numpy-to-Python conversion.
 - Anti-pattern (incomparable scores): `search.fit({"data": train_part})` in tune_implement, then `make_learner(fitted=True)` on full `train_df` in tune_bake for the metric line.
-- Anti-pattern (bake mapping): assume `search.best_params_` keys match `name=` strings — keys are often `data_op__0`, `data_op__1`, … Map **values** to estimator kwargs using plan `tunable_params` order (or `describe_param_grid()`), not key names.
+- Anti-pattern (bake mapping): assume `search.best_params_` keys match `name=` strings — keys are often `data_op__0`, `data_op__1`, … and index order may not match plan order. Map **values** to plan `tunable_params` by kind/range/outcomes (or build human-named params in `tune_implement`), not by key name or positional index alone.
 - Correct holdout (early stages): bind `train_part`, print metric — no test/full-train block until submission.
 - Correct tuning: define `choose_*`, run search (`make_randomized_search` / `make_grid_search`), then train/predict with best search result.
 - Correct fixed-parameter run: no `choose_*`; use concrete parameter values directly.
@@ -170,7 +170,7 @@ Tune agents should prefer explicit holdout `search.fit` above when structural co
 - For `choose_from({...})`, dictionary keys are readable outcome names and must be strings.
 - If `choose_*` appears in final code, search execution is present and best search output is used.
 - `train_part`, `valid_part`, and full `train_df` are used consistently across search, bake, and structural scoring.
-- `describe_param_grid()` checked; bake literals mapped from `best_params_` values, not assumed key names.
+- `describe_param_grid()` checked; bake literals mapped from `best_params_` **values** to plan param names by kind/range, not assumed key names or creation order.
 
 ## When to load other references
 - Load `dataops_api_quickmap.md` for canonical DataOps pipeline shape and safe fit/predict patterns.

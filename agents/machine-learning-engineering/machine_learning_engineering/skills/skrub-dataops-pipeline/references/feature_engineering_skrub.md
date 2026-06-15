@@ -64,7 +64,7 @@ def add_coordinate_features(df):
             break
     return out
 
-data = skrub.var("data", train_df)
+data = skrub.var("data", train_part)
 data_fe = data.skb.apply_func(add_coordinate_features)
 X = data_fe.drop(columns=target_col, errors="ignore").skb.mark_as_X()
 y = data_fe[target_col].skb.mark_as_y()

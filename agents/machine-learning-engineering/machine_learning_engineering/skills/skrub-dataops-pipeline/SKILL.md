@@ -51,16 +51,16 @@ Load only the minimum references needed for the current step to avoid context po
 - Do not pass DataOp nodes directly to `learner.predict(...)`; pass an environment dict, e.g. `{"data": df}`.
 - Do not redundantly drop target columns during inference; avoid `test_df.drop(columns=target_col)` unless required (test_df usually doesnt include target_col), and if used, guard with `errors="ignore"`.
 - Do not use unverified kwargs for `TableVectorizer(...)` or `.skb.subsample(...)`.
-- Do not use `mean_squared_error(..., squared=False)` in this project runtime; compute RMSE as `mean_squared_error(...) ** 0.5`.
-- Silence training logs so stdout stays small: CatBoost `verbose=0`, LightGBM `verbose=-1`, XGBoost `verbosity=0` (never per-iteration logging).
+- Do not use `mean_squared_error(..., squared=False)` in this project runtime; for regression tasks that use `root_mean_squared_error`, compute RMSE as `mean_squared_error(y_true, y_pred) ** 0.5` instead.
+- Silence training logs so stdout stays small: e.g. CatBoost `verbose=0`, LightGBM `verbose=-1`, XGBoost `verbosity=0` (never per-iteration logging).
 
 ## Default pipeline template (init, ablation, refinement, tuning)
 Use the same `train_test_split` size and `random_state`. The final line should be **validation print** — no test load, no full-train refit if no submission export is expected.
 ```python
 import numpy as np
 import skrub
-from sklearn.metrics import mean_squared_error
 from sklearn.model_selection import train_test_split
+# Use the competition metric from task_description.txt (# Metric section)
 
 train_idx, valid_idx = train_test_split(
     np.arange(len(train_df)), test_size=0.2, random_state=42
@@ -77,7 +77,7 @@ predictor = X_train.skb.apply(vectorizer).skb.apply(YourModel(), y=y_train)
 
 val_learner = predictor.skb.make_learner(fitted=True)
 valid_pred = val_learner.predict({"data": valid_part})
-final_validation_score = mean_squared_error(valid_part[target_col], valid_pred) ** 0.5
+final_validation_score = your_metric_fn(valid_part[target_col], valid_pred)
 print(f"Final Validation Performance: {final_validation_score}")
 ```
 
@@ -94,9 +94,9 @@ Refinement terminal tuning policy (dedicated tuning stage after refinement):
 - Bake best params into fixed code before ensemble/submission; downstream code must not contain `choose_*` or search calls.
 
 ```python
-# Example print contract inside ablation script
-print(f"Ablation[{variant_name}] RMSE: {score}")
-print(f"Best ablation variant: {best_variant} | RMSE: {best_score}")
+# Example print contract inside ablation script (use task metric name in <metric>)
+print(f"Ablation[{variant_name}] <metric>: {score}")
+print(f"Best ablation variant: {best_variant} | <metric>: {best_score}")
 ```
 
 ## Output contract

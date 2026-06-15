@@ -73,3 +73,10 @@ scores = results["test_score"]
 print(f"R2 score:  mean: {np.mean(scores):.3f}; std: {np.std(scores):.3f}")
 print(f"mean fit time: {np.mean(results['fit_time']):.3f} seconds")
 ```
+
+## When to load other references
+- Load `dataops_api_quickmap.md` if DataOps variable/learner/predict contracts need confirmation.
+- Load `choices_hparam_pattern.md` when encoding options are being tuned via `choose_*` / `choose_from`.
+- Load `dataops_tuning_optuna.md` when encoding/model selection is optimized with Optuna trials.
+- Load `common_failure_fixes.md` for pipeline breakages, API misuse, or metric/contract issues.
+- Load `skrub_general_api.md` for additional non-DataOps transformer/selector examples.
