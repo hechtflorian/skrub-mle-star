@@ -9,11 +9,11 @@ class DefaultConfig:
     """Default configuration."""
 
     data_dir: str = "./machine_learning_engineering/tasks/"  # the directory path where the machine learning tasks and their data are stored.
-    task_name: str = "california-housing-prices"  # The name of the specific task to be loaded and processed.
+    task_name: str = "spaceship-titanic"  # The name of the specific task to be loaded and processed.
     task_type: str = (
-        "Tabular Regression"  # The type of machine learning problem.
+        "Tabular Classification"  # The type of machine learning problem.
     )
-    lower: bool = True  # True if a lower value of the metric is better.
+    lower: bool = False  # True if a lower value of the metric is better.
     workspace_dir: str = "./machine_learning_engineering/workspace/"  # Directory used for saving intermediate outputs, results, logs.
     agent_model: str = os.environ.get(
         "ROOT_AGENT_MODEL", "gemini-2.0-flash-001"
