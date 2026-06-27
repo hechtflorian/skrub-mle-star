@@ -77,6 +77,7 @@ Use this during debugging. Keep DataOps architecture unchanged.
 - Symptom: generated ablation file is empty or contains no runnable code.
 - Root cause: tool calls were emitted, but final code response was not produced.
 - Fix:
+  - Load `references/ablation_dataops_template.md` and follow its skeleton.
   - Treat tool calls as prep only.
   - Always end with executable ablation code.
   - Ensure ablation code prints per-variant metric and final best-variant summary.
@@ -117,7 +118,7 @@ Use this during debugging. Keep DataOps architecture unchanged.
 - Symptom: ablation holdout score does not match solution holdout score on the same split/backbone; planner picks variants that regress.
 - Root cause: ablation script swaps backbone model or split while testing feature blocks.
 - Fix:
-  - Reload `references/feature_engineering_skrub.md` and keep the same model family/params as `train_code`.
+  - Follow `references/ablation_dataops_template.md`; baseline variant must match input backbone and split.
   - Ablate only the feature/preprocessing block; compare holdout score on the same split.
 - Prevention: ablation prompt requires same backbone unless model swap is the explicit hypothesis.
 
@@ -141,19 +142,27 @@ Use this during debugging. Keep DataOps architecture unchanged.
 
 ## 17) `.skb.apply_func` helper assumes pandas DataFrame
 - Symptom: `AttributeError` (e.g. no `.copy()`, `.drop()`, `.columns`) inside a function passed to `.skb.apply_func(...)`.
-- Root cause: the helper receives a **DataOp** graph input during pipeline build, not a materialized pandas `DataFrame`.
+- Root cause: the helper receives a **DataOp** graph input during pipeline build, not a materialized pandas `DataFrame` — often from calling the helper outside `apply_func` or mixing graph/pandas APIs incorrectly.
 - Fix:
-  - Keep `@skrub.deferred` helpers pandas-native on `.copy()`/column ops only when the pattern matches working examples in `feature_engineering_skrub.md`.
-  - Or use skrub selectors / graph ops on `X` after FE instead of pandas drops inside the deferred helper.
+  - Use a **plain** `def fe(df): out = df.copy(); ...; return out` and call only as `data.skb.apply_func(fe)` (see `feature_engineering_skrub.md`).
+  - Or use skrub selectors / graph ops on `X` after FE instead of pandas drops on a DataOp node.
 - Prevention: load `references/feature_engineering_skrub.md` before ablation or refinement FE edits.
 
 ## 18) Eager pandas ops on DataOp graph objects
 - Symptom: errors (and repeated identical retries) on lines like `"col" in X.columns`, iteration over `X.columns`, or conditional logic on a DataOp (e.g. `X` after `.skb.mark_as_X()`).
 - Root cause: a DataOp is a lazy graph node, not a pandas DataFrame — membership tests, iteration, and eager branching on it are invalid at graph-build time.
 - Fix:
-  - Do column checks/derivations inside a `@skrub.deferred` helper (it receives a real DataFrame at run time), or on the raw df before `skrub.var(...)`.
+  - Do column checks/derivations inside a plain `apply_func` helper (pandas `DataFrame` at run time), or on the raw df before `skrub.var(...)`.
   - Replace conditional drops with `.drop(columns=..., errors="ignore")` on the chain.
 - Prevention: never branch on `.columns` of a marked `X`/`y` DataOp; load `references/feature_engineering_skrub.md` before FE edits.
+
+## 19) `@skrub.deferred` combined with `.skb.apply_func` (or lambda wrapper)
+- Symptom: `TypeError: You passed an actual DataFrame to ...` / `RuntimeError: Evaluation of '<lambda>()' failed` inside ablation or FE code.
+- Root cause: `@skrub.deferred` expects a **DataOp** argument; `.skb.apply_func(...)` invokes the function with a **pandas DataFrame**. Wrapping with `apply_func(lambda df: fe(df, flag=...))` makes it worse.
+- Fix:
+  - Remove `@skrub.deferred` from FE helpers used with `apply_func` — `apply_func` alone is enough to keep FE in the graph.
+  - For ablation toggles, use separate `build_graph` / `fe_func` variants — not one deferred function with runtime flags via lambda.
+- Prevention: load `references/ablation_dataops_template.md` for ablation; follow the single FE pattern in `feature_engineering_skrub.md`.
 
 ## 20) Custom wrapper classes/objects around DataOps graphs break `.skb`
 - Symptom: `AttributeError` on `.skb.make_learner(...)` / `.skb` because the object is a custom class or plain function result, not a DataOp; often from a helper that bundles several graphs into an invented "ensemble" wrapper.
@@ -173,7 +182,7 @@ blend = 0.7 * np.asarray(learner_a.predict({"data": valid_part})) \
 - Load `dataops_api_quickmap.md` when rebuilding a broken DataOps path from a known-good template.
 - Load `encoding_skrub.md` if failures are tied to weak/default encoding strategy.
 - Load `selectors_routing_skrub.md` for split/concat routing or selector mistakes.
-- Load `feature_engineering_skrub.md` for ratios, redundancy drops, cleaning, ablation alignment, or DataOp helper / eager-pandas errors (#17, #18).
+- Load `feature_engineering_skrub.md` for ratios, redundancy drops, cleaning, ablation alignment, or DataOp helper / eager-pandas errors (#17–#19).
 - Load `choices_hparam_pattern.md` for `choose_*` semantics, fake-tuning prevention, or grid/randomized search fixes.
 - Load `dataops_tuning_optuna.md` for Optuna-specific search/debug patterns.
 - Load `joining_across_columns.md` for multi-table merge/aggregation correctness.

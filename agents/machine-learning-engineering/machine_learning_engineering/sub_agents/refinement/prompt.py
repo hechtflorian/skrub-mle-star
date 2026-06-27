@@ -20,11 +20,12 @@ ABLATION_INSTR = """# Introduction
 
 # Requirements
 - You must call `list_skills` -> `load_skill` for `skrub-dataops-pipeline` before editing and load relevant references via `load_skill_resource` if you see fit. 
+- You must load `references/ablation_dataops_template.md` via `load_skill_resource` before writing code. Follow its skeleton and print contract; adapt variants to the input solution — do not copy placeholder names blindly.
 - If an ablation variant changes feature encoding/preprocessing/column routing, load `references/encoding_skrub.md` and/or `references/selectors_routing_skrub.md` via `load_skill_resource` before finalizing code.
 - If the data profile suggests redundant columns, ratios, cleaning, or derived features, load `references/feature_engineering_skrub.md` via `load_skill_resource` before finalizing code.
 - If you want to perform parameter search (e.g. model family, encoders, specific values), load `references/choices_hparam_pattern.md` via `load_skill_resource` before finalizing code.
 - Use the data profile to choose focused ablations if useful.
-- Keep ablation search budget small when used (`n_iter <= 5`).
+- Keep ablation search budget at reasonable size when used.
 - Keep the same model family and validation split as the current solution; unless changing the model is the explicit hypothesis.
 - For each ablation variant, fit on `train_part` only (`skrub.var("data", train_part)`); do not bind full `train_df` before scoring on `valid_part`.
 - If the profile shows string/categorical complexity or missingness, include at least one preprocessing/encoding structural ablation.
@@ -64,10 +65,11 @@ ABLATION_SEQ_INSTR = """# Introduction
 
 # Requirements
 - You must call `list_skills` -> `load_skill` for `skrub-dataops-pipeline` before editing and load relevant references via `load_skill_resource` if you see fit.
+- You must load `references/ablation_dataops_template.md` via `load_skill_resource` before writing code. Follow its skeleton and print contract; adapt variants to the input solution — do not copy placeholder names blindly.
 - If an ablation variant changes feature encoding/preprocessing/column routing, load `references/encoding_skrub.md` and/or `references/selectors_routing_skrub.md` via `load_skill_resource` before finalizing code.
 - If the data profile suggests redundant columns, ratios, cleaning, or derived features, load `references/feature_engineering_skrub.md` via `load_skill_resource` before finalizing code.
 - If you want to perform parameter search (e.g. model family, encoders, specific values), load `references/choices_hparam_pattern.md` via `load_skill_resource` before finalizing code.
-- Keep ablation search budget small when used (`n_iter <= 5`).
+- Keep ablation search budget at reasonable size when used.
 - Use the data profile to choose focused ablations if useful.
 - Keep the same model family and validation split as the current solution; unless changing the model is the explicit hypothesis.
 - For each ablation variant, fit on `train_part` only (`skrub.var("data", train_part)`); do not bind full `train_df` before scoring on `valid_part`.
@@ -124,8 +126,8 @@ EXTRACT_BLOCK_AND_PLAN_INSTR = """# Introduction
 - When the profile suggests structural opportunities (correlated numerics, missingness, cardinality mix), prefer feature/preprocessing/encoding changes before model-family swaps; load `references/feature_engineering_skrub.md` when adding derived features.
 - If your plan changes feature encoding/preprocessing or column routing, load `references/encoding_skrub.md` and/or `references/selectors_routing_skrub.md` via `load_skill_resource` before finalizing the plan.
 - If your plan adds derived features, drops redundant columns, or applies cleaning/scaling from the data profile, load `references/feature_engineering_skrub.md` via `load_skill_resource` before finalizing the plan.
-- If you want to perform hyperparameter search (e.g. over model family, encoding, or specific values), load `references/choices_hparam_pattern.md` via `load_skill_resource` before finalizing.
-- Do not propose `choose_*` or randomized search in structural refinement plans; terminal tuning already runs separately at the end of refinement.
+- If you plan to perform hyperparameter search (e.g. over model family, encoding, or specific values), load `references/choices_hparam_pattern.md` via `load_skill_resource` before finalizing.
+- Do not propose large `choose_*` or randomized search spaces in structural refinement plans; terminal tuning already runs separately at the end of refinement.
 - Do not call a plan tuned unless search is actually executed in implementation.
 - You must always finish by returning your proposed solution, even if you call `list_skills`/`load_skill`/`load_skill_resource`.
 
@@ -174,7 +176,7 @@ EXTRACT_BLOCK_AND_PLAN_SEQ_INSTR = """# Introduction
 - If your plan changes feature encoding/preprocessing or column routing, load `references/encoding_skrub.md` and/or `references/selectors_routing_skrub.md` via `load_skill_resource` before finalizing the plan.
 - If your plan adds derived features, drops redundant columns, or applies cleaning/scaling from the data profile, load `references/feature_engineering_skrub.md` via `load_skill_resource` before finalizing the plan.
 - If you want to perform hyperparameter search (e.g. over model family, encoding, or specific values), load `references/choices_hparam_pattern.md` via `load_skill_resource` before finalizing the plan.
-- If tuning is proposed, state a focused bounded search budget (`n_iter <= 8`) and a compact targeted search space.
+- If tuning is proposed, state a focused bounded search budget and a compact targeted search space.
 - Do not call a plan tuned unless search is actually executed in implementation.
 - You must always finish by returning your proposed solution, even if you call `list_skills`/`load_skill`/`load_skill_resource`.
 
@@ -219,7 +221,7 @@ PLAN_REFINEMENT_INSTR = """# Introduction
 - If your plan changes feature encoding/preprocessing or column routing, load `references/encoding_skrub.md` and/or `references/selectors_routing_skrub.md` via `load_skill_resource` before finalizing the plan.
 - If your plan adds derived features, drops redundant columns, or applies cleaning/scaling from the data profile, load `references/feature_engineering_skrub.md` via `load_skill_resource` before finalizing the plan.
 - If you want to perform parameter search (e.g. model family, encoders, specific values), load `references/choices_hparam_pattern.md` via `load_skill_resource` before finalizing the plan.
-- Do not propose `choose_*` or randomized search in structural refinement plans; terminal tuning already runs separately at the end of refinement.
+- Do not propose large `choose_*` or randomized search spaces in structural refinement plans; terminal tuning already runs separately at the end of refinement.
 - Prefer fixed/reused params when edits are minor and search-sensitive parts are unchanged.
 - Do not describe default-choice `.skb.make_learner(...)` / `.skb.eval(...)` runs as tuned.
 - You must always finish by returning your proposed solution, even if you call `list_skills`/`load_skill`/`load_skill_resource`.
@@ -254,7 +256,7 @@ IMPLEMENT_PLAN_INSTR = """# Introduction
 - If implementation adds derived features, drops redundant columns, or applies cleaning/scaling, load `references/feature_engineering_skrub.md` via `load_skill_resource` before finalizing code.
 - If the plan adds derived features via `.skb.apply_func(...)`, do not build column lists from raw `train_part`/`train_df`; route columns with skrub selectors on the post-FE `X` graph (or use a single `TableVectorizer()` on all features).
 - If you want to perform parameter search (e.g. over model family, encoding, or search-space nodes), load `references/choices_hparam_pattern.md` via `load_skill_resource` before finalizing code.
-- Do not add `choose_*` or run parameter search unless the improvement plan explicitly requires tuning in this step; terminal tuning is handled by dedicated tune agents after structural refinement.
+- Do not add large `choose_*` or parameter search spaces unless the improvement plan explicitly requires tuning in this step; terminal tuning is handled by dedicated tune agents after structural refinement.
 - If the plan is non-tuning or the change is minor, prefer reusing previous strong parameters or explicit fixed values.
 - Implement the plan directly as one resolved pipeline. Do not write runtime variant-chooser loops (building several pipeline variants and picking the best at runtime): downstream agents must see a unambiguous pipeline.
 - Do not label default-choice `.skb.make_learner(...)` / `.skb.eval(...)` behavior as tuned.

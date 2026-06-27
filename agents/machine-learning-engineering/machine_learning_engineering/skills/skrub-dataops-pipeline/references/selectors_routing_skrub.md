@@ -56,9 +56,8 @@ X_enc = enc_rest.skb.concat([enc_high, enc_nulls], axis=1)
 model = X_enc.skb.apply(YourModel(), y=y)
 ```
 
-Ordered categorical via deferred map (keep DataOps-native):
+Ordered categorical via plain map helper (keep DataOps-native):
 ```python
-@skrub.deferred
 def encode_ordered(df):
     order = {"A": 3, "B": 2, "C": 1}
     return df["grade"].map(order)

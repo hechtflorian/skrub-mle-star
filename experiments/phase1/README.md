@@ -8,7 +8,7 @@ Vanilla MLE-STAR vs skrub-full on tabular tasks. See [`docs/experiment_plan_eval
 phase1/
   manifest.csv                 # 12-run index
   results/
-    phase1_all_runs_12.csv     # primary aggregate (excl. legacy)
+    phase1_all_runs_12.csv     # primary aggregate (excl. legacy - use this)
     phase1_all_runs.csv        # includes legacy skrub titanic run1
     phase1_by_task_system.csv  # mean ± std per (task, system)
     phase1_summary.md          # write-up

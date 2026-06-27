@@ -26,6 +26,8 @@ Load only the minimum references needed for the current step to avoid context po
   - General skrub API usage beyond DataOps.
 - **Fast iteration with preview subsampling**: `references/skrub_subsampling.md`
   - How to subsample with skrub.
+- **Ablation study template (refinement)**: `references/ablation_dataops_template.md`
+  - Minimal DataOps ablation shape, variant patterns, stdout contract. **Load for every ablation step.**
 - **Common skrub failure fixes**: `references/common_failure_fixes.md`
   - Known errors and quick fixes for skrub (DataOps) errors.
 - **Holdout data leakage audit**: `references/holdout_data_leakage.md`
@@ -84,6 +86,7 @@ print(f"Final Validation Performance: {final_validation_score}")
 **Submission stage only** (and optional final ensemble export): after the val metric line above, add full `train_df` refit + `test_df` predict. See `references/dataops_api_quickmap.md` → “Submission stage only”.
 
 Refinement ablation policy:
+- Load `references/ablation_dataops_template.md` and follow its skeleton + print contract.
 - Default to structural ablation with fixed/reused parameters.
 - Escalate to bounded tuning only when the current hypothesis is explicitly about tuning impact. In this case, load `choices_hparam_pattern.md`.
 
@@ -92,12 +95,6 @@ Refinement terminal tuning policy (dedicated tuning stage after refinement):
 - One bounded holdout randomized search on a **single** focus block (`model`, `encoder`, or `preprocessing`).
 - Use `make_randomized_search` with low `n_iter` (default 4); no CV, no Optuna.
 - Bake best params into fixed code before ensemble/submission; downstream code must not contain `choose_*` or search calls.
-
-```python
-# Example print contract inside ablation script (use task metric name in <metric>)
-print(f"Ablation[{variant_name}] <metric>: {score}")
-print(f"Best ablation variant: {best_variant} | <metric>: {best_score}")
-```
 
 ## Output contract
 - Return runnable single-file Python code when code is requested.

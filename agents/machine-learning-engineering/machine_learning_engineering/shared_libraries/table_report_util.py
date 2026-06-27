@@ -9,7 +9,7 @@ import skrub
 
 PROFILE_STATE_KEY = "ablation_table_report_profile_{task_id}"
 PROFILE_UNAVAILABLE = "Data profile unavailable."
-_DEFAULT_MAX_COLUMNS = 30
+_DEFAULT_MAX_COLUMNS = 10
 
 _TARGET_PATTERNS = (
     re.compile(r"""target_col\s*=\s*['"]([^'"]+)['"]""", re.IGNORECASE),

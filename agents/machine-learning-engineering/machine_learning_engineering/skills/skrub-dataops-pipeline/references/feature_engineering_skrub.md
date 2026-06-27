@@ -18,7 +18,7 @@ Keep the existing DataOps graph; change only the feature block under test.
 
 - Ablate one structural block at a time (encoding, derived features, drop-one, scaling).
 - Do not swap the backbone model (e.g. CatBoost → HGB) unless that is the explicit hypothesis.
-- Pandas and sklearn are fine **inside** deferred functions or as transformers in
+- Pandas and sklearn are fine **inside** plain `apply_func` helpers or as transformers in
   `.skb.apply(...)`; the outer path stays DataOps (`var` / `mark_as_X` / `mark_as_y` / `.skb.apply`).
 - **Holdout binding:** for each ablation variant, fit on `train_part` only (`skrub.var("data", train_part)`), then score on `valid_part`. Do not bind full `train_df` before the metric line (see `dataops_api_quickmap.md`).
 
@@ -35,16 +35,30 @@ Keep the existing DataOps graph; change only the feature block under test.
 
 If redundancy ablations hurt validation, prefer keeping raw columns and tuning encoding/model instead.
 
-## Derived features (ratios, per-capita) — DataOps-native
+## FE function pattern (one way only)
 
-Prefer `@skrub.deferred` + `.skb.apply_func` so features live in the graph.
+Use a **plain** Python function with `.skb.apply_func(...)` — do **not** also decorate it with `@skrub.deferred`. `apply_func` already keeps FE in the DataOps graph and passes a pandas `DataFrame` at run time.
+
+```python
+def add_features(df):
+    out = df.copy()
+    # column derivations on out
+    return out
+
+data_fe = data.skb.apply_func(add_features)
+```
+
+For ablation toggles (FE on/off, etc.), use **separate** graph builders or FE functions per variant — not `apply_func(lambda df: add_features(df, flag=...))`.
+
+## Derived features (coordinate / geo) — DataOps-native
+
+Prefer plain `def` + `.skb.apply_func` so features live in the graph.
 
 Example for coordinate feature engineering:
 ```python
 import numpy as np
 import skrub
 
-@skrub.deferred
 def add_coordinate_features(df):
     out = df.copy()
     cols = set(out.columns)
@@ -79,7 +93,6 @@ division by zero and replace non-finite values.
 import numpy as np
 import skrub
 
-@skrub.deferred
 def add_ratio_features(df, numer_col, denom_col, out_name):
     out = df.copy()
     if numer_col not in out.columns or denom_col not in out.columns:
@@ -89,7 +102,6 @@ def add_ratio_features(df, numer_col, denom_col, out_name):
     out[out_name] = ratio.fillna(0.0)
     return out
 
-@skrub.deferred
 def add_common_ratios(df):
     out = df.copy()
     # Example: apply multiple ratios inside one deferred function when profile
@@ -111,20 +123,15 @@ def add_common_ratios(df):
 data_fe = data.skb.apply_func(add_common_ratios)
 ```
 
-Prefer one deferred function with several guarded ratios over many separate `apply_func`
+Prefer one `apply_func` helper with several guarded ratios over many separate `apply_func`
 calls when they share the same preprocessing block.
 
-## Derived features (ratios, per-capita) — DataOps-native
-
-Prefer `@skrub.deferred` + `.skb.apply_func` so features live in the graph.
-
-Example:
+## Room / household ratios (example)
 
 ```python
 import numpy as np
 import skrub
 
-@skrub.deferred
 def add_room_ratios(df):
     out = df.copy()
     denom = out["households"].replace(0, np.nan)
@@ -140,7 +147,7 @@ y = data_fe[target_col].skb.mark_as_y()
 # ... model + val_learner on train_part; predict valid_part for metric ...
 ```
 
-Pandas `.assign(...)` inside a deferred function is equally valid for multi-column derivations.
+Pandas `.assign(...)` inside the helper is equally valid for multi-column derivations.
 
 ## Post-FE vectorization (default after `apply_func`)
 

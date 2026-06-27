@@ -327,7 +327,7 @@ python test-scripts/aggregate_runs.py \
 - [ ] Skrub tune scripts include structural FE (not bare TableVectorizer-only search)
 - [ ] For classification, scores in [0, 1] not RMSE-scale
 
-### Tier B — Fixed external holdout (optional, stronger)
+### Tier B — Fixed external holdout (optional, dont do this)
 
 If Tier-A deltas are small or splits look inconsistent:
 
