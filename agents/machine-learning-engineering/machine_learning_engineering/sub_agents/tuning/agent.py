@@ -217,26 +217,19 @@ def check_tune_implement_finish(
 def prepare_tune_bake_inputs(
     callback_context: callback_context_module.CallbackContext,
 ) -> types.Content | None:
-    """Define bake params source: search result, plan defaults, or skip bake.
-
-    Runs before the bake stage. If search produced no best params, fall back
-    to the tune plan's per-param defaults; if those are unavailable too, mark
-    bake as skipped (sentinel exec result) so no LLM calls are spent and
-    promotion keeps the structural solution.
-    """
+    """Skip bake unless search succeeded with parseable best params."""
     task_id = callback_context.agent_name.split("_")[-1]
+    search_result = callback_context.state.get(
+        f"train_code_tune_search_exec_result_{task_id}", {}
+    )
     best_params = callback_context.state.get(f"tune_best_params_{task_id}", {})
-    if best_params:
+    search_succeeded = (
+        search_result.get("returncode", 1) == 0
+        and "score" in search_result
+        and bool(best_params)
+    )
+    if search_succeeded:
         callback_context.state[f"tune_param_source_{task_id}"] = "search"
-        return None
-    tune_plan = callback_context.state.get(f"tune_plan_{task_id}", {})
-    defaults = {}
-    for param in tune_plan.get("tunable_params") or []:
-        if isinstance(param, dict) and param.get("name") and "default" in param:
-            defaults[param["name"]] = param["default"]
-    if defaults:
-        callback_context.state[f"tune_best_params_{task_id}"] = defaults
-        callback_context.state[f"tune_param_source_{task_id}"] = "plan_defaults"
         return None
     callback_context.state[f"tune_param_source_{task_id}"] = "skipped"
     callback_context.state[f"train_code_tune_exec_result_{task_id}"] = {

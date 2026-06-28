@@ -20,7 +20,7 @@ TUNE_PLAN_INSTR = """# Introduction
 - Pick **one** focus block only: `model`, `encoder`, or `preprocessing`.
 - Prefer `model` when ablation showed capacity or model-side effects; prefer `encoder` when encoding ablation clearly mattered.
 - Model focus: at most **2** `choose_*` nodes with tight ranges around current literals.
-- Encoder/preprocessing focus: at most **2** `choose_*` nodes.
+- Encoder/preprocessing focus: at most **2** `choose_*` nodes; if tuning `TableVectorizer`, plan `choose_from` of whole vectorizers or encoder instances only.
 - If the backbone estimator is **not** a sklearn-API estimator (`sklearn.base.BaseEstimator` subclass — e.g. CatBoost is not), numeric `choose_*` in its constructor will not resolve; plan a small discrete variant grid via `choose_from` instead (see `choices_hparam_pattern.md` Pattern 4), still with `default` values per param.
 - Do not propose new feature engineering, backbone swap, or multiple focus blocks.
 - Use the same holdout split as the current solution (`train_test_split` size and `random_state`).
@@ -28,6 +28,7 @@ TUNE_PLAN_INSTR = """# Introduction
 
 # Requirements
 - Call `list_skills` -> `load_skill` for `skrub-dataops-pipeline` and load `references/choices_hparam_pattern.md` via `load_skill_resource`.
+- If `focus_block` is `encoder` or `preprocessing`, also load `references/encoding_skrub.md`.
 - List which pipeline parts stay frozen in `frozen`.
 
 # Response format
@@ -45,6 +46,7 @@ Return: TunePlan"""
 
 TUNE_IMPLEMENT_INSTR = """# Introduction
 - Implement the terminal tuning plan on the structural solution below.
+- This should be a simple task; you should just insert the `choose_*` nodes, run the search, and handover the best params to the next agent.
 - Run **real** holdout randomized search with in-graph `choose_*` nodes, then report the best holdout validation score.
 - Follow `references/choices_hparam_pattern.md` for the tuning search contract.
 
@@ -62,7 +64,8 @@ TUNE_IMPLEMENT_INSTR = """# Introduction
 - Reduce boosted-tree `iterations`/`n_estimators` to ~1/2 of the structural value during search, and use `n_jobs=1` if the estimator is internally multithreaded (CatBoost/LightGBM/XGBoost).
 
 # Requirements
-- Load `references/choices_hparam_pattern.md` via skill tools before editing.
+- Load `references/tuning_dataops_template.md` and `references/choices_hparam_pattern.md` via skill tools before editing. Follow the tuning template skeleton; copy structural FE, encoders, and ensemble scoring verbatim that you received from the previous solution.
+- If plan `focus_block` is `encoder` or `preprocessing`, also load `references/encoding_skrub.md`.
 - Keep all parts listed in plan `frozen` unchanged.
 - Inject `choose_*` only on the plan `focus_block`.
 - Keep `choose_*` inside the DataOps `.skb.apply(...)` graph only — never assign a `choose_*` to a variable and pass it into an estimator constructor. For sklearn-API estimators use inline kwargs on `.skb.apply(Estimator(param=skrub.choose_float(...)), y=y)`; for non-sklearn estimators (e.g. CatBoost) inline kwargs do **not** resolve — use the `choose_from` variant-grid pattern (`choices_hparam_pattern.md` Pattern 4) and print the winning variant's literal params as `TUNING_BEST_PARAMS`.

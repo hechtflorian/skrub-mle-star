@@ -42,6 +42,57 @@ vectorizer = skrub.TableVectorizer(
 )
 ```
 
+## TableVectorizer kwargs (valid values)
+For `low_cardinality` and `high_cardinality`, skrub accepts **only**:
+- `"passthrough"` or `"drop"`
+- a **transformer instance** (e.g. `OneHotEncoder(...)`, `skrub.ToCategorical()`, `skrub.MinHashEncoder(...)`, `skrub.StringEncoder(...)`)
+
+There is **no** string alias `"one-hot"`, `"auto"`, or `"default"` — those raise `ValueError: Value not understood`.
+
+## Encoder tuning with `choose_*` (terminal tune / ablation follow-up)
+Prefer a small `choose_from` grid of **whole vectorizers** or **encoder instances** — see `choices_hparam_pattern.md` Pattern 2b.
+
+**A — route high-cardinality columns** (matches ablation `high_cardinality="drop"`):
+```python
+vectorizer = skrub.choose_from(
+    {
+        "default": skrub.TableVectorizer(),
+        "drop_high": skrub.TableVectorizer(high_cardinality="drop"),
+    },
+    name="encoder_variant",
+)
+pred = X_train.skb.apply_func(fe_func).skb.apply(vectorizer).skb.apply(model, y=y_train)
+# then make_randomized_search on pred — see tuning_dataops_template.md
+```
+
+**B — tune the high-cardinality encoder** (skrub choices notebook pattern):
+```python
+n = skrub.choose_int(5, 15, name="n_components")
+encoder = skrub.choose_from(
+    {
+        "minhash": skrub.MinHashEncoder(n_components=n),
+        "string": skrub.StringEncoder(n_components=n),
+    },
+    name="encoder",
+)
+vectorizer = skrub.TableVectorizer(high_cardinality=encoder)
+pred = X_train.skb.apply(vectorizer).skb.apply(model, y=y_train)
+```
+
+**C — low-cardinality: pick transformer instances, not string labels:**
+```python
+from sklearn.preprocessing import OneHotEncoder
+
+low_enc = skrub.choose_from(
+    {"onehot": OneHotEncoder(handle_unknown="ignore"),
+     "tocat": skrub.ToCategorical()},
+    name="low_encoder",
+)
+vectorizer = skrub.TableVectorizer(low_cardinality=low_enc)
+```
+
+Map `TUNING_BEST_PARAMS` from `search.results_.iloc[0]["encoder_variant"]` (or the choice `name=`) plus variant literals — not raw `data_op__*` keys alone.
+
 ## Datetime handling
 Parse strings first, then encode:
 
@@ -79,6 +130,7 @@ X2 = X1.skb.apply(ApplyToCols(skrub.StringEncoder(), cols=high_card))
 - Default `TableVectorizer()` while ablation shows encoding sensitivity.
 - One heavy encoder on all string columns without cardinality routing.
 - Applying `DatetimeEncoder` before parsing with `ToDatetime`.
+- `TableVectorizer(low_cardinality="one-hot")` or `"auto"` — invalid; use a transformer or `"drop"`/`"passthrough"`.
 
 ## Checklist
 - Encoding choice matches column types and model family.

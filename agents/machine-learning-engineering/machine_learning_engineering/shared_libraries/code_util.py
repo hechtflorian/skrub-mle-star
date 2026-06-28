@@ -2,11 +2,52 @@
 
 import json
 import os
+import re
 import subprocess
 import time
 from typing import Any
 
 from google.adk.agents import callback_context as callback_context_module
+
+_ESTIMATOR_CLASS_RE = re.compile(r"\b([A-Z]\w*(?:Regressor|Classifier))\b")
+_APPLY_FUNC_RE = re.compile(r"\.skb\.apply_func\((\w+)\)")
+
+
+def _estimator_classes(code: str) -> set[str]:
+    return set(_ESTIMATOR_CLASS_RE.findall(code))
+
+
+def _apply_func_names(code: str) -> set[str]:
+    return set(_APPLY_FUNC_RE.findall(code))
+
+
+def tune_structural_fingerprint_violation(
+    structural_code: str,
+    tune_code: str,
+) -> str | None:
+    """Return an error message if tune code drifts from structural backbone."""
+    if not structural_code.strip():
+        return None
+    struct_estimators = _estimator_classes(structural_code)
+    if struct_estimators:
+        tune_estimators = _estimator_classes(tune_code)
+        if struct_estimators != tune_estimators:
+            return (
+                "Tuning structural fingerprint violation: estimator classes "
+                f"must match structural ({sorted(struct_estimators)}), "
+                f"got {sorted(tune_estimators)}. Copy the structural pipeline "
+                "and add choose_* only on the focus block."
+            )
+    struct_apply_funcs = _apply_func_names(structural_code)
+    if struct_apply_funcs:
+        missing = struct_apply_funcs - _apply_func_names(tune_code)
+        if missing:
+            return (
+                "Tuning structural fingerprint violation: missing "
+                f".skb.apply_func(...) calls for {sorted(missing)}. "
+                "Copy FE helpers from the structural solution verbatim."
+            )
+    return None
 
 
 class Result:
@@ -514,6 +555,31 @@ def evaluate_code(
         workspace_dir = callback_context.state.get("workspace_dir", "")
         task_name = callback_context.state.get("task_name", "")
         run_cwd = os.path.join(workspace_dir, task_name, task_id)
+        if agent_name.startswith("tune_implement"):
+            outer_loop_round = callback_context.state.get("outer_loop_round", 1)
+            structural_code = callback_context.state.get(
+                f"train_code_{outer_loop_round}_{task_id}", ""
+            )
+            fingerprint_error = tune_structural_fingerprint_violation(
+                structural_code, raw_code
+            )
+            if fingerprint_error:
+                result_dict = {
+                    "returncode": 1,
+                    "stdout": "",
+                    "stderr": fingerprint_error,
+                    "execution_time": 0.0,
+                }
+                code_execution_result_state_key = (
+                    get_code_execution_result_state_key(
+                        agent_name=agent_name,
+                        suffix=suffix,
+                    )
+                )
+                callback_context.state[code_execution_result_state_key] = (
+                    result_dict
+                )
+                return
         result_dict = run_python_code(
             code_text=raw_code,
             run_cwd=run_cwd,

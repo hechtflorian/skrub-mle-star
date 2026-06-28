@@ -48,3 +48,36 @@ def test_map_tuning_best_params_choose_from_variant_key():
     assert code_util.map_tuning_best_params(raw, plan) == {
         "model_variant": "d8_lr0.05"
     }
+
+
+def test_tune_structural_fingerprint_passes_matching_pipeline():
+    structural = """
+from lightgbm import LGBMClassifier
+from catboost import CatBoostClassifier
+data.skb.apply_func(add_features)
+X.skb.apply(LGBMClassifier()).skb.apply(CatBoostClassifier(), y=y)
+"""
+    tune = """
+from lightgbm import LGBMClassifier
+from catboost import CatBoostClassifier
+data.skb.apply_func(add_features)
+X.skb.apply(LGBMClassifier()).skb.apply(CatBoostClassifier(), y=y)
+"""
+    assert code_util.tune_structural_fingerprint_violation(structural, tune) is None
+
+
+def test_tune_structural_fingerprint_rejects_estimator_swap():
+    structural = "from lightgbm import LGBMClassifier\nLGBMClassifier()"
+    tune = "from sklearn.ensemble import RandomForestClassifier\nRandomForestClassifier()"
+    err = code_util.tune_structural_fingerprint_violation(structural, tune)
+    assert err is not None
+    assert "LGBMClassifier" in err
+    assert "RandomForestClassifier" in err
+
+
+def test_tune_structural_fingerprint_requires_apply_func():
+    structural = "data.skb.apply_func(add_features)\nLGBMClassifier()"
+    tune = "LGBMClassifier()"
+    err = code_util.tune_structural_fingerprint_violation(structural, tune)
+    assert err is not None
+    assert "add_features" in err

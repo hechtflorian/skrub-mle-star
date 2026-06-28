@@ -15,7 +15,7 @@ Load only the minimum references needed for the current step to avoid context po
 - **Optuna integration for DataOps choices tuning**: `references/dataops_tuning_optuna.md`
   - Additional reference for advanced tuning; load when the current refinement step should use Optuna-backed search.
 - **Vectorization and encoding strategy**: `references/encoding_skrub.md`
-  - String/datetime encoders and `TableVectorizer` tuning.
+  - String/datetime encoders and `TableVectorizer`; includes encoder `choose_*` tuning (Pattern 2b).
 - **Selectors and column routing**: `references/selectors_routing_skrub.md`
   - `ApplyToCols` / `DropCols` / selectors and DataOps split→concat routing.
 - **Feature engineering and structural preprocessing**: `references/feature_engineering_skrub.md`
@@ -28,6 +28,8 @@ Load only the minimum references needed for the current step to avoid context po
   - How to subsample with skrub.
 - **Ablation study template (refinement)**: `references/ablation_dataops_template.md`
   - Minimal DataOps ablation shape, variant patterns, stdout contract. **Load for every ablation step.**
+- **Tuning search template (terminal tuning)**: `references/tuning_dataops_template.md`
+  - Minimal DataOps tune_implement shape; copy structural pipeline, inject `choose_*` on focus block only. **Load for every tune_implement step.**
 - **Common skrub failure fixes**: `references/common_failure_fixes.md`
   - Known errors and quick fixes for skrub (DataOps) errors.
 - **Holdout data leakage audit**: `references/holdout_data_leakage.md`
@@ -85,12 +87,13 @@ print(f"Final Validation Performance: {final_validation_score}")
 
 **Submission stage only** (and optional final ensemble export): after the val metric line above, add full `train_df` refit + `test_df` predict. See `references/dataops_api_quickmap.md` → “Submission stage only”.
 
-Refinement ablation policy:
-- Load `references/ablation_dataops_template.md` and follow its skeleton + print contract.
+**Refinement ablation policy**:
+- Load `references/ablation_dataops_template.md` and use its skeleton + print contract.
 - Default to structural ablation with fixed/reused parameters.
 - Escalate to bounded tuning only when the current hypothesis is explicitly about tuning impact. In this case, load `choices_hparam_pattern.md`.
 
-Refinement terminal tuning policy (dedicated tuning stage after refinement):
+**Refinement terminal tuning policy** (dedicated tuning stage after refinement):
+- Load `references/tuning_dataops_template.md` and follow its skeleton for `tune_implement`.
 - Structural ablation and plan/implement steps stay fixed-parameter.
 - One bounded holdout randomized search on a **single** focus block (`model`, `encoder`, or `preprocessing`).
 - Use `make_randomized_search` with low `n_iter` (default 4); no CV, no Optuna.

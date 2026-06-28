@@ -70,7 +70,37 @@ encoder = skrub.choose_from(
     },
     name="encoder",
 )
+pred = X.skb.apply(encoder).skb.apply(classifier, y=y)
 ```
+
+## Pattern 2b: tune `TableVectorizer` (encoder focus block)
+`TableVectorizer` `low_cardinality` / `high_cardinality` accept **`"passthrough"`**, **`"drop"`**, or a **transformer instance** — not `"one-hot"`, `"auto"`, etc.
+
+**Variant grid (safest — whole vectorizer):**
+```python
+vectorizer = skrub.choose_from(
+    {
+        "default": skrub.TableVectorizer(),
+        "drop_high": skrub.TableVectorizer(high_cardinality="drop"),
+    },
+    name="encoder_variant",
+)
+pred = X.skb.apply_func(fe_func).skb.apply(vectorizer).skb.apply(model, y=y)
+```
+
+**Inline encoder choice on `high_cardinality=`** (from skrub choices docs):
+```python
+n = skrub.choose_int(5, 15, name="n_components")
+encoder = skrub.choose_from(
+    {"minhash": skrub.MinHashEncoder(n_components=n),
+     "string": skrub.StringEncoder(n_components=n)},
+    name="encoder",
+)
+vectorizer = skrub.TableVectorizer(high_cardinality=encoder)
+pred = X.skb.apply(vectorizer).skb.apply(model, y=y)
+```
+
+For holdout search + bake handoff on Pattern 2b, load `encoding_skrub.md` for `TUNING_BEST_PARAMS` mapping via `search.results_.iloc[0]["encoder_variant"]`.
 
 ## Pattern 3: choose between model families
 ```python
@@ -150,12 +180,14 @@ Tune agents should prefer explicit holdout `search.fit` above when structural co
 - Anti-pattern (terminal tune crash): call `json.dumps(best_params)` on skrub/search params without `default=str` or numpy-to-Python conversion.
 - Anti-pattern (incomparable scores): `search.fit({"data": train_part})` in tune_implement, then `make_learner(fitted=True)` on full `train_df` in tune_bake for the metric line.
 - Anti-pattern (bake mapping): assume `search.best_params_` keys match `name=` strings — keys are often `data_op__0`, `data_op__1`, … and index order may not match plan order. Map **values** to plan `tunable_params` by kind/range/outcomes (or build human-named params in `tune_implement`), not by key name or positional index alone.
+- Anti-pattern (encoder tune): `TableVectorizer(low_cardinality="one-hot")` or `"auto"` — use `"drop"`/`"passthrough"`, transformer instances, or a `choose_from` grid of whole vectorizers (Pattern 2b; `encoding_skrub.md`).
 - Correct holdout (early stages): bind `train_part`, print metric — no test/full-train block until submission.
 - Correct tuning: define `choose_*`, run search (`make_randomized_search` / `make_grid_search`), then train/predict with best search result.
 - Correct fixed-parameter run: no `choose_*`; use concrete parameter values directly.
 
 ## Refinement terminal tune (search → bake handoff)
 - Runs once in the dedicated `tuning` pipeline stage after refinement completes.
+- Load `references/tuning_dataops_template.md` for `tune_implement` script skeleton example.
 - `tune_implement` script: keep structural DataOps graph; add in-graph `choose_*` only on one focus block; run `make_randomized_search`, **`search.fit({"data": train_part})`**, holdout eval with `search.best_learner_.predict({"data": valid_part})`.
 - Print best params on one line with JSON-safe serialization:
   `print("TUNING_BEST_PARAMS:", json.dumps(best_params, default=str))`
@@ -176,5 +208,5 @@ Tune agents should prefer explicit holdout `search.fit` above when structural co
 - Load `dataops_api_quickmap.md` for canonical DataOps pipeline shape and safe fit/predict patterns.
 - Load `dataops_tuning_optuna.md` when using Optuna backend or trial-based search flows for tuning.
 - Load `common_failure_fixes.md` when runtime errors appear, for fake-tuning, unresolved `choose_*` in estimator kwargs (#16), `choose_from` key-type, or scoring/debug issues.
-- Load `encoding_skrub.md` when tuning scope includes encoding/preprocessing choices.
+- Load `encoding_skrub.md` when tuning scope includes encoding/preprocessing choices or `TableVectorizer` config.
 - Load `skrub_subsampling.md` when iteration speed is the bottleneck and subsampling is required.

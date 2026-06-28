@@ -168,9 +168,7 @@ def _get_backbone_contract(code: str) -> str:
         "\n# Backbone contract\n"
         f"- Estimator classes used by the input code: {', '.join(estimators)}. "
         "Your fixed code must use exactly these estimator classes with the "
-        "same hyperparameters. If an estimator import or module reference is "
-        "wrong (e.g. imported from the wrong package), fix the import for "
-        "the same class — do not substitute a different model family.\n"
+        "same hyperparameters — do not substitute a different model family.\n"
     )
 
 

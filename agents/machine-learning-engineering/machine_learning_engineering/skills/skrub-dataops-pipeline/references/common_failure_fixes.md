@@ -164,7 +164,15 @@ Use this during debugging. Keep DataOps architecture unchanged.
   - For ablation toggles, use separate `build_graph` / `fe_func` variants — not one deferred function with runtime flags via lambda.
 - Prevention: load `references/ablation_dataops_template.md` for ablation; follow the single FE pattern in `feature_engineering_skrub.md`.
 
-## 20) Custom wrapper classes/objects around DataOps graphs break `.skb`
+## 20) Invalid `TableVectorizer` string kwargs in tuning (`Value not understood: 'one-hot'`)
+- Symptom: `ValueError: Value not understood: 'one-hot'` (or `'auto'`) when building or fitting a tuned pipeline.
+- Root cause: `TableVectorizer(low_cardinality=...)` / `high_cardinality=...` only accept `"passthrough"`, `"drop"`, or a **transformer instance** — not sklearn-style shorthand strings.
+- Fix:
+  - Use a `choose_from` grid of whole vectorizers, e.g. `{"default": TableVectorizer(), "drop_high": TableVectorizer(high_cardinality="drop")}`.
+  - Or pass `choose_from` of encoder **instances** to `high_cardinality=` / `low_cardinality=` (see `encoding_skrub.md`, `choices_hparam_pattern.md` Pattern 2b).
+- Prevention: load `encoding_skrub.md` before encoder-focus tune plans or `tune_implement` scripts.
+
+## 21) Custom wrapper classes/objects around DataOps graphs break `.skb`
 - Symptom: `AttributeError` on `.skb.make_learner(...)` / `.skb` because the object is a custom class or plain function result, not a DataOp; often from a helper that bundles several graphs into an invented "ensemble" wrapper.
 - Root cause: only skrub DataOp objects carry the `.skb` accessor. A hand-written class wrapping graphs (or mimicking `.skb` with a method) is not part of the skrub API.
 - Fix (verified pattern — combine **predictions**, not graph/learner objects):
