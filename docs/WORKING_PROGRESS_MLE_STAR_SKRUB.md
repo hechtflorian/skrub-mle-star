@@ -998,3 +998,129 @@ test-scripts/analyze_run.py                    # stage_timing, wall, gains, tune
 experiments/phase1/results/phase1_summary.md   # revised reporting + TL;DR (multiple passes)
 ```
 
+---
+
+## Progress update (2026-06-28): runtime contracts — backbone drift gate, tuning search, ablation
+
+Shipped deterministic pre-exec gates in `code_util.py` + stable backbone contract in `debug_util.py`. Supersedes §39 design (which planned broader enforcement on `plan_implement` / `tune_bake`); actual scope is **init + tune search only** — refinement may legitimately swap backbones per plan.
+
+### 41) Backbone drift gate (debug anti-drift fingerprint)
+
+**Problem:** Phase-1 runs showed debug agents swapping model families (CatBoost → HGB/RF/Ridge) to silence errors. Prompt-only `_get_backbone_contract(code)` made it worse: it read estimators from the **current buggy code**, so the anchor moved with every failed fix.
+
+**Fix:** Pre-exec gate + **stable anchors** (not derived from drifting code).
+
+| Function | Role |
+|----------|------|
+| `_estimator_classes()` | Regex `\b([A-Z]\w*(?:Regressor\|Classifier))\b` on code text |
+| `retriever_estimator_classes()` | Parse classes from retriever `model_name` |
+| `resolve_backbone_required()` | Resolve required set + label for error messages |
+| `backbone_drift_violation()` | Set-equality check; returns concise `stderr` or `None` |
+| `should_enforce_backbone_drift()` | `True` only for `model_eval*` and `tune_implement*` |
+| `preexec_code_failure()` | Compile → backbone → (tune only) search contract, before subprocess |
+| `maybe_set_debug_anchor()` | Snapshot first failing init script when retriever name has no parseable class |
+
+**Anchors (what “required backbone” means):**
+
+| Stage | Required estimator set from | State keys |
+|-------|----------------------------|------------|
+| Init / init debug | Retriever model name | `init_{task}_model_{id}.model_name` |
+| Init fallback | First failing init script (if retriever unparsable) | `debug_anchor_code_{task_id}_{model_id}` |
+| Tune / tune debug | Structural solution | `train_code_{outer_loop_round}_{task_id}` |
+
+**Not enforced:** `plan_implement*` (refinement may swap backbone if plan says so), `merger*`, `ensemble_*`, `submission`, `tune_bake`, `ablation*`.
+
+#### How debug drift checking works (end-to-end)
+
+```
+Agent outputs code
+  → evaluate_code()
+      → preexec_code_failure()          # cheap, no subprocess
+          1. compile(raw_code)
+          2. if model_eval* or tune_implement*:
+               required, label = resolve_backbone_required(...)
+               backbone_drift_violation(required, raw_code, label=label)
+          3. if tune_implement*: tune_search_contract_violation(raw_code)
+      → on failure: store {returncode:1, stderr:"Backbone drift: ..."}
+      → on pass + run gates: subprocess run
+
+Debug loop (on failure):
+  bug_summary_agent  ← stderr (trimmed)
+  debug_agent        ← BUG_REFINE_INSTR + {bug} + {backbone_contract}
+                       backbone_contract from resolve_backbone_required()
+                       (same anchor as pre-exec — NOT from buggy code)
+  debug output       → evaluate_code() again (pre-exec re-checks drift)
+```
+
+**Example rejection (`stderr`):**
+
+```
+Backbone drift: keep estimator classes ['CatBoostClassifier'] (retriever: CatBoostClassifier); got ['RandomForestClassifier']. Fix the reported error without swapping model families or simplifying to a different pipeline.
+```
+
+**Why this stops drift:** The debug agent sees the **same stable required set** in both the prompt (`# Backbone contract`) and the execution failure message. Swapping families fails pre-exec immediately (0 s subprocess) until the fix restores the required class set.
+
+**Files:** `shared_libraries/code_util.py`, `shared_libraries/debug_util.py`, `tests/test_code_util.py`.
+
+### 42) Tuning search contract (pre-exec)
+
+Separate from backbone drift; enforced only on `tune_implement*` inside `preexec_code_failure()`.
+
+| Required in tune search script | Purpose |
+|-------------------------------|---------|
+| `choose_*` | In-graph hyperparameter nodes |
+| `make_randomized_search` | Real search, not fixed-params fake tune |
+| `search.fit` | Search executed on holdout bind |
+| `TUNING_BEST_PARAMS` print | Handoff to bake / state mapping |
+
+**Failure message:**
+
+```
+Tuning search contract: missing choose_*, make_randomized_search, ... Fix the error without removing the search block or choose_* nodes.
+```
+
+Also enforced at run time (post-subprocess): exit 0 without parseable `TUNING_BEST_PARAMS` JSON → synthetic failure (`evaluate_code`). Bake stage: `code_contains_tuning_placeholders()` gate in `get_run_code_condition` (no `choose_*` in baked script).
+
+**Note:** `tune_structural_fingerprint_violation()` was removed — tuning backbone checks use `backbone_drift_violation()` via `resolve_backbone_required()` directly (no wrapper).
+
+### 43) Ablation contract (post-exec)
+
+Enforced in `evaluate_code()` after subprocess for `ablation*` only.
+
+| Rule | Mechanism |
+|------|-----------|
+| ≥2 `Ablation[...]` lines in stdout | Baseline + at least one variant |
+| On violation | `returncode=1`, stderr names contract; debug preserves variants + backbone |
+
+Prompt/skill alignment: `references/feature_engineering_skrub.md`, `references/ablation_dataops_template.md` — baseline variant must match input backbone unless model swap is the explicit hypothesis.
+
+### 44) Estimator regex gap (models without Classifier/Regressor suffix)
+
+If retriever `model_name` and code use estimators like `LogisticRegression`, `Ridge`, `SVC`, `XGBRegressor` (no `Classifier`/`Regressor` suffix), `_estimator_classes()` returns **empty** → `required` is empty → **backbone drift check is skipped** (no crash). Init fallback anchor may still capture classes from the first failing script if that script happens to use `*Classifier`/`*Regressor` names. This is the known gap noted in §39; extending the regex is still open.
+
+### Known open items (updated 2026-06-28)
+
+- [x] Backbone drift gate for init + tune search (§41).
+- [ ] Extend estimator regex for `LogisticRegression`, `Ridge`, `SVC`, etc. (§44).
+- [ ] Plan-aware backbone check for refinement (when plan explicitly swaps model).
+- [ ] Fix vanilla `debug_prompt.py` (or re-bootstrap with `--revert-prompts`).
+- [ ] Prompt/exec guards + leakage checker for patterns A–C.
+
+### Files touched (2026-06-28)
+
+```
+agents/.../shared_libraries/
+  code_util.py       # preexec_code_failure, backbone_drift_violation, tune_search_contract_violation
+  debug_util.py      # _get_backbone_contract → resolve_backbone_required (stable anchor)
+
+agents/.../tests/test_code_util.py
+docs/WORKING_PROGRESS_MLE_STAR_SKRUB.md
+```
+
+### TL;DR (2026-06-28)
+
+- **Backbone drift:** pre-exec set-equality on estimator classes; enforced init + tune search only; debug prompt uses retriever/structural anchor, not buggy code.
+- **Tune search contract:** pre-exec requires `choose_*` + search + `TUNING_BEST_PARAMS`; bake still gated separately.
+- **Ablation contract:** post-exec stdout line count; unchanged from P7.
+- **Gap:** no suffix match → drift gate disabled, pipeline does not break.
+

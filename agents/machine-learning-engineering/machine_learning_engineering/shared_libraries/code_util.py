@@ -10,43 +10,158 @@ from typing import Any
 from google.adk.agents import callback_context as callback_context_module
 
 _ESTIMATOR_CLASS_RE = re.compile(r"\b([A-Z]\w*(?:Regressor|Classifier))\b")
-_APPLY_FUNC_RE = re.compile(r"\.skb\.apply_func\((\w+)\)")
 
 
 def _estimator_classes(code: str) -> set[str]:
     return set(_ESTIMATOR_CLASS_RE.findall(code))
 
 
-def _apply_func_names(code: str) -> set[str]:
-    return set(_APPLY_FUNC_RE.findall(code))
+def retriever_estimator_classes(model_name: str) -> set[str]:
+    """Parse estimator class names from model retriever output."""
+    if not model_name:
+        return set()
+    return set(_ESTIMATOR_CLASS_RE.findall(model_name))
 
 
-def tune_structural_fingerprint_violation(
-    structural_code: str,
-    tune_code: str,
+def should_enforce_backbone_drift(agent_name: str) -> bool:
+    """Stages where debug must not swap the backbone estimator set."""
+    return agent_name.startswith("model_eval") or agent_name.startswith(
+        "tune_implement"
+    )
+
+
+def debug_anchor_code_key(suffix: str) -> str:
+    return f"debug_anchor_code_{suffix}"
+
+
+def resolve_backbone_required(
+    callback_context: callback_context_module.CallbackContext,
+    agent_name: str,
+    suffix: str,
+) -> tuple[set[str], str]:
+    """Return (required_estimator_classes, short_label) for drift checks."""
+    if agent_name.startswith("model_eval"):
+        task_id = agent_name.split("_")[-2]
+        model_id = agent_name.split("_")[-1]
+        model_info = callback_context.state.get(
+            f"init_{task_id}_model_{model_id}",
+            {},
+        )
+        required = retriever_estimator_classes(
+            model_info.get("model_name", "")
+        )
+        if required:
+            return required, f"retriever: {model_info.get('model_name', '')}"
+        anchor = callback_context.state.get(debug_anchor_code_key(suffix), "")
+        if anchor.strip():
+            return _estimator_classes(anchor), "first failing init script"
+        return set(), ""
+    if agent_name.startswith("tune_implement"):
+        task_id = agent_name.split("_")[-1]
+        outer_loop_round = callback_context.state.get("outer_loop_round", 1)
+        structural = callback_context.state.get(
+            f"train_code_{outer_loop_round}_{task_id}",
+            "",
+        )
+        if structural.strip():
+            return _estimator_classes(structural), "structural solution"
+        return set(), ""
+    return set(), ""
+
+
+def backbone_drift_violation(
+    required: set[str],
+    candidate_code: str,
+    *,
+    label: str,
 ) -> str | None:
-    """Return an error message if tune code drifts from structural backbone."""
-    if not structural_code.strip():
+    """Return an error if candidate code uses a different estimator set."""
+    if not required:
         return None
-    struct_estimators = _estimator_classes(structural_code)
-    if struct_estimators:
-        tune_estimators = _estimator_classes(tune_code)
-        if struct_estimators != tune_estimators:
-            return (
-                "Tuning structural fingerprint violation: estimator classes "
-                f"must match structural ({sorted(struct_estimators)}), "
-                f"got {sorted(tune_estimators)}. Copy the structural pipeline "
-                "and add choose_* only on the focus block."
-            )
-    struct_apply_funcs = _apply_func_names(structural_code)
-    if struct_apply_funcs:
-        missing = struct_apply_funcs - _apply_func_names(tune_code)
-        if missing:
-            return (
-                "Tuning structural fingerprint violation: missing "
-                f".skb.apply_func(...) calls for {sorted(missing)}. "
-                "Copy FE helpers from the structural solution verbatim."
-            )
+    candidate = _estimator_classes(candidate_code)
+    if candidate == required:
+        return None
+    return (
+        "Backbone drift: keep estimator classes "
+        f"{sorted(required)} ({label}); got {sorted(candidate)}. "
+        "Fix the reported error without swapping model families or "
+        "simplifying to a different pipeline."
+    )
+
+
+def tune_search_contract_violation(code: str) -> str | None:
+    """Tune scripts must keep in-graph search, not fake tuning or debug shortcuts."""
+    missing: list[str] = []
+    if "choose_" not in code:
+        missing.append("choose_*")
+    if "make_randomized_search" not in code:
+        missing.append("make_randomized_search")
+    if "search.fit" not in code:
+        missing.append("search.fit")
+    if "TUNING_BEST_PARAMS" not in code:
+        missing.append("TUNING_BEST_PARAMS print")
+    if not missing:
+        return None
+    return (
+        "Tuning search contract: missing "
+        + ", ".join(missing)
+        + ". Fix the error without removing the search block or choose_* nodes."
+    )
+
+
+def maybe_set_debug_anchor(
+    callback_context: callback_context_module.CallbackContext,
+    agent_name: str,
+    suffix: str,
+    code: str,
+) -> None:
+    """Snapshot the first failing script for init fallback anchoring."""
+    if "debug_agent" in agent_name or not should_enforce_backbone_drift(agent_name):
+        return
+    key = debug_anchor_code_key(suffix)
+    if not callback_context.state.get(key) and code.strip():
+        callback_context.state[key] = code
+
+
+def preexec_code_failure(
+    callback_context: callback_context_module.CallbackContext,
+    agent_name: str,
+    suffix: str,
+    raw_code: str,
+) -> dict[str, Any] | None:
+    """Compile + backbone/search gates before subprocess (cheap, explicit stderr)."""
+    if not raw_code.strip():
+        return None
+    try:
+        compile(raw_code, f"<{agent_name}>", "exec")
+    except SyntaxError as exc:
+        return {
+            "returncode": 1,
+            "stdout": "",
+            "stderr": f"Syntax error: {exc}",
+            "execution_time": 0.0,
+        }
+    if should_enforce_backbone_drift(agent_name):
+        required, label = resolve_backbone_required(
+            callback_context, agent_name, suffix
+        )
+        drift = backbone_drift_violation(required, raw_code, label=label)
+        if drift:
+            return {
+                "returncode": 1,
+                "stdout": "",
+                "stderr": drift,
+                "execution_time": 0.0,
+            }
+    if agent_name.startswith("tune_implement"):
+        contract = tune_search_contract_violation(raw_code)
+        if contract:
+            return {
+                "returncode": 1,
+                "stdout": "",
+                "stderr": contract,
+                "execution_time": 0.0,
+            }
     return None
 
 
@@ -548,112 +663,89 @@ def evaluate_code(
         py_filepath = "final_solution.py"
     else:
         raise ValueError(f"Unexpected agent name: {agent_name}.")
-    if get_run_code_condition(
-        agent_name=agent_name,
-        raw_code=raw_code,
-    ):
-        workspace_dir = callback_context.state.get("workspace_dir", "")
-        task_name = callback_context.state.get("task_name", "")
-        run_cwd = os.path.join(workspace_dir, task_name, task_id)
-        if agent_name.startswith("tune_implement"):
-            outer_loop_round = callback_context.state.get("outer_loop_round", 1)
-            structural_code = callback_context.state.get(
-                f"train_code_{outer_loop_round}_{task_id}", ""
-            )
-            fingerprint_error = tune_structural_fingerprint_violation(
-                structural_code, raw_code
-            )
-            if fingerprint_error:
-                result_dict = {
-                    "returncode": 1,
-                    "stdout": "",
-                    "stderr": fingerprint_error,
-                    "execution_time": 0.0,
-                }
-                code_execution_result_state_key = (
-                    get_code_execution_result_state_key(
-                        agent_name=agent_name,
-                        suffix=suffix,
-                    )
-                )
-                callback_context.state[code_execution_result_state_key] = (
-                    result_dict
-                )
-                return
-        result_dict = run_python_code(
-            code_text=raw_code,
-            run_cwd=run_cwd,
-            py_filepath=py_filepath,
-            exec_timeout=exec_timeout,
+    if not raw_code.strip():
+        result_dict = {}
+    else:
+        preexec = preexec_code_failure(
+            callback_context, agent_name, suffix, raw_code
         )
-        if agent_name.startswith("ablation"):
-            if result_dict["returncode"] == 0:
-                ablation_result = result_dict.get("stdout", "None")
-                if ablation_result.count("Ablation[") < 2:
-                    # Ablation contract: a run without at least baseline +
-                    # one variant line is not an ablation study; fail it so
-                    # debug restores the variants instead of a single fit
-                    # passing as valid planner signal.
-                    result_dict["returncode"] = 1
-                    result_dict["stderr"] = (
-                        result_dict.get("stderr", "")
-                        + "\nAblation contract violation: stdout must contain "
-                        "at least 2 lines in the format "
-                        "'Ablation[<variant_name>] <metric>: <value>' "
-                        "(baseline + at least one ablated variant). Keep the "
-                        "existing variants and backbone; only fix the error."
-                    )
-                    ablation_result = "None"
-            else:
-                ablation_result = "None"
-            result_dict["ablation_result"] = ablation_result
-        else:
-            if result_dict.get("returncode", 1) == 0:
-                try:
-                    score = extract_performance_from_text(
-                        result_dict.get("stdout", "")
-                    )
-                    score = float(score)
-                except Exception:
-                    score = 1e9 if lower else 0
-                if agent_name.startswith("tune_implement"):
-                    task_id = agent_name.split("_")[-1]
-                    best_params = extract_tuning_best_params(
-                        result_dict.get("stdout", "")
-                    )
-                    if best_params:
-                        tune_plan = callback_context.state.get(
-                            f"tune_plan_{task_id}", {}
-                        )
-                        callback_context.state[
-                            f"tune_best_params_{task_id}"
-                        ] = map_tuning_best_params(best_params, tune_plan)
-                    else:
-                        # Honest tuning contract: exit code 0 without parseable
-                        # best params is not a successful search. Store a
-                        # failure so debug/rollback engage instead of bake
-                        # silently running without a search handoff.
+        if preexec is not None:
+            result_dict = preexec
+        elif get_run_code_condition(
+            agent_name=agent_name,
+            raw_code=raw_code,
+        ):
+            workspace_dir = callback_context.state.get("workspace_dir", "")
+            task_name = callback_context.state.get("task_name", "")
+            run_cwd = os.path.join(workspace_dir, task_name, task_id)
+            result_dict = run_python_code(
+                code_text=raw_code,
+                run_cwd=run_cwd,
+                py_filepath=py_filepath,
+                exec_timeout=exec_timeout,
+            )
+            if result_dict.get("returncode", 1) != 0:
+                maybe_set_debug_anchor(
+                    callback_context, agent_name, suffix, raw_code
+                )
+            if agent_name.startswith("ablation"):
+                if result_dict["returncode"] == 0:
+                    ablation_result = result_dict.get("stdout", "None")
+                    if ablation_result.count("Ablation[") < 2:
                         result_dict["returncode"] = 1
                         result_dict["stderr"] = (
                             result_dict.get("stderr", "")
-                            + "\nTuning contract violation: script exited 0 "
-                            "but no non-empty TUNING_BEST_PARAMS JSON line "
-                            "was found in stdout. Print exactly: "
-                            'print("TUNING_BEST_PARAMS:", '
-                            "json.dumps(best_params, default=str)) "
-                            "with the best parameters from the executed "
-                            "search."
+                            + "\nAblation contract violation: stdout must contain "
+                            "at least 2 lines in the format "
+                            "'Ablation[<variant_name>] <metric>: <value>' "
+                            "(baseline + at least one ablated variant). Keep the "
+                            "existing variants and backbone; only fix the error."
                         )
+                        ablation_result = "None"
+                else:
+                    ablation_result = "None"
+                result_dict["ablation_result"] = ablation_result
             else:
-                score = 1e9 if lower else 0
-            result_dict["score"] = score
-        # Bound outputs before they enter state: scores, tuning params, and
-        # the ablation gate were all extracted from the full text above.
-        for key in ("stdout", "stderr", "ablation_result"):
-            if isinstance(result_dict.get(key), str):
-                result_dict[key] = truncate_for_state(result_dict[key])
-    else:
-        result_dict = {}
+                if result_dict.get("returncode", 1) == 0:
+                    try:
+                        score = extract_performance_from_text(
+                            result_dict.get("stdout", "")
+                        )
+                        score = float(score)
+                    except Exception:
+                        score = 1e9 if lower else 0
+                    if agent_name.startswith("tune_implement"):
+                        task_id = agent_name.split("_")[-1]
+                        best_params = extract_tuning_best_params(
+                            result_dict.get("stdout", "")
+                        )
+                        if best_params:
+                            tune_plan = callback_context.state.get(
+                                f"tune_plan_{task_id}", {}
+                            )
+                            callback_context.state[
+                                f"tune_best_params_{task_id}"
+                            ] = map_tuning_best_params(best_params, tune_plan)
+                        else:
+                            result_dict["returncode"] = 1
+                            result_dict["stderr"] = (
+                                result_dict.get("stderr", "")
+                                + "\nTuning contract violation: script exited 0 "
+                                "but no non-empty TUNING_BEST_PARAMS JSON line "
+                                "was found in stdout. Print exactly: "
+                                'print("TUNING_BEST_PARAMS:", '
+                                "json.dumps(best_params, default=str)) "
+                                "with the best parameters from the executed "
+                                "search."
+                            )
+                else:
+                    score = 1e9 if lower else 0
+                result_dict["score"] = score
+            for key in ("stdout", "stderr", "ablation_result"):
+                if isinstance(result_dict.get(key), str):
+                    result_dict[key] = truncate_for_state(result_dict[key])
+        else:
+            result_dict = {}
     code_execution_result_state_key = get_code_execution_result_state_key(
         agent_name=agent_name,
         suffix=suffix,

@@ -1,7 +1,6 @@
 """Utility functions for debug agents."""
 
 import functools
-import re
 
 from google.adk import agents
 from google.adk.agents import callback_context as callback_context_module
@@ -157,18 +156,23 @@ def get_bug_summary_agent_instruction(
     )
 
 
-_ESTIMATOR_CLASS_RE = re.compile(r"\b([A-Z]\w*(?:Regressor|Classifier))\b")
-
-def _get_backbone_contract(code: str) -> str:
-    """Deterministic anti-drift context: estimator classes in the buggy code."""
-    estimators = sorted(set(_ESTIMATOR_CLASS_RE.findall(code)))
-    if not estimators:
+def _get_backbone_contract(
+    context: callback_context_module.ReadonlyContext,
+    agent_name: str,
+    suffix: str,
+) -> str:
+    """Deterministic anti-drift context from retriever/structural anchor."""
+    if not code_util.should_enforce_backbone_drift(agent_name):
+        return ""
+    required, label = code_util.resolve_backbone_required(
+        context, agent_name, suffix
+    )
+    if not required:
         return ""
     return (
         "\n# Backbone contract\n"
-        f"- Estimator classes used by the input code: {', '.join(estimators)}. "
-        "Your fixed code must use exactly these estimator classes with the "
-        "same hyperparameters — do not substitute a different model family.\n"
+        f"- Required estimator classes ({label}): {sorted(required)}. "
+        "Fix the error without swapping to a different model family.\n"
     )
 
 
@@ -195,7 +199,7 @@ def get_debug_agent_instruction(
         task_description=task_description,
         code=code,
         bug=bug,
-        backbone_contract=_get_backbone_contract(code),
+        backbone_contract=_get_backbone_contract(context, agent_name, suffix),
     )
 
 

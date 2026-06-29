@@ -1,4 +1,4 @@
-"""Tests for code_util tuning param mapping."""
+"""Tests for code_util tuning param mapping and backbone drift gates."""
 
 from machine_learning_engineering.shared_libraries import code_util
 
@@ -50,34 +50,63 @@ def test_map_tuning_best_params_choose_from_variant_key():
     }
 
 
-def test_tune_structural_fingerprint_passes_matching_pipeline():
-    structural = """
-from lightgbm import LGBMClassifier
-from catboost import CatBoostClassifier
-data.skb.apply_func(add_features)
-X.skb.apply(LGBMClassifier()).skb.apply(CatBoostClassifier(), y=y)
-"""
-    tune = """
-from lightgbm import LGBMClassifier
-from catboost import CatBoostClassifier
-data.skb.apply_func(add_features)
-X.skb.apply(LGBMClassifier()).skb.apply(CatBoostClassifier(), y=y)
-"""
-    assert code_util.tune_structural_fingerprint_violation(structural, tune) is None
+def test_retriever_estimator_classes():
+    assert code_util.retriever_estimator_classes(
+        "LightGBM (LGBMClassifier)"
+    ) == {"LGBMClassifier"}
+    assert code_util.retriever_estimator_classes(
+        "CatBoostClassifier"
+    ) == {"CatBoostClassifier"}
 
 
-def test_tune_structural_fingerprint_rejects_estimator_swap():
+def test_backbone_drift_rejects_swap():
+    required = {"CatBoostClassifier"}
+    err = code_util.backbone_drift_violation(
+        required,
+        "RandomForestClassifier()",
+        label="retriever: CatBoostClassifier",
+    )
+    assert err is not None
+    assert "CatBoostClassifier" in err
+    assert "RandomForestClassifier" in err
+
+
+def test_tune_backbone_drift_passes_matching_backbone():
+    structural = "LGBMClassifier()\nCatBoostClassifier()"
+    tune = "from lightgbm import LGBMClassifier\nLGBMClassifier()\nCatBoostClassifier()"
+    assert code_util.backbone_drift_violation(
+        {"LGBMClassifier", "CatBoostClassifier"},
+        tune,
+        label="structural solution",
+    ) is None
+
+
+def test_tune_backbone_drift_rejects_estimator_swap():
     structural = "from lightgbm import LGBMClassifier\nLGBMClassifier()"
     tune = "from sklearn.ensemble import RandomForestClassifier\nRandomForestClassifier()"
-    err = code_util.tune_structural_fingerprint_violation(structural, tune)
+    err = code_util.backbone_drift_violation(
+        {"LGBMClassifier"},
+        tune,
+        label="structural solution",
+    )
     assert err is not None
     assert "LGBMClassifier" in err
     assert "RandomForestClassifier" in err
 
 
-def test_tune_structural_fingerprint_requires_apply_func():
-    structural = "data.skb.apply_func(add_features)\nLGBMClassifier()"
-    tune = "LGBMClassifier()"
-    err = code_util.tune_structural_fingerprint_violation(structural, tune)
+def test_tune_search_contract_requires_search_block():
+    code = "print('hello')"
+    err = code_util.tune_search_contract_violation(code)
     assert err is not None
-    assert "add_features" in err
+    assert "choose_*" in err
+    assert "make_randomized_search" in err
+
+
+def test_should_enforce_backbone_drift_init_and_tune_only():
+    assert code_util.should_enforce_backbone_drift("model_eval_agent_1_1")
+    assert code_util.should_enforce_backbone_drift(
+        "model_eval_debug_agent_1_1"
+    )
+    assert code_util.should_enforce_backbone_drift("tune_implement_agent_1")
+    assert not code_util.should_enforce_backbone_drift("plan_implement_agent_1")
+    assert not code_util.should_enforce_backbone_drift("merger_agent_1_1")

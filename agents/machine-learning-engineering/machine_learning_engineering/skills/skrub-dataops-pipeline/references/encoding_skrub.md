@@ -43,9 +43,11 @@ vectorizer = skrub.TableVectorizer(
 ```
 
 ## TableVectorizer kwargs (valid values)
+**built-in defaults:** `low_cardinality`=OneHotEncoder instance; `high_cardinality`=StringEncoder instance.
+
 For `low_cardinality` and `high_cardinality`, skrub accepts **only**:
 - `"passthrough"` or `"drop"`
-- a **transformer instance** (e.g. `OneHotEncoder(...)`, `skrub.ToCategorical()`, `skrub.MinHashEncoder(...)`, `skrub.StringEncoder(...)`)
+- or a **transformer instance** (e.g. `OneHotEncoder(...)`, `skrub.ToCategorical()`, `skrub.MinHashEncoder(...)`, `skrub.StringEncoder(...)`)
 
 There is **no** string alias `"one-hot"`, `"auto"`, or `"default"` — those raise `ValueError: Value not understood`.
 
@@ -130,7 +132,7 @@ X2 = X1.skb.apply(ApplyToCols(skrub.StringEncoder(), cols=high_card))
 - Default `TableVectorizer()` while ablation shows encoding sensitivity.
 - One heavy encoder on all string columns without cardinality routing.
 - Applying `DatetimeEncoder` before parsing with `ToDatetime`.
-- `TableVectorizer(low_cardinality="one-hot")` or `"auto"` — invalid; use a transformer or `"drop"`/`"passthrough"`.
+- `TableVectorizer(low_cardinality="one-hot")` or `"auto"` — invalid; use a transformer instance or `"drop"`/`"passthrough"`.
 
 ## Checklist
 - Encoding choice matches column types and model family.

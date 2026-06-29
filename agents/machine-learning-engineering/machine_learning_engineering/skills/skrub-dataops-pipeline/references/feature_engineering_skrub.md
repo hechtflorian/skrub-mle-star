@@ -35,9 +35,9 @@ Keep the existing DataOps graph; change only the feature block under test.
 
 If redundancy ablations hurt validation, prefer keeping raw columns and tuning encoding/model instead.
 
-## FE function pattern (one way only)
+## FE function pattern — DataOps-native
 
-Use a **plain** Python function with `.skb.apply_func(...)` — do **not** also decorate it with `@skrub.deferred`. `apply_func` already keeps FE in the DataOps graph and passes a pandas `DataFrame` at run time.
+Use a plain Python function with `.skb.apply_func(...)` — do **not** also decorate it with `@skrub.deferred`. `apply_func` already keeps FE in the DataOps graph and passes a pandas `DataFrame` at run time.
 
 ```python
 def add_features(df):
@@ -48,7 +48,7 @@ def add_features(df):
 data_fe = data.skb.apply_func(add_features)
 ```
 
-For ablation toggles (FE on/off, etc.), use **separate** graph builders or FE functions per variant — not `apply_func(lambda df: add_features(df, flag=...))`.
+For ablation toggles (FE on/off, etc.), use **separate** graph builders or FE functions per variant.
 
 ## Derived features (coordinate / geo) — DataOps-native
 
@@ -92,15 +92,6 @@ division by zero and replace non-finite values.
 ```python
 import numpy as np
 import skrub
-
-def add_ratio_features(df, numer_col, denom_col, out_name):
-    out = df.copy()
-    if numer_col not in out.columns or denom_col not in out.columns:
-        return out
-    denom = out[denom_col].replace(0, np.nan)
-    ratio = (out[numer_col] / denom).replace([np.inf, -np.inf], np.nan)
-    out[out_name] = ratio.fillna(0.0)
-    return out
 
 def add_common_ratios(df):
     out = df.copy()

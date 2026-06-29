@@ -76,7 +76,7 @@ pred = X.skb.apply(encoder).skb.apply(classifier, y=y)
 ## Pattern 2b: tune `TableVectorizer` (encoder focus block)
 `TableVectorizer` `low_cardinality` / `high_cardinality` accept **`"passthrough"`**, **`"drop"`**, or a **transformer instance** — not `"one-hot"`, `"auto"`, etc.
 
-**Variant grid (safest — whole vectorizer):**
+**Variant grid (whole vectorizer):**
 ```python
 vectorizer = skrub.choose_from(
     {
@@ -88,7 +88,7 @@ vectorizer = skrub.choose_from(
 pred = X.skb.apply_func(fe_func).skb.apply(vectorizer).skb.apply(model, y=y)
 ```
 
-**Inline encoder choice on `high_cardinality=`** (from skrub choices docs):
+**Inline encoder choice on `high_cardinality=`**:
 ```python
 n = skrub.choose_int(5, 15, name="n_components")
 encoder = skrub.choose_from(

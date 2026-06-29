@@ -67,18 +67,19 @@ vectorizer = skrub.choose_from(
     {
         "default": skrub.TableVectorizer(),
         "drop_high": skrub.TableVectorizer(high_cardinality="drop"),
+        "pass_low": skrub.TableVectorizer(high_cardinality="passthrough"),
     },
     name="encoder_variant",
 )
 pred = X_train.skb.apply_func(prep).skb.apply(vectorizer).skb.apply(
-    RandomForestClassifier(...), y=y_train,
+    YourModel(...), y=y_train,
 )
-search = pred.skb.make_randomized_search(n_iter=4, n_jobs=1, random_state=42, fitted=True)
+search = pred.skb.make_randomized_search(n_iter=n_iter, n_jobs=1, random_state=state, fitted=True)
 search.fit({"data": train_part})
 # ... holdout predict, TUNING_BEST_PARAMS from search.results_.iloc[0]["encoder_variant"]
 ```
 
-Do **not** use `low_cardinality="one-hot"` or `"auto"` — invalid. Use `"drop"`/`"passthrough"` or transformer instances.
+Do **not** use `low_cardinality="one-hot"` or `"auto"` — invalid. Use `"drop"`/`"passthrough"` or you can also use `choose_*` to search over transformer instances.
 
 ## Pattern: non-sklearn estimator (CatBoost, etc.)
 Use a small `choose_from` variant grid — see `choices_hparam_pattern.md` Pattern 4. Do not put `choose_*` in CatBoost constructor kwargs.
