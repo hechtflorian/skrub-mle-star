@@ -27,6 +27,7 @@ ABLATION_INSTR = """# Introduction
 - Use the data profile to choose focused ablations if useful.
 - Keep ablation search budget at reasonable size when used.
 - Keep the same model family and validation split as the current solution; unless changing the model is the explicit hypothesis.
+- The **baseline** variant must reuse the same estimator class(es) as the input Python solution above; do not substitute a different model family for baseline.
 - For each ablation variant, fit on `train_part` only (`skrub.var("data", train_part)`); do not bind full `train_df` before scoring on `valid_part`.
 - If the profile shows string/categorical complexity or missingness, include at least one preprocessing/encoding structural ablation.
 - If the profile shows highly correlated feature pairs, include at least one redundancy/ratio/drop-one ablation.
@@ -36,7 +37,7 @@ ABLATION_INSTR = """# Introduction
 # Response format
 - There should be no additional headings or text in your response.
 - The Python code for the ablation study should not load test data. It should only focus on training and evaluating the model on the validation set.
-- The code must print one line per variant in the exact format `Ablation[<variant_name>] <metric>: <value>` — include the unmodified baseline as one variant, so at least 2 such lines are printed.
+- The code must print one line for each ablation variant in the exact format: `print(f"Ablation[<variant_name>] <metric>: <value>")`.
 - The code should consequently print out which part of the code contributes the most to the overall performance.
 - Return Python code; never return only tool-call results.
 """
@@ -72,6 +73,7 @@ ABLATION_SEQ_INSTR = """# Introduction
 - Keep ablation search budget at reasonable size when used.
 - Use the data profile to choose focused ablations if useful.
 - Keep the same model family and validation split as the current solution; unless changing the model is the explicit hypothesis.
+- The **baseline** variant must reuse the same estimator class(es) as the input Python solution above; do not substitute a different model family for baseline.
 - For each ablation variant, fit on `train_part` only (`skrub.var("data", train_part)`); do not bind full `train_df` before scoring on `valid_part`.
 - If the profile shows string/categorical complexity or missingness, include at least one preprocessing/encoding structural ablation.
 - If the profile shows highly correlated feature pairs, include at least one redundancy/ratio/drop-one ablation.
@@ -81,7 +83,7 @@ ABLATION_SEQ_INSTR = """# Introduction
 # Response format
 - There should be no additional headings or text in your response.
 - The Python code for the ablation study should not load test data. It should only focus on training and evaluating the model on the validation set.
-- The code must print one line per variant in the exact format `Ablation[<variant_name>] <metric>: <value>` — include the unmodified baseline as one variant, so at least 2 such lines are printed.
+- The code must print one line for each ablation variant in the exact format: `print(f"Ablation[<variant_name>] <metric>: <value>")`.
 - The code should consequently print out what part of the code contributes the most to the overall performance.
 - Return Python code; never return only tool-call results.
 """
@@ -129,6 +131,7 @@ EXTRACT_BLOCK_AND_PLAN_INSTR = """# Introduction
 - If you plan to perform hyperparameter search (e.g. over model family, encoding, or specific values), load `references/choices_hparam_pattern.md` via `load_skill_resource` before finalizing.
 - Do not propose large `choose_*` or randomized search spaces in structural refinement plans; terminal tuning already runs separately at the end of refinement.
 - Do not call a plan tuned unless search is actually executed in implementation.
+- Surgically focus only on your extracted code block for your improvement plan (i.e. do **not** swap out the same backbone family and existing `.skb.apply_func` / encoder blocks unless your proposed plan explicity states to change those parts).
 - You must always finish by returning your proposed solution, even if you call `list_skills`/`load_skill`/`load_skill_resource`.
 
 # Response format
@@ -178,6 +181,7 @@ EXTRACT_BLOCK_AND_PLAN_SEQ_INSTR = """# Introduction
 - If you want to perform hyperparameter search (e.g. over model family, encoding, or specific values), load `references/choices_hparam_pattern.md` via `load_skill_resource` before finalizing the plan.
 - If tuning is proposed, state a focused bounded search budget and a compact targeted search space.
 - Do not call a plan tuned unless search is actually executed in implementation.
+- Surgically focus only on your extracted code block for your improvement plan (i.e. do **not** swap out the same backbone family and existing `.skb.apply_func` / encoder blocks unless your proposed plan explicity states to change those parts).
 - You must always finish by returning your proposed solution, even if you call `list_skills`/`load_skill`/`load_skill_resource`.
 
 # Response format
@@ -225,6 +229,7 @@ PLAN_REFINEMENT_INSTR = """# Introduction
 - Prefer fixed/reused params when edits are minor and search-sensitive parts are unchanged.
 - Do not describe default-choice `.skb.make_learner(...)` / `.skb.eval(...)` runs as tuned.
 - You must always finish by returning your proposed solution, even if you call `list_skills`/`load_skill`/`load_skill_resource`.
+- Surgically focus only on your extracted code block for your improvement plan (i.e. do **not** swap out the same backbone family and existing `.skb.apply_func` / encoder blocks unless your proposed plan explicity states to change those parts).
 
 # Response format
 - Your response should be a brief outline/sketch of your proposed solution in natural language (3-5 sentences).
@@ -263,6 +268,7 @@ IMPLEMENT_PLAN_INSTR = """# Introduction
 - Keep search localized to the selected impactful block, preserve existing DataOps architecture, and keep the search space compact.
 - Fit the metric line on `train_part` only (`skrub.var("data", train_part)`); do not load `test_df` or refit on full `train_df` (submission stage agent handles test export).
 - Do not use transformed generic CV scores (e.g., `sqrt(mean(test_score))`) as the final refinement score line.
+- Surgically focus only on your expected code block from the improvement plan (i.e. do **not** swap out the same backbone family and existing `.skb.apply_func` / encoder blocks unless the given plan explicity states to change those parts).
 
 # Response format
 - Your response should be a single markdown code block (wrapped in ```) which is the improved code block.

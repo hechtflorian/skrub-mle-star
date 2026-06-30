@@ -1,0 +1,34 @@
+## Model name
+LightGBM (LGBMClassifier)
+
+## Example Python code
+import pandas as pd
+from lightgbm import LGBMClassifier
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import accuracy_score
+
+train = pd.read_csv('train.csv')
+test = pd.read_csv('test.csv')
+all_df = pd.concat([train.drop(columns='Transported'), test], axis=0)
+all_df[['CabinDeck','CabinNum','CabinSide']] = all_df['Cabin'].str.split('/', expand=True)
+all_df[['FirstName','FamilyName']] = all_df['Name'].str.split(' ', n=1, expand=True)
+all_df['TotalSpend'] = all_df[['RoomService','FoodCourt','ShoppingMall','Spa','VRDeck']].sum(axis=1)
+all_df['Spender'] = (all_df['TotalSpend'] > 0).astype(int)
+all_df = pd.get_dummies(all_df.drop(columns=['Cabin','Name']), dummy_na=True)
+
+X = all_df.iloc[:len(train)]
+X_test = all_df.iloc[len(train):]
+y = train['Transported'].astype(int)
+
+X_tr, X_va, y_tr, y_va = train_test_split(X, y, test_size=0.2, random_state=42, stratify=y)
+model = LGBMClassifier(
+    n_estimators=2000, learning_rate=0.03, num_leaves=31,
+    subsample=0.8, colsample_bytree=0.8, random_state=42, verbose=-1
+)
+model.fit(X_tr, y_tr, eval_set=[(X_va, y_va)], eval_metric='accuracy')
+print('valid acc:', accuracy_score(y_va, model.predict(X_va)))
+
+model.fit(X, y)
+pred = model.predict(X_test).astype(bool)
+sub = pd.DataFrame({'PassengerId': test['PassengerId'], 'Transported': pred})
+sub.to_csv('submission.csv', index=False)

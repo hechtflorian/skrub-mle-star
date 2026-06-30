@@ -161,7 +161,42 @@ def _get_backbone_contract(
     agent_name: str,
     suffix: str,
 ) -> str:
-    """Deterministic anti-drift context from retriever/structural anchor."""
+    """Deterministic anti-drift context from retriever/structural anchor (for debug agent)."""
+    if agent_name.startswith("plan_implement"):
+        required, label = code_util.resolve_backbone_required(
+            context, agent_name, suffix
+        )
+        if required:
+            required_canon = sorted(code_util.canonical_estimator_set(required))
+            return (
+                "\n# Backbone contract\n"
+                f"- Required estimator classes ({label}): {required_canon}. "
+                "Fix the error in place — do not swap model family to silence "
+                "errors unless the bug is truly unfixable without a class change.\n"
+            )
+        return (
+            "\n# Backbone contract\n"
+            "- Preserve the structural solution's model family and feature blocks; "
+            "do not swap backbone to silence errors unless truly unfixable "
+            "without a class change.\n"
+        )
+    if agent_name.startswith("ablation"):
+        required, label = code_util.resolve_backbone_required(
+            context, agent_name, suffix
+        )
+        if required:
+            required_canon = sorted(code_util.canonical_estimator_set(required))
+            return (
+                "\n# Backbone contract\n"
+                f"- Input solution estimators ({label}): {required_canon}. "
+                "Baseline variant must use at least one of these; keep `Ablation[` "
+                "prints for every variant.\n"
+            )
+        return (
+            "\n# Backbone contract\n"
+            "- Baseline must keep the input solution's model family; keep `Ablation[` "
+            "prints for every variant.\n"
+        )
     if not code_util.should_enforce_backbone_drift(agent_name):
         return ""
     required, label = code_util.resolve_backbone_required(
@@ -171,7 +206,7 @@ def _get_backbone_contract(
         return ""
     return (
         "\n# Backbone contract\n"
-        f"- Required estimator classes ({label}): {sorted(required)}. "
+        f"- Required estimator classes ({label}): {sorted(code_util.canonical_estimator_set(required))}. "
         "Fix the error without swapping to a different model family.\n"
     )
 

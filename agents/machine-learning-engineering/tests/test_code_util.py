@@ -71,6 +71,34 @@ def test_backbone_drift_rejects_swap():
     assert "RandomForestClassifier" in err
 
 
+def test_backbone_drift_accepts_lightgbm_name_alias():
+    """Retriever may say LightGBMClassifier; code correctly uses LGBMClassifier."""
+    err = code_util.backbone_drift_violation(
+        {"LightGBMClassifier"},
+        "from lightgbm import LGBMClassifier\nmodel = LGBMClassifier()",
+        label="retriever: LightGBMClassifier",
+    )
+    assert err is None
+
+
+def test_backbone_drift_accepts_import_alias_both_names_in_code():
+    code = (
+        "from lightgbm import LGBMClassifier as LightGBMClassifier\n"
+        "model = LightGBMClassifier()"
+    )
+    assert code_util.backbone_drift_violation(
+        {"LightGBMClassifier"},
+        code,
+        label="retriever: LightGBMClassifier",
+    ) is None
+
+
+def test_canonical_estimator_set_merges_aliases():
+    assert code_util.canonical_estimator_set(
+        {"LightGBMClassifier", "LGBMClassifier"}
+    ) == {"LGBMClassifier"}
+
+
 def test_tune_backbone_drift_passes_matching_backbone():
     structural = "LGBMClassifier()\nCatBoostClassifier()"
     tune = "from lightgbm import LGBMClassifier\nLGBMClassifier()\nCatBoostClassifier()"
@@ -110,3 +138,86 @@ def test_should_enforce_backbone_drift_init_and_tune_only():
     assert code_util.should_enforce_backbone_drift("tune_implement_agent_1")
     assert not code_util.should_enforce_backbone_drift("plan_implement_agent_1")
     assert not code_util.should_enforce_backbone_drift("merger_agent_1_1")
+
+
+def test_resolve_backbone_required_refinement_from_structural_code():
+    class State:
+        def __init__(self):
+            self.data = {
+                "refine_step_1": 0,
+                "train_code_0_1": "from catboost import CatBoostClassifier\nCatBoostClassifier()",
+            }
+
+        def get(self, key, default=None):
+            return self.data.get(key, default)
+
+    class Ctx:
+        state = State()
+
+    required, label = code_util.resolve_backbone_required(
+        Ctx(), "plan_implement_debug_agent_1", "0_0_1"
+    )
+    assert required == {"CatBoostClassifier"}
+    assert "refine step" in label
+    
+
+def test_ablation_contract_requires_print_template():
+    assert code_util.ablation_contract_violation("print('hello')") is not None
+    assert "Ablation" in code_util.ablation_contract_violation("print('hello')")
+
+
+def test_ablation_contract_passes_with_print_template():
+    code = "print(f'Ablation[{name}] accuracy: {score}')"
+    assert code_util.ablation_contract_violation(code) is None
+
+
+def test_ablation_backbone_requires_overlap_with_input():
+    required = {"CatBoostClassifier"}
+    err = code_util.ablation_backbone_violation(
+        required,
+        "from sklearn.ensemble import RandomForestClassifier\n"
+        "RandomForestClassifier()",
+        label="input solution at refine step 0",
+    )
+    assert err is not None
+    assert "CatBoostClassifier" in err
+    assert "no overlap" in err
+
+
+def test_ablation_backbone_passes_when_input_estimator_present():
+    code = (
+        "from catboost import CatBoostClassifier\n"
+        "CatBoostClassifier()\n"
+        "from sklearn.ensemble import RandomForestClassifier\n"
+        "RandomForestClassifier()"
+    )
+    assert code_util.ablation_backbone_violation(
+        {"CatBoostClassifier"},
+        code,
+        label="input solution at refine step 0",
+    ) is None
+
+
+def test_ablation_backbone_skipped_when_anchor_empty():
+    assert code_util.ablation_backbone_violation(set(), "RandomForestClassifier()", label="") is None
+
+
+def test_resolve_backbone_required_ablation_from_input_solution():
+    class State:
+        def __init__(self):
+            self.data = {
+                "refine_step_1": 0,
+                "train_code_0_1": "CatBoostClassifier()",
+            }
+
+        def get(self, key, default=None):
+            return self.data.get(key, default)
+
+    class Ctx:
+        state = State()
+
+    required, label = code_util.resolve_backbone_required(
+        Ctx(), "ablation_agent_1", "0_1"
+    )
+    assert required == {"CatBoostClassifier"}
+    assert "input solution" in label

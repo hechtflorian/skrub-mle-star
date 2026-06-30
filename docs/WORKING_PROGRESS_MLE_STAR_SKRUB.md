@@ -1124,3 +1124,91 @@ docs/WORKING_PROGRESS_MLE_STAR_SKRUB.md
 - **Ablation contract:** post-exec stdout line count; unchanged from P7.
 - **Gap:** no suffix match → drift gate disabled, pipeline does not break.
 
+---
+
+## Progress update (2026-06-30): pre-exec hardening + Spaceship validation run
+
+Full guard reference: [`docs/BACKBONE_DRIFT_GUARDS.md`](./BACKBONE_DRIFT_GUARDS.md).
+
+### Shipped since §41 (2026-06-28 → 2026-06-30)
+
+| Change | Where | Effect |
+|--------|-------|--------|
+| **Canonical estimator aliases** | `code_util.canonical_estimator_set()` | `LightGBMClassifier` ↔ `LGBMClassifier` (and XGBoost aliases); stops false init drift |
+| **Extended estimator regex** | `_ESTIMATOR_CLASS_RE` | `LogisticRegression`, `Ridge`, `SVC`, etc. — closes §44 gap |
+| **Ablation pre-exec** | `ablation_contract_violation()` + `ablation_backbone_violation()` | `Ablation[` in source + ≥1 overlap with input `train_code_{step}_{task}` |
+| **Ablation / refinement prompts** | `refinement/prompt.py` | Baseline must reuse input estimator; explicit print template |
+| **Tune plan prompt** | `tuning/prompt.py` | Backbone = structural script only; ignore ablation-summary model claims |
+| **Ablation debug contract** | `debug_util._get_backbone_contract()` | Injects input-solution estimators for ablation debug |
+| **Promotion scan fix** | `refinement/agent.py` | `inner_loop_round` scans all improve scripts |
+
+**Pre-exec strictness (summary):**
+
+- **Init / tune:** canonical **set equality** — no extra or missing estimator class names in source.
+- **Ablation:** **overlap** — input estimator must appear ≥1×; extra variant models OK.
+- **Refinement implement:** prompt-only (may swap backbone if plan says so).
+
+### 45) Validation run — Spaceship Titanic `adk_run_20260630_222454`
+
+**Outcome:** Full pipeline completed. Best holdout **0.7982** (submission / promoted refinement ensemble). User assessment: run went well.
+
+| Stage | Score (holdout acc) | Debug rounds | Notes |
+|-------|---------------------:|-------------:|-------|
+| Init CatBoost (model 1) | 0.794 | **0** | No init debug loop |
+| Init LGBM (model 2) | 0.792 | **0** | Alias fix — no LightGBM naming trap |
+| Merger → `train0` | 0.794 | 0 | CatBoost structural baseline |
+| Ablation | ~0.787 baseline | **1** | CatBoost hyperparam ablations; kept backbone (no RF drift) |
+| Refinement improve | **0.798** promoted | 4 | Voting ensemble (CatBoost + LGBM + LR); `train1.py` |
+| Tune search | failed → structural | **17** | See urgent items below |
+| Ensemble | 0.796 / 0.787 | 1 | Best ≈ structural; no gain |
+| Submission | **0.798** | — | Matches promoted refine |
+
+**What worked**
+
+- Init + LGBM alias normalization: both candidates scored without backbone debug churn.
+- Ablation backbone overlap gate: `ablation_0.py` stays on CatBoost; summary correctly describes CatBoost param ablations (not RF swap).
+- Refinement promoted a real gain (+0.004 vs merger baseline).
+- Tune fallback to structural prevented shipping broken tune script.
+
+**Urgent follow-ups (ordered)**
+
+1. **Tune stage debug cost (17 rounds)** — still the main waste. Failures observed:
+   - `CatBoostClassifier` + inline `choose_float` → sklearn clone error (`learning_rate` choice object). Tune implement should use **`choose_from` variant grid** (Pattern 4) for CatBoost, not numeric `choose_*` on constructor kwargs.
+   - Backbone set-equality on **ensemble structural** scripts matches `VotingClassifier` + all base learners in source; tune scripts that drop a unused-looking import (e.g. `LogisticRegression`) fail pre-exec even when pipeline intent unchanged. **Consider:** exclude meta-estimators (`VotingClassifier`, `StackingClassifier`, …) from backbone set, or compare only leaf/base learner classes.
+2. **Not urgent:** refinement debug first-failure pre-exec (deferred); ensemble second plan added complexity without gain.
+
+**Not urgent / watch**
+
+- Refinement debug still prompt-only (ensemble in promote path is intentional plan-driven swap).
+- Post-run ablation stdout ≥2 lines kept as safety net alongside pre-exec.
+
+### Known open items (updated 2026-06-30)
+
+- [x] Backbone drift gate init + tune (§41).
+- [x] Extended estimator regex + aliases (§44 + canonical map).
+- [x] Ablation pre-exec print + baseline overlap.
+- [x] Tune plan grounded on structural script (prompt).
+- [x] Promotion scan `inner_loop_round` fix.
+- [ ] **Tune: CatBoost-safe search pattern** — enforce or prompt `choose_from` not `choose_float` on CatBoost kwargs.
+- [ ] **Tune backbone on ensembles** — exclude meta-estimator classes from set-equality or use leaf-only set.
+- [ ] Refinement debug first-failure anchor (deferred).
+- [ ] Fix vanilla `debug_prompt.py` / leakage checker patterns A–C.
+
+### Files touched (2026-06-30)
+
+```
+agents/.../shared_libraries/code_util.py    # aliases, ablation_backbone_violation, ablation pre-exec
+agents/.../shared_libraries/debug_util.py   # ablation + canonical backbone contract
+agents/.../sub_agents/refinement/prompt.py  # ablation baseline + print
+agents/.../sub_agents/tuning/prompt.py        # structural backbone for tune plan
+agents/.../tests/test_code_util.py
+docs/BACKBONE_DRIFT_GUARDS.md
+docs/WORKING_PROGRESS_MLE_STAR_SKRUB.md
+```
+
+### TL;DR (2026-06-30)
+
+- **Validated:** init/ablation/refine guards work on Spaceship; +0.004 refine gain; no LGBM/RF ablation drift regressions.
+- **Remaining pain:** tune search still burns ~17 debug rounds (CatBoost `choose_*` + ensemble backbone set-equality).
+- **Docs:** see `BACKBONE_DRIFT_GUARDS.md` for pre-exec matrix (strict init/tune vs overlap ablation).
+

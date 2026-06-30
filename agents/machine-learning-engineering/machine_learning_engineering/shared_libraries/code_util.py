@@ -9,11 +9,37 @@ from typing import Any
 
 from google.adk.agents import callback_context as callback_context_module
 
-_ESTIMATOR_CLASS_RE = re.compile(r"\b([A-Z]\w*(?:Regressor|Classifier))\b")
+_ESTIMATOR_CLASS_RE = re.compile(
+    r"\b("
+    r"[A-Z]\w*(?:Regressor|Classifier)"
+    r"|LogisticRegression|LinearRegression|Ridge|Lasso|ElasticNet"
+    r"|SVC|SVR|NuSVC|NuSVR"
+    r")\b"
+)
 
 
 def _estimator_classes(code: str) -> set[str]:
     return set(_ESTIMATOR_CLASS_RE.findall(code))
+
+
+# TODO: naive, doesnt cover all cases. If too strict, remove pre-exec model drift check.
+# Alternate public / retriever names → import symbol used in generated code.
+_ESTIMATOR_CANONICAL_ALIASES: dict[str, str] = {
+    "LightGBMClassifier": "LGBMClassifier",
+    "LightGBMRegressor": "LGBMRegressor",
+    "XGBoostClassifier": "XGBClassifier",
+    "XGBoostRegressor": "XGBRegressor",
+}
+
+
+def canonical_estimator_name(name: str) -> str:
+    """Map known alias names to a single canonical class name."""
+    return _ESTIMATOR_CANONICAL_ALIASES.get(name, name)
+
+
+def canonical_estimator_set(classes: set[str]) -> set[str]:
+    """Normalize estimator names so alias pairs compare equal."""
+    return {canonical_estimator_name(name) for name in classes}
 
 
 def retriever_estimator_classes(model_name: str) -> set[str]:
@@ -25,9 +51,7 @@ def retriever_estimator_classes(model_name: str) -> set[str]:
 
 def should_enforce_backbone_drift(agent_name: str) -> bool:
     """Stages where debug must not swap the backbone estimator set."""
-    return agent_name.startswith("model_eval") or agent_name.startswith(
-        "tune_implement"
-    )
+    return agent_name.startswith("model_eval") or agent_name.startswith("tune_implement")   # can add more here if needed to enable preexec code checks
 
 
 def debug_anchor_code_key(suffix: str) -> str:
@@ -39,7 +63,7 @@ def resolve_backbone_required(
     agent_name: str,
     suffix: str,
 ) -> tuple[set[str], str]:
-    """Return (required_estimator_classes, short_label) for drift checks."""
+    """Return (required_estimator_classes, short_label) for backbone drift checks."""
     if agent_name.startswith("model_eval"):
         task_id = agent_name.split("_")[-2]
         model_id = agent_name.split("_")[-1]
@@ -66,6 +90,21 @@ def resolve_backbone_required(
         if structural.strip():
             return _estimator_classes(structural), "structural solution"
         return set(), ""
+    if agent_name.startswith("plan_implement") or agent_name.startswith("ablation"):
+        task_id = agent_name.split("_")[-1]
+        step = callback_context.state.get(f"refine_step_{task_id}", 0)
+        structural = callback_context.state.get(
+            f"train_code_{step}_{task_id}",
+            "",
+        )
+        if structural.strip():
+            if agent_name.startswith("ablation"):
+                return (
+                    _estimator_classes(structural),
+                    f"input solution at refine step {step}",
+                )
+            return _estimator_classes(structural), "structural solution at refine step"
+        return set(), ""
     return set(), ""
 
 
@@ -78,12 +117,13 @@ def backbone_drift_violation(
     """Return an error if candidate code uses a different estimator set."""
     if not required:
         return None
-    candidate = _estimator_classes(candidate_code)
-    if candidate == required:
+    required_canon = canonical_estimator_set(required)
+    candidate_canon = canonical_estimator_set(_estimator_classes(candidate_code))
+    if candidate_canon == required_canon:
         return None
     return (
         "Backbone drift: keep estimator classes "
-        f"{sorted(required)} ({label}); got {sorted(candidate)}. "
+        f"{sorted(required_canon)} ({label}); got {sorted(candidate_canon)}. "
         "Fix the reported error without swapping model families or "
         "simplifying to a different pipeline."
     )
@@ -106,6 +146,37 @@ def tune_search_contract_violation(code: str) -> str | None:
         "Tuning search contract: missing "
         + ", ".join(missing)
         + ". Fix the error without removing the search block or choose_* nodes."
+    )
+
+
+def ablation_contract_violation(code: str) -> str | None:
+    """Ablation scripts must declare the Ablation[...] print template before run."""
+    if "Ablation[" in code:
+        return None
+    return (
+        "Ablation contract: missing Ablation[...] print template "
+        "(print(f'Ablation[<variant_name>] <metric>: <value>')). Evaluate at least 2 variants."
+    )
+
+
+def ablation_backbone_violation(
+    required: set[str],
+    candidate_code: str,
+    *,
+    label: str,
+) -> str | None:
+    """Baseline must reuse at least one input-solution estimator (overlap, not set equality)."""
+    if not required:
+        return None
+    required_canon = canonical_estimator_set(required)
+    candidate_canon = canonical_estimator_set(_estimator_classes(candidate_code))
+    if required_canon & candidate_canon:
+        return None
+    return (
+        "Ablation backbone: input solution uses "
+        f"{sorted(required_canon)} ({label}); script has {sorted(candidate_canon)} "
+        "with no overlap. Include at least one input estimator in the baseline "
+        "variant; other variants may test additional models only as explicit hypotheses."
     )
 
 
@@ -160,6 +231,26 @@ def preexec_code_failure(
                 "returncode": 1,
                 "stdout": "",
                 "stderr": contract,
+                "execution_time": 0.0,
+            }
+    if agent_name.startswith("ablation"):
+        contract = ablation_contract_violation(raw_code)
+        if contract:
+            return {
+                "returncode": 1,
+                "stdout": "",
+                "stderr": contract,
+                "execution_time": 0.0,
+            }
+        required, label = resolve_backbone_required(
+            callback_context, agent_name, suffix
+        )
+        backbone = ablation_backbone_violation(required, raw_code, label=label)
+        if backbone:
+            return {
+                "returncode": 1,
+                "stdout": "",
+                "stderr": backbone,
                 "execution_time": 0.0,
             }
     return None
@@ -666,6 +757,7 @@ def evaluate_code(
     if not raw_code.strip():
         result_dict = {}
     else:
+        # check if the code doenst drift off from expected backbone/search pipeline
         preexec = preexec_code_failure(
             callback_context, agent_name, suffix, raw_code
         )

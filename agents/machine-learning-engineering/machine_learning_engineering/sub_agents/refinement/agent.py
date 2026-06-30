@@ -46,10 +46,11 @@ def update_outer_loop_states(
     prev_exec_result = callback_context.state.get(
         f"train_code_exec_result_{step}_{task_id}", {}
     )
-    inner_loop_round = callback_context.state.get("inner_loop_round", 2)
+    inner_loop_round = callback_context.state.get("inner_loop_round", config.CONFIG.inner_loop_round)
     improvements: list[float] = []
     improvement_indices: list[int] = []
-    for inner_iter in range(inner_loop_round):
+    # init_plan_implement -> improve_0; each refine_inner_loop iter -> improve_1..N - ensure 1..N also read for promotion logic
+    for inner_iter in range(1 + inner_loop_round):
         exec_result = callback_context.state.get(
             f"train_code_improve_exec_result_{inner_iter}_{step}_{task_id}",
             {},

@@ -1,150 +1,129 @@
 
 import os
+import warnings
 import numpy as np
 import pandas as pd
 import skrub
+
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import accuracy_score
+from sklearn.ensemble import VotingClassifier
+
 from catboost import CatBoostClassifier
+from lightgbm import LGBMClassifier
 
-os.makedirs("./final", exist_ok=True)
+warnings.filterwarnings("ignore")
 
-# Load data
-train_df = pd.read_csv("./input/train.csv")
-test_df = pd.read_csv("./input/test.csv")
+INPUT_DIR = "./input"
+FINAL_DIR = "./final"
+TRAIN_PATH = os.path.join(INPUT_DIR, "train.csv")
+TEST_PATH = os.path.join(INPUT_DIR, "test.csv")
+SUBMISSION_PATH = os.path.join(FINAL_DIR, "submission.csv")
+TARGET_COL = "Transported"
 
-target_col = "Transported"
+os.makedirs(FINAL_DIR, exist_ok=True)
 
-# Honest holdout split
+train_df = pd.read_csv(TRAIN_PATH)
+test_df = pd.read_csv(TEST_PATH)
+
+# Small feature engineering, keeping the existing DataOps structure intact.
+def add_features(df):
+    df = df.copy()
+
+    if "Cabin" in df.columns:
+        cabin = df["Cabin"].astype("string")
+        parts = cabin.str.split("/", expand=True)
+        if parts.shape[1] >= 3:
+            df["CabinDeck"] = parts[0]
+            df["CabinNum"] = pd.to_numeric(parts[1], errors="coerce")
+            df["CabinSide"] = parts[2]
+        else:
+            df["CabinDeck"] = pd.NA
+            df["CabinNum"] = pd.NA
+            df["CabinSide"] = pd.NA
+
+    if "Name" in df.columns:
+        name = df["Name"].astype("string")
+        df["NameLen"] = name.str.len()
+        df["Surname"] = name.str.split().str[-1]
+    return df
+
+train_df = add_features(train_df)
+test_df = add_features(test_df)
+
 train_idx, valid_idx = train_test_split(
-    np.arange(len(train_df)), test_size=0.2, random_state=42
+    np.arange(len(train_df)), test_size=0.2, random_state=42, stratify=train_df[TARGET_COL]
 )
 train_part = train_df.iloc[train_idx].copy()
 valid_part = train_df.iloc[valid_idx].copy()
 
-# DataOps binding on train_part only
 data_train = skrub.var("data", train_part)
-X_train = data_train.drop(columns=target_col, errors="ignore").skb.mark_as_X()
-y_train = data_train[target_col].skb.mark_as_y()
+X_train = data_train.drop(columns=TARGET_COL, errors="ignore").skb.mark_as_X()
+y_train = data_train[TARGET_COL].skb.mark_as_y()
 
-# --- View 1: original CatBoost pipeline (kept intact) ---
-vectorizer_1 = skrub.TableVectorizer()
-pred_1 = X_train.skb.apply(vectorizer_1).skb.apply(
-    CatBoostClassifier(
-        loss_function="Logloss",
-        iterations=300,
+vectorizer = skrub.TableVectorizer()
+
+def _catboost_cat_features_from_df(df):
+    return [c for c in df.columns if str(df[c].dtype) in ("category", "object", "string")]
+
+cat_params = dict(
+    iterations=300,
+    depth=6,
+    learning_rate=0.05,
+    loss_function="Logloss",
+    random_seed=42,
+    verbose=0,
+)
+
+class CatBoostWithAutoCats(CatBoostClassifier):
+    def fit(self, X, y=None, **kwargs):
+        if isinstance(X, pd.DataFrame) and "cat_features" not in kwargs:
+            kwargs["cat_features"] = _catboost_cat_features_from_df(X)
+        return super().fit(X, y=y, **kwargs)
+
+def build_voting_classifier():
+    cat_model = CatBoostWithAutoCats(**cat_params)
+    lgbm_model = LGBMClassifier(
+        n_estimators=300,
         learning_rate=0.05,
-        depth=6,
-        random_seed=42,
-        verbose=0,
-    ),
-    y=y_train,
-)
+        num_leaves=31,
+        random_state=42,
+        verbose=-1,
+    )
+    return VotingClassifier(
+        estimators=[
+            ("cat", cat_model),
+            ("lgbm", lgbm_model),
+        ],
+        voting="soft",
+        weights=[2, 1],
+    )
 
-learner_1 = pred_1.skb.make_learner(fitted=True)
-valid_pred_1 = np.asarray(learner_1.predict({"data": valid_part})).ravel()
+pred = X_train.skb.apply(vectorizer).skb.apply(build_voting_classifier(), y=y_train)
 
-# --- View 2: same pipeline, tiny inference-safe perturbation via bootstrap resample ---
-bootstrap_idx = np.random.RandomState(42).choice(
-    len(train_part), size=len(train_part), replace=True
-)
-train_bootstrap = train_part.iloc[bootstrap_idx].copy()
+val_learner = pred.skb.make_learner(fitted=True)
+valid_pred = val_learner.predict({"data": valid_part})
+valid_pred = np.asarray(valid_pred)
+valid_pred = (valid_pred >= 0.5).astype(bool) if valid_pred.dtype != bool else valid_pred
 
-data_boot = skrub.var("data", train_bootstrap)
-X_boot = data_boot.drop(columns=target_col, errors="ignore").skb.mark_as_X()
-y_boot = data_boot[target_col].skb.mark_as_y()
-
-vectorizer_2 = skrub.TableVectorizer()
-pred_2 = X_boot.skb.apply(vectorizer_2).skb.apply(
-    CatBoostClassifier(
-        loss_function="Logloss",
-        iterations=300,
-        learning_rate=0.05,
-        depth=6,
-        random_seed=42,
-        verbose=0,
-    ),
-    y=y_boot,
-)
-
-learner_2 = pred_2.skb.make_learner(fitted=True)
-valid_pred_2 = np.asarray(learner_2.predict({"data": valid_part})).ravel()
-
-# Discrete weight search on the validation split only
-weight_candidates = [(0.8, 0.2), (0.7, 0.3), (0.6, 0.4)]
-best_weight = weight_candidates[0]
-best_score = -1.0
-
-for w1, w2 in weight_candidates:
-    valid_blend = w1 * valid_pred_1 + w2 * valid_pred_2
-    valid_blend_bool = valid_blend > 0.5
-    score = accuracy_score(valid_part[target_col].values, valid_blend_bool)
-    if score > best_score:
-        best_score = score
-        best_weight = (w1, w2)
-
-# Final validation performance with best weighted blend
-w1, w2 = best_weight
-valid_final_pred = w1 * valid_pred_1 + w2 * valid_pred_2
-valid_final_pred_bool = valid_final_pred > 0.5
-final_validation_score = accuracy_score(valid_part[target_col].values, valid_final_pred_bool)
+final_validation_score = accuracy_score(valid_part[TARGET_COL], valid_pred)
 print(f"Final Validation Performance: {final_validation_score}")
 
-# Submission-stage refit on full training data
-data_full_1 = skrub.var("data", train_df)
-X_full_1 = data_full_1.drop(columns=target_col, errors="ignore").skb.mark_as_X()
-y_full_1 = data_full_1[target_col].skb.mark_as_y()
+# Submission stage only: refit on full training data and predict test.
+data_full = skrub.var("data", train_df)
+X_full = data_full.drop(columns=TARGET_COL, errors="ignore").skb.mark_as_X()
+y_full = data_full[TARGET_COL].skb.mark_as_y()
 
-vectorizer_full_1 = skrub.TableVectorizer()
-full_pred_1 = X_full_1.skb.apply(vectorizer_full_1).skb.apply(
-    CatBoostClassifier(
-        loss_function="Logloss",
-        iterations=300,
-        learning_rate=0.05,
-        depth=6,
-        random_seed=42,
-        verbose=0,
-    ),
-    y=y_full_1,
-)
-
-full_learner_1 = full_pred_1.skb.make_learner(fitted=True)
-test_pred_1 = np.asarray(full_learner_1.predict({"data": test_df})).ravel()
-
-# Bootstrap view on full training data
-bootstrap_idx_full = np.random.RandomState(42).choice(
-    len(train_df), size=len(train_df), replace=True
-)
-train_bootstrap_full = train_df.iloc[bootstrap_idx_full].copy()
-
-data_full_2 = skrub.var("data", train_bootstrap_full)
-X_full_2 = data_full_2.drop(columns=target_col, errors="ignore").skb.mark_as_X()
-y_full_2 = data_full_2[target_col].skb.mark_as_y()
-
-vectorizer_full_2 = skrub.TableVectorizer()
-full_pred_2 = X_full_2.skb.apply(vectorizer_full_2).skb.apply(
-    CatBoostClassifier(
-        loss_function="Logloss",
-        iterations=300,
-        learning_rate=0.05,
-        depth=6,
-        random_seed=42,
-        verbose=0,
-    ),
-    y=y_full_2,
-)
-
-full_learner_2 = full_pred_2.skb.make_learner(fitted=True)
-test_pred_2 = np.asarray(full_learner_2.predict({"data": test_df})).ravel()
-
-test_pred = w1 * test_pred_1 + w2 * test_pred_2
-test_pred_bool = test_pred > 0.5
+full_pred = X_full.skb.apply(vectorizer).skb.apply(build_voting_classifier(), y=y_full)
+full_learner = full_pred.skb.make_learner(fitted=True)
+test_pred = full_learner.predict({"data": test_df})
+test_pred = np.asarray(test_pred)
+test_pred = (test_pred >= 0.5).astype(bool) if test_pred.dtype != bool else test_pred
 
 submission = pd.DataFrame(
     {
         "PassengerId": test_df["PassengerId"],
-        "Transported": test_pred_bool.astype(bool),
+        "Transported": test_pred,
     }
 )
-submission["Transported"] = submission["Transported"].map({True: "True", False: "False"})
-submission.to_csv("./final/submission.csv", index=False)
+submission.to_csv(SUBMISSION_PATH, index=False)

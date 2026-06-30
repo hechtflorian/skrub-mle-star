@@ -30,6 +30,7 @@ TUNE_PLAN_INSTR = """# Introduction
 - Call `list_skills` -> `load_skill` for `skrub-dataops-pipeline` and load `references/choices_hparam_pattern.md` via `load_skill_resource`.
 - If `focus_block` is `encoder` or `preprocessing`, also load `references/encoding_skrub.md`.
 - List which pipeline parts stay frozen in `frozen`.
+- Use the same backbone estimator class(es) as the input Python solution above for your tuning plan; do not substitute a different model family.
 
 # Response format
 - Return a single JSON object only (no markdown fences, no extra text).
@@ -61,7 +62,7 @@ TUNE_IMPLEMENT_INSTR = """# Introduction
 # Search budget
 - `n_iter={n_iter}`, `n_jobs={n_jobs}`
 - Holdout only (same split as current solution). No CV.
-- Reduce boosted-tree `iterations`/`n_estimators` to ~1/2 of the structural value during search, and use `n_jobs=1` if the estimator is internally multithreaded (CatBoost/LightGBM/XGBoost).
+- Reduce boosted-tree `iterations`/`n_estimators` to ~1/2 of the structural value during search, and use `n_jobs=1` if the estimator is internally multithreaded (e.g., CatBoost/LightGBM/XGBoost).
 
 # Requirements
 - Load `references/tuning_dataops_template.md` and `references/choices_hparam_pattern.md` via skill tools before editing. Follow the tuning template skeleton; copy structural FE, encoders, and ensemble scoring verbatim that you received from the previous solution.
@@ -70,6 +71,7 @@ TUNE_IMPLEMENT_INSTR = """# Introduction
 - Inject `choose_*` only on the plan `focus_block`.
 - Keep `choose_*` inside the DataOps `.skb.apply(...)` graph only — never assign a `choose_*` to a variable and pass it into an estimator constructor. For sklearn-API estimators use inline kwargs on `.skb.apply(Estimator(param=skrub.choose_float(...)), y=y)`; for non-sklearn estimators (e.g. CatBoost) inline kwargs do **not** resolve — use the `choose_from` variant-grid pattern (`choices_hparam_pattern.md` Pattern 4) and print the winning variant's literal params as `TUNING_BEST_PARAMS`.
 - You must keep the same DataOps pipeline architecture as the structural solution; only add `choose_*` on the focus block.
+- Use the same backbone estimator class(es) as the input structural solution above in your script; do not substitute a different model family.
 - Reproduce the structural pipeline **verbatim** — every `.skb.apply_func(...)` feature step, scaler, encoder, and column-routing step must appear unchanged in your script; if the structural solution compares variants at runtime, reproduce only its winning variant.
 - Run search from the final prediction DataOp: `search = pred.skb.make_randomized_search(n_iter={n_iter}, n_jobs={n_jobs}, random_state=42, fitted=True)`
 - **Must** fit search on the training fold only: `search.fit({{"data": train_part}})`

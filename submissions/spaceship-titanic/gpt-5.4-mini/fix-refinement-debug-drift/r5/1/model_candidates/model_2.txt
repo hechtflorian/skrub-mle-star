@@ -1,0 +1,35 @@
+## Model name
+LightGBMClassifier
+
+## Example Python code
+import pandas as pd
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import accuracy_score
+from lightgbm import LGBMClassifier
+
+train = pd.read_csv('train.csv')
+test = pd.read_csv('test.csv')
+
+def prep(df):
+    df = df.copy()
+    df[['Deck','Num','Side']] = df['Cabin'].str.split('/', expand=True)
+    df['GroupSize'] = df['PassengerId'].str.split('_').str[0].map(df['PassengerId'].str.split('_').str[0].value_counts())
+    df['TotalSpending'] = df[['RoomService','FoodCourt','ShoppingMall','Spa','VRDeck']].fillna(0).sum(axis=1)
+    cols = ['HomePlanet','CryoSleep','Destination','VIP','Deck','Side']
+    for c in cols:
+        df[c] = df[c].astype('category').cat.codes
+    num_cols = ['Age','RoomService','FoodCourt','ShoppingMall','Spa','VRDeck','TotalSpending','GroupSize','Deck','Side','HomePlanet','CryoSleep','Destination','VIP']
+    return df[num_cols].fillna(-1)
+
+X = prep(train)
+y = train['Transported'].astype(int)
+X_train, X_val, y_train, y_val = train_test_split(X, y, test_size=0.2, random_state=42, stratify=y)
+
+model = LGBMClassifier(n_estimators=1000, learning_rate=0.03, num_leaves=31, subsample=0.9, colsample_bytree=0.8, random_state=42)
+model.fit(X_train, y_train)
+print('val acc:', accuracy_score(y_val, model.predict(X_val)))
+
+model.fit(X, y)
+pred = model.predict(prep(test))
+submission = pd.DataFrame({'PassengerId': test['PassengerId'], 'Transported': pred.astype(bool)})
+submission.to_csv('submission.csv', index=False)
