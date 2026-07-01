@@ -1,0 +1,24 @@
+## Model name
+LightGBM LGBMClassifier
+
+## Example Python code
+import pandas as pd
+from lightgbm import LGBMClassifier
+
+train = pd.read_csv('train.csv')
+test = pd.read_csv('test.csv')
+all_df = pd.concat([train.drop(columns=['Transported']), test], axis=0)
+all_df['Cabin'] = all_df['Cabin'].fillna('X/0/X').astype(str)
+all_df[['Deck','Num','Side']] = all_df['Cabin'].str.split('/', expand=True)
+all_df['TotalSpend'] = all_df[['RoomService','FoodCourt','ShoppingMall','Spa','VRDeck']].fillna(0).sum(axis=1)
+
+full = pd.get_dummies(all_df.drop(columns=['PassengerId','Name','Cabin']), dummy_na=True)
+X = full.iloc[:len(train)]
+X_test = full.iloc[len(train):]
+y = train['Transported'].astype(int)
+
+model = LGBMClassifier(n_estimators=1200, learning_rate=0.02, num_leaves=31, subsample=0.9, colsample_bytree=0.8, random_state=42)
+model.fit(X, y)
+preds = model.predict(X_test).astype(bool)
+
+pd.DataFrame({'PassengerId': test['PassengerId'], 'Transported': preds}).to_csv('submission.csv', index=False)

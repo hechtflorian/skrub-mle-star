@@ -125,6 +125,7 @@ def get_tune_plan_agent_instruction(
         ablation_results=ablation_results,
         plan_summary=plan_summary,
         n_iter=config.CONFIG.tuning_n_iter,
+        exec_time=config.CONFIG.exec_timeout,
     )
 
 
@@ -140,7 +141,7 @@ def get_tune_implement_agent_instruction(
         code=code,
         tune_plan=json.dumps(tune_plan, indent=2),
         n_iter=config.CONFIG.tuning_n_iter,
-        n_jobs=config.CONFIG.tuning_n_jobs,
+        exec_time=config.CONFIG.exec_timeout,
     )
 
 

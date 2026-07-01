@@ -67,7 +67,7 @@ from sklearn.model_selection import train_test_split
 # Use the competition metric from task_description.txt (# Metric section)
 
 train_idx, valid_idx = train_test_split(
-    np.arange(len(train_df)), test_size=0.2, random_state=42
+    np.arange(len(train_df)), test_size=0.2, random_state=random_state
 )
 train_part = train_df.iloc[train_idx].copy()
 valid_part = train_df.iloc[valid_idx].copy()
@@ -96,7 +96,8 @@ print(f"Final Validation Performance: {final_validation_score}")
 - Load `references/tuning_dataops_template.md` and follow its skeleton for `tune_implement`.
 - Structural ablation and plan/implement steps stay fixed-parameter.
 - One bounded holdout randomized search on a **single** focus block (`model`, `encoder`, or `preprocessing`).
-- Use `make_randomized_search` with low `n_iter` (default 4); no CV, no Optuna.
+- Use `make_randomized_search` with `n_iter` from config; no CV, no Optuna.
+- Search `n_jobs`: default 1 for multithreaded tree boosters (avoid nested parallelism / timeout surprises); 2 OK if estimator `n_jobs=1` or trials are cheap; 2 (max 4) for single-threaded sklearn.
 - Bake best params into fixed code before ensemble/submission; downstream code must not contain `choose_*` or search calls.
 
 ## Output contract

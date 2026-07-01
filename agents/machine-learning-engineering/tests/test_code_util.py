@@ -61,10 +61,11 @@ def test_retriever_estimator_classes():
 
 def test_backbone_drift_rejects_swap():
     required = {"CatBoostClassifier"}
-    err = code_util.backbone_drift_violation(
+    err = code_util.backbone_violation(
         required,
         "RandomForestClassifier()",
         label="retriever: CatBoostClassifier",
+        mode="strict",
     )
     assert err is not None
     assert "CatBoostClassifier" in err
@@ -73,10 +74,11 @@ def test_backbone_drift_rejects_swap():
 
 def test_backbone_drift_accepts_lightgbm_name_alias():
     """Retriever may say LightGBMClassifier; code correctly uses LGBMClassifier."""
-    err = code_util.backbone_drift_violation(
+    err = code_util.backbone_violation(
         {"LightGBMClassifier"},
         "from lightgbm import LGBMClassifier\nmodel = LGBMClassifier()",
         label="retriever: LightGBMClassifier",
+        mode="strict",
     )
     assert err is None
 
@@ -86,10 +88,11 @@ def test_backbone_drift_accepts_import_alias_both_names_in_code():
         "from lightgbm import LGBMClassifier as LightGBMClassifier\n"
         "model = LightGBMClassifier()"
     )
-    assert code_util.backbone_drift_violation(
+    assert code_util.backbone_violation(
         {"LightGBMClassifier"},
         code,
         label="retriever: LightGBMClassifier",
+        mode="strict",
     ) is None
 
 
@@ -99,27 +102,53 @@ def test_canonical_estimator_set_merges_aliases():
     ) == {"LGBMClassifier"}
 
 
-def test_tune_backbone_drift_passes_matching_backbone():
-    structural = "LGBMClassifier()\nCatBoostClassifier()"
+def test_backbone_overlap_passes_when_all_estimators_present():
     tune = "from lightgbm import LGBMClassifier\nLGBMClassifier()\nCatBoostClassifier()"
-    assert code_util.backbone_drift_violation(
+    assert code_util.backbone_violation(
         {"LGBMClassifier", "CatBoostClassifier"},
         tune,
         label="structural solution",
+        mode="overlap",
     ) is None
 
 
-def test_tune_backbone_drift_rejects_estimator_swap():
-    structural = "from lightgbm import LGBMClassifier\nLGBMClassifier()"
+def test_backbone_overlap_passes_when_one_ensemble_leg_kept():
+    tune = (
+        "from lightgbm import LGBMClassifier\n"
+        "LGBMClassifier(learning_rate=skrub.choose_float(0.01, 0.1, name='lr'))"
+    )
+    assert code_util.backbone_violation(
+        {"LGBMClassifier", "CatBoostClassifier"},
+        tune,
+        label="structural solution",
+        mode="overlap",
+    ) is None
+
+
+def test_backbone_overlap_rejects_full_estimator_swap():
     tune = "from sklearn.ensemble import RandomForestClassifier\nRandomForestClassifier()"
-    err = code_util.backbone_drift_violation(
+    err = code_util.backbone_violation(
         {"LGBMClassifier"},
         tune,
         label="structural solution",
+        mode="overlap",
     )
     assert err is not None
     assert "LGBMClassifier" in err
     assert "RandomForestClassifier" in err
+    assert "no overlap" in err
+
+
+def test_map_tuning_best_params_fixes_swapped_human_named_values():
+    raw = {"n_estimators": 0, "learning_rate": 1600.0}
+    plan = {
+        "tunable_params": [
+            {"name": "n_estimators", "kind": "choose_int", "low": 800, "high": 1600, "default": 1200},
+            {"name": "learning_rate", "kind": "choose_float", "low": 0.01, "high": 0.04, "default": 0.02},
+        ]
+    }
+    mapped = code_util.map_tuning_best_params(raw, plan)
+    assert mapped == {"n_estimators": 1600, "learning_rate": 0.02}
 
 
 def test_tune_search_contract_requires_search_block():
@@ -128,6 +157,13 @@ def test_tune_search_contract_requires_search_block():
     assert err is not None
     assert "choose_*" in err
     assert "make_randomized_search" in err
+
+
+def test_backbone_check_mode():
+    assert code_util.backbone_check_mode("model_eval_agent_1_1") == "strict"
+    assert code_util.backbone_check_mode("tune_implement_agent_1") == "overlap"
+    assert code_util.backbone_check_mode("ablation_agent_1") == "overlap"
+    assert code_util.backbone_check_mode("plan_implement_agent_1") is None
 
 
 def test_should_enforce_backbone_drift_init_and_tune_only():
@@ -171,35 +207,39 @@ def test_ablation_contract_passes_with_print_template():
     assert code_util.ablation_contract_violation(code) is None
 
 
-def test_ablation_backbone_requires_overlap_with_input():
+def test_backbone_overlap_requires_shared_estimator():
     required = {"CatBoostClassifier"}
-    err = code_util.ablation_backbone_violation(
+    err = code_util.backbone_violation(
         required,
         "from sklearn.ensemble import RandomForestClassifier\n"
         "RandomForestClassifier()",
         label="input solution at refine step 0",
+        mode="overlap",
     )
     assert err is not None
     assert "CatBoostClassifier" in err
     assert "no overlap" in err
 
 
-def test_ablation_backbone_passes_when_input_estimator_present():
+def test_backbone_overlap_passes_when_input_estimator_present():
     code = (
         "from catboost import CatBoostClassifier\n"
         "CatBoostClassifier()\n"
         "from sklearn.ensemble import RandomForestClassifier\n"
         "RandomForestClassifier()"
     )
-    assert code_util.ablation_backbone_violation(
+    assert code_util.backbone_violation(
         {"CatBoostClassifier"},
         code,
         label="input solution at refine step 0",
+        mode="overlap",
     ) is None
 
 
-def test_ablation_backbone_skipped_when_anchor_empty():
-    assert code_util.ablation_backbone_violation(set(), "RandomForestClassifier()", label="") is None
+def test_backbone_overlap_skipped_when_anchor_empty():
+    assert code_util.backbone_violation(
+        set(), "RandomForestClassifier()", label="", mode="overlap"
+    ) is None
 
 
 def test_resolve_backbone_required_ablation_from_input_solution():

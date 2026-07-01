@@ -1212,3 +1212,138 @@ docs/WORKING_PROGRESS_MLE_STAR_SKRUB.md
 - **Remaining pain:** tune search still burns ~17 debug rounds (CatBoost `choose_*` + ensemble backbone set-equality).
 - **Docs:** see `BACKBONE_DRIFT_GUARDS.md` for pre-exec matrix (strict init/tune vs overlap ablation).
 
+---
+
+## Progress update (2026-07-01): tuning reliability, search budget policy, backbone overlap
+
+Follow-up after Spaceship validation (§45) and iterative tuning/backbone work on `fix-refinement-debug-drift` runs (`r5`–`r8`, `adk_run_20260701_160102`).
+
+### 46) Backbone guards — unified API, tune uses overlap
+
+Consolidated drift logic in `code_util.py` + aligned debug contract in `debug_util.py`.
+
+| Helper | Role |
+|--------|------|
+| `backbone_check_mode(agent_name)` | `'strict'` \| `'overlap'` \| `None` |
+| `backbone_violation(required, code, label, mode=...)` | Single check; returns `stderr` or `None` |
+| `canonical_estimator_set()` | Alias normalization (`LGBMClassifier` ↔ `LightGBMClassifier`, XGBoost aliases) |
+
+**Enforcement matrix (current):**
+
+| Agent prefix | Mode | Anchor |
+|--------------|------|--------|
+| `model_eval*` | **strict** (exact estimator set) | Retriever model name → init anchor fallback |
+| `tune_implement*` | **overlap** (≥1 shared class) | `train_code_{outer_loop_round}_{task_id}` |
+| `ablation*` | **overlap** | `train_code_{refine_step}_{task_id}` |
+| `plan_implement*` | prompt only | — |
+
+**Change from §41 / early `BACKBONE_DRIFT_GUARDS.md`:** tune search no longer requires **full set equality** with structural scripts. Overlap fixes false pre-exec failures when ensemble tune scripts drop an unused import or tune one leg while keeping the pipeline intent. Init debug remains **strict**.
+
+Full reference: [`docs/BACKBONE_DRIFT_GUARDS.md`](./BACKBONE_DRIFT_GUARDS.md) (note: tune row may still describe strict equality in places — code uses overlap).
+
+### 47) `map_tuning_best_params` — value-aware mapping (server-side fix)
+
+**Problem (Spaceship r8):** agents printed `TUNING_BEST_PARAMS` keyed by `data_op__N` or with **swapped** param values (`n_estimators=0`, `learning_rate=1600`) when skrub key order ≠ plan param order.
+
+**Shipped in `code_util.map_tuning_best_params()`:**
+
+- Always match each search value to plan `tunable_params[]` by **kind + range/outcomes**, not by `data_op__` index.
+- Fill missing mapped params from plan **`default`** when value match is partial.
+- Coerce types per spec (`choose_int` / `choose_float` / `choose_from`).
+- Tests: `tests/test_code_util.py` (value-order swap, choose_from variant key, swapped human-named values) — **22 passing**.
+
+Prompt + skill handoff aligned: `tuning/prompt.py`, `tuning_dataops_template.md` — agents must build human-named `TUNING_BEST_PARAMS`; server mapping is the safety net.
+
+### 48) Tuning prompts + skill refs (ensemble, budget, failures)
+
+| Topic | Where |
+|-------|--------|
+| Ensemble tuning | `tuning/prompt.py` — tune **one leg**, freeze others; same blend for holdout score |
+| Search budget | Plan + implement prompts — `n_iter` from config, `{exec_time}` from `exec_timeout`; holdout only, no CV |
+| CatBoost / non-sklearn | Pattern 4 `choose_from` variant grid (not inline `choose_float` on kwargs) |
+| `SkrubLearner` has no `.predict` | `common_failure_fixes.md` §1b — graph must end on `.skb.apply(Estimator, y=y)`, not bare transform |
+| Bake integrity | No `choose_*` / search in baked code; restore structural tree capacity after search |
+
+### 49) Search compute budget — `n_iter` in config, `n_jobs` in prompts
+
+**Config (`shared_libraries/config.py`):**
+
+| Flag | Current role |
+|------|----------------|
+| `tuning_n_iter` | Server-side cap on randomized search trials (config knob; value may vary by branch) |
+| `tuning_n_jobs` | **Removed** — no longer wired into agents |
+| `exec_timeout` | Injected into tune plan/implement prompts as search wall-clock budget |
+
+**Prompt + skill policy (randomized search only):**
+
+- **Grid search auto-pick** (`recommend_tune_search_strategy`, grid combo pre-check) was prototyped in `code_util.py` then **reverted** — keep **randomized search** with enough `n_iter` budget for now.
+- **`n_jobs` is agent-chosen**, documented in `tuning/prompt.py`, `choices_hparam_pattern.md`, `tuning_dataops_template.md`, `SKILL.md`, `dataops_api_quickmap.md`:
+  - Search `n_jobs` parallelizes **across trials**; tree boosters thread **inside each fit** → nested parallelism can oversubscribe CPUs and blow the timeout.
+  - **Default search `n_jobs=1`** for LightGBM/CatBoost/XGBoost or estimators with `n_jobs≠1` — **predictable wall-clock**, not a correctness rule (`n_jobs=2` can still work).
+  - Search **`n_jobs=2`** OK when estimator uses **`n_jobs=1`** or trials are very cheap.
+  - Single-threaded sklearn: search **`n_jobs=2`** (up to **`4`** if trials are very fast).
+  - Never search **`n_jobs=-1`**.
+
+Manual experiment: `tests/test_tuning_script.py` (LGBM holdout search sandbox). **Not a pytest test** — run from `tests/` so `./input/train.csv` resolves:
+
+```bash
+cd agents/machine-learning-engineering/tests
+uv run python test_tuning_script.py
+```
+
+Requires `lightgbm` in the project venv (not listed in `pyproject.toml` deps; install if missing).
+
+### 50) Run analysis — Spaceship Titanic r8 (`adk_run_20260701_160102`)
+
+Artifacts: `test-runs/spaceship-titanic/gpt-5.4-mini/fix-refinement-debug-drift/r8/`
+
+| Finding | Detail |
+|---------|--------|
+| Best honest holdout | ~**0.800** (LGBM init / refinement rollback path) |
+| Tuning stage | Agent-side param mapping was wrong; **`tune_winner_source: structural`** — promotion gate prevented shipping bad bake |
+| Server-side fix | §47 `map_tuning_best_params` addresses value swap / `data_op__` ordering |
+| Ablation / refine / drift guards | Working as intended on this run |
+| **Urgent open** | **Ensemble holdout leakage** (~0.978 reported) — models trained on alternate splits still evaluated on a fixed `valid_part`; not fixed yet |
+
+### Known open items (updated 2026-07-01)
+
+- [ ] **Ensemble holdout leakage** — highest priority from r8 analysis.
+- [ ] Align `BACKBONE_DRIFT_GUARDS.md` tune row with **overlap** mode (if still says strict equality).
+- [ ] Tune stage still costly when agents ignore CatBoost Pattern 4 or drop search — monitor on next run.
+- [ ] Fix vanilla `debug_prompt.py` / leakage checker patterns A–C (carried forward).
+- [ ] Optional: prompt-only mention of `make_grid_search` for fully discrete plans (no auto-pick in code).
+
+### Files touched (2026-07-01)
+
+```
+agents/.../shared_libraries/
+  config.py                    # tuning_n_jobs removed; tuning_n_iter + exec_timeout budget
+  code_util.py                 # backbone_check_mode, overlap tune, map_tuning_best_params
+
+agents/.../shared_libraries/debug_util.py
+agents/.../sub_agents/tuning/
+  agent.py                     # exec_time + n_iter wiring; tune implement instruction fix
+  prompt.py                    # ensemble one-leg, n_jobs policy, TUNING_BEST_PARAMS mapping
+
+agents/.../skills/skrub-dataops-pipeline/
+  SKILL.md
+  references/choices_hparam_pattern.md
+  references/tuning_dataops_template.md
+  references/dataops_api_quickmap.md
+  references/common_failure_fixes.md   # §1b SkrubLearner.predict
+
+agents/.../tests/
+  test_code_util.py            # 22 tests
+  test_tuning_script.py        # manual LGBM tuning sandbox
+
+docs/BACKBONE_DRIFT_GUARDS.md
+docs/WORKING_PROGRESS_MLE_STAR_SKRUB.md
+```
+
+### TL;DR (2026-07-01)
+
+- **Backbone:** init strict; tune + ablation **overlap**; unified `backbone_violation` API + LGBM aliases.
+- **Tuning mapping:** value-range `map_tuning_best_params` fixes agent `data_op__` / swapped-value handoff; promotion gate still essential.
+- **Search budget:** `tuning_n_iter` in config; **`n_jobs` prompt-driven** with nested-parallelism guidance (not a config flag); grid auto-pick reverted — randomized only.
+- **Next:** fix ensemble holdout leakage; validate tune wins on fresh run post-mapping fix.
+

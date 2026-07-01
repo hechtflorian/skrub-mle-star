@@ -144,7 +144,7 @@ print("TUNING_BEST_PARAMS:", json.dumps(best_params, default=str))
 ## Critical rule: search must fit the execution time budget
 - Total search runtime ≈ (n_iter + 1) × single-fit time; the whole script must finish **well under the execution timeout (default 600s)**. If one structural fit takes minutes, a full-capacity search will time out and the tuning stage fails.
 - For boosted trees, **reduce capacity during search**: cut `iterations`/`n_estimators` to roughly 1/4 of the structural value or use early stopping. Relative ranking of nearby configs is preserved; the winner is baked at structural capacity afterwards.
-- Use `n_jobs=1` in `make_randomized_search` when the estimator is internally multithreaded (CatBoost, LightGBM, XGBoost) — parallel search over parallel fits oversubscribes CPU and is slower.
+- Search `n_jobs` runs trials in parallel; multithreaded estimators (CatBoost, LightGBM, XGBoost) or sklearn with `n_jobs`≠1 also parallelize each fit — default search `n_jobs=1` to avoid CPU oversubscription and stay under the exec timeout (not because higher values fail). Search `n_jobs=2` is OK if the estimator uses `n_jobs=1` or trials are very cheap. For single-threaded sklearn, `n_jobs=2` is reasonable; up to `4` only for very fast fits. Never search `n_jobs=-1`.
 - Keep the search space small and focused: few params, tight ranges, low `n_iter`. One cheap completed search beats an ambitious one that times out.
 
 ## Search execution pattern
@@ -153,8 +153,8 @@ Holdout search (`tune_implement` only — holdout metric + `TUNING_BEST_PARAMS`)
 import json
 
 search = pred.skb.make_randomized_search(
-    n_iter=8, n_jobs=4, random_state=1, fitted=True
-)
+    n_iter=n_iter, n_jobs=n_jobs, random_state=n, fitted=True
+)  # single-threaded sklearn; for LGBM/CatBoost/XGBoost default search n_jobs=1 (or estimator n_jobs=1 + search n_jobs=2)
 search.fit({"data": train_part})  # train fold only — not full train_df, not valid_part
 best_learner = search.best_learner_
 

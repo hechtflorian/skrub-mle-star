@@ -9,9 +9,10 @@ Minimal shape for terminal `tune_implement` scripts. **Copy your given previous 
 - Keep the same estimator classes as structural (e.g. if structural uses LGBM+CatBoost, do not swap to RF).
 - If structural scores an ensemble, the search script must score with the **same blend** after search (tune one leg, keep others fixed).
 - Reduce boosted-tree `iterations`/`n_estimators` to ~1/2 structural during search; then restore full capacity in bake.
+- Search parallelism: search `n_jobs` parallelizes trials; tree boosters thread inside each fit — default search `n_jobs=1` for LightGBM/CatBoost/XGBoost or estimators with `n_jobs`≠1 (predictable runtime). Search `n_jobs=2` is OK with estimator `n_jobs=1` or very cheap trials. Single-threaded sklearn: `n_jobs=2` (up to `4` if trials are very fast). Never search `n_jobs=-1`.
 - Print holdout score and `TUNING_BEST_PARAMS` (see below).
 
-## Skeleton (sklearn-API estimator — inline `choose_*`)
+## Standard Pattern Skeleton (if sklearn-API estimator — use inline `choose_*`)
 ```python
 import json
 import numpy as np
@@ -55,7 +56,8 @@ valid_pred = search.best_learner_.predict({"data": valid_part})
 score = metric_fn(valid_part[target_col], valid_pred)
 print(f"Final Validation Performance: {score}")
 
-best_params = {"lr": ...}  # map from search.best_params_ to plan param names
+# see TUNING_BEST_PARAMS mapping section below
+best_params = {...}
 print("TUNING_BEST_PARAMS:", json.dumps(best_params, default=str))
 ```
 
@@ -81,17 +83,35 @@ search.fit({"data": train_part})
 
 Do **not** use `low_cardinality="one-hot"` or `"auto"` — invalid. Use `"drop"`/`"passthrough"` or you can also use `choose_*` to search over transformer instances.
 
-## Pattern: non-sklearn estimator (CatBoost, etc.)
-Use a small `choose_from` variant grid — see `choices_hparam_pattern.md` Pattern 4. Do not put `choose_*` in CatBoost constructor kwargs.
+## Pattern 2: non-sklearn estimator (CatBoost, etc.)
+Inline `choose_*` in constructor kwargs does **not** resolve — use a small `choose_from` variant grid (whole pre-built estimator per key):
+```python
+cat_variants = {
+    "d6_lr0.03": dict(depth=6, learning_rate=0.03, iterations=300, verbose=-1),
+    "d8_lr0.03": dict(depth=8, learning_rate=0.03, iterations=300, verbose=-1),
+    "d8_lr0.05": dict(depth=8, learning_rate=0.05, iterations=300, verbose=-1),
+}
+cat_model = skrub.choose_from(
+    {k: CatBoostClassifier(**p, random_seed=42) for k, p in cat_variants.items()},
+    name="cat_variant",
+)
+pred = X_train.skb.apply(vectorizer).skb.apply(cat_model, y=y_train)
+search = pred.skb.make_randomized_search(n_iter=n_iter, n_jobs=1, random_state=n, fitted=True)
+search.fit({"data": train_part})
+chosen = search.results_.iloc[0]["cat_variant"]
+best_params = dict(cat_variants[chosen])
+print("TUNING_BEST_PARAMS:", json.dumps(best_params, default=str))
+```
+LightGBM/XGBoost are sklearn-API — use Pattern 1 inline `choose_*` instead. Details: `choices_hparam_pattern.md` Pattern 4.
 
-## Pattern: ensemble structural
+## Pattern 3: ensemble structural
 Copy both legs and the blend from structural. Inject `choose_*` only on the tunable leg; keep the other leg fixed; score with the same ensemble rule as structural:
 ```python
 # ... same FE + split as structural ...
 lgbm_pred = X_train.skb.apply(vec_lgbm).skb.apply(lgbm_with_choose, y=y_train)
 cat_pred = X_train.skb.apply(vec_cat).skb.apply(cat_fixed, y=y_train)
 
-search = lgbm_pred.skb.make_randomized_search(n_iter=n_iter, n_jobs=1, random_state=n, fitted=True)
+search = lgbm_pred.skb.make_randomized_search(n_iter=n_iter, n_jobs=n_jobs, random_state=n, fitted=True)
 search.fit({"data": train_part})
 
 valid_lgbm = search.best_learner_.predict({"data": valid_part})
@@ -99,6 +119,33 @@ cat_learner = cat_pred.skb.make_learner(fitted=True)
 valid_cat = cat_learner.predict({"data": valid_part})
 valid_pred = blend(valid_lgbm, valid_cat)  # same rule as structural
 print(f"Final Validation Performance: {metric_fn(...)}")
+```
+
+## TUNING_BEST_PARAMS mapping
+- **Never** map by `data_op__0`, `data_op__1`, ... — index order is unstable and causes swaps.
+- **Inline `choose_*`:** for each plan `tunable_params[]` entry, pick the value from `search.best_params_.values()` whose numeric range matches the spec (`choose_int` / `choose_float`); fall back to spec `default`. Key output by plan `name`.
+- **`choose_from` variant grid:** `chosen = search.results_.iloc[0]["<choice_name>"]`; `best_params = dict(variants[chosen])`.
+- Sanity-check before print: ints in range, floats in `(0, 1]` for learning rates, no swapped param types.
+
+```python
+# Map search values → plan param names (never by data_op__ index)
+tune_plan = {"tunable_params": [{"name": "lr", "kind": "choose_float", "low": 0.01, "high": 0.04, "default": 0.02}, ...]}
+raw_values = list(search.best_params_.values())
+best_params = {}
+remaining = list(raw_values)
+for spec in tune_plan["tunable_params"]:
+    name, kind = spec["name"], spec["kind"]
+    if kind == "choose_int":
+        match = next((v for v in remaining if spec["low"] <= int(round(float(v))) <= spec["high"]), spec.get("default"))
+        best_params[name] = int(round(float(match)))
+    elif kind == "choose_float":
+        match = next((v for v in remaining if spec["low"] <= float(v) <= spec["high"]), spec.get("default"))
+        best_params[name] = float(match)
+    else:
+        match = remaining.pop(0) if remaining else spec.get("default")
+        best_params[name] = match
+    if match in remaining:
+        remaining.remove(match)
 ```
 
 ## Required output

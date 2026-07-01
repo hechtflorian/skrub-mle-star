@@ -17,20 +17,26 @@ TUNE_PLAN_INSTR = """# Introduction
 {plan_summary}
 
 # Your task
-- Pick **one** focus block only: `model`, `encoder`, or `preprocessing`.
-- Prefer `model` when ablation showed capacity or model-side effects; prefer `encoder` when encoding ablation clearly mattered.
+- Pick **one** focus block only: `model` or `encoder`/`preprocessing`.
+- Prefer `model` when ablation showed capacity or model-side effects; prefer `encoder`/`preprocessing` when encoding ablation clearly mattered.
 - Model focus: at most **2** `choose_*` nodes with tight ranges around current literals.
 - Encoder/preprocessing focus: at most **2** `choose_*` nodes; if tuning `TableVectorizer`, plan `choose_from` of whole vectorizers or encoder instances only.
 - If the backbone estimator is **not** a sklearn-API estimator (`sklearn.base.BaseEstimator` subclass — e.g. CatBoost is not), numeric `choose_*` in its constructor will not resolve; plan a small discrete variant grid via `choose_from` instead (see `choices_hparam_pattern.md` Pattern 4), still with `default` values per param.
 - Do not propose new feature engineering, backbone swap, or multiple focus blocks.
 - Use the same holdout split as the current solution (`train_test_split` size and `random_state`).
-- Search budget: `n_iter={n_iter}` (holdout randomized search only, no CV).
 
 # Requirements
 - Call `list_skills` -> `load_skill` for `skrub-dataops-pipeline` and load `references/choices_hparam_pattern.md` via `load_skill_resource`.
 - If `focus_block` is `encoder` or `preprocessing`, also load `references/encoding_skrub.md`.
 - List which pipeline parts stay frozen in `frozen`.
 - Use the same backbone estimator class(es) as the input Python solution above for your tuning plan; do not substitute a different model family.
+- If the structural solution is an ensemble (multiple estimators blended), pick **one** leg to tune (highest expected impact from ablation) and list the other leg(s) in `frozen` with fixed structural params.
+
+# Search budget
+- `n_iter={n_iter}`. Holdout only (same split as structural). No CV.
+- `make_randomized_search(..., n_jobs=...)`: search `n_jobs` parallelizes **across trials**; LightGBM/CatBoost/XGBoost (and sklearn with `n_jobs`≠1) also thread **inside each fit** — stacking both can oversubscribe CPUs and blow the timeout. **Default search `n_jobs=1`** for multithreaded backbones (predictable wall-clock, not a correctness rule). Search **`n_jobs=2`** is fine when the estimator uses `n_jobs=1` or trials are very cheap. For single-threaded sklearn, **`n_jobs=2`** is reasonable; up to **`4`** only when each trial is very fast. Never search `n_jobs=-1`.
+- Reduce boosted-tree `iterations`/`n_estimators` to ~1/2 of the structural value during search.
+- Keep total search time under the execution timeout ({exec_time} seconds): runtime ≈ `(n_iter + 1) * per-trial fit time`.
 
 # Response format
 - Return a single JSON object only (no markdown fences, no extra text).
@@ -59,11 +65,6 @@ TUNE_IMPLEMENT_INSTR = """# Introduction
 # Tuning plan (JSON)
 {tune_plan}
 
-# Search budget
-- `n_iter={n_iter}`, `n_jobs={n_jobs}`
-- Holdout only (same split as current solution). No CV.
-- Reduce boosted-tree `iterations`/`n_estimators` to ~1/2 of the structural value during search, and use `n_jobs=1` if the estimator is internally multithreaded (e.g., CatBoost/LightGBM/XGBoost).
-
 # Requirements
 - Load `references/tuning_dataops_template.md` and `references/choices_hparam_pattern.md` via skill tools before editing. Follow the tuning template skeleton; copy structural FE, encoders, and ensemble scoring verbatim that you received from the previous solution.
 - If plan `focus_block` is `encoder` or `preprocessing`, also load `references/encoding_skrub.md`.
@@ -72,18 +73,25 @@ TUNE_IMPLEMENT_INSTR = """# Introduction
 - Keep `choose_*` inside the DataOps `.skb.apply(...)` graph only — never assign a `choose_*` to a variable and pass it into an estimator constructor. For sklearn-API estimators use inline kwargs on `.skb.apply(Estimator(param=skrub.choose_float(...)), y=y)`; for non-sklearn estimators (e.g. CatBoost) inline kwargs do **not** resolve — use the `choose_from` variant-grid pattern (`choices_hparam_pattern.md` Pattern 4) and print the winning variant's literal params as `TUNING_BEST_PARAMS`.
 - You must keep the same DataOps pipeline architecture as the structural solution; only add `choose_*` on the focus block.
 - Use the same backbone estimator class(es) as the input structural solution above in your script; do not substitute a different model family.
+- If the structural solution is an ensemble, tune **one** estimator leg only (the plan's focus); keep other leg(s) fixed at structural params and score with the same blend rule.
 - Reproduce the structural pipeline **verbatim** — every `.skb.apply_func(...)` feature step, scaler, encoder, and column-routing step must appear unchanged in your script; if the structural solution compares variants at runtime, reproduce only its winning variant.
-- Run search from the final prediction DataOp: `search = pred.skb.make_randomized_search(n_iter={n_iter}, n_jobs={n_jobs}, random_state=42, fitted=True)`
+- Run search from the final prediction DataOp (pick `n_jobs` per Search budget below): `search = pred.skb.make_randomized_search(n_iter={n_iter}, n_jobs=n_jobs, random_state=random_state, fitted=True)`
 - **Must** fit search on the training fold only: `search.fit({{"data": train_part}})`
 - Evaluate holdout score with `search.best_learner_.predict({{"data": valid_part}})` (after `search.fit`).
-- Build a JSON-serializable `best_params` dict keyed by plan `tunable_params[].name` (native Python floats/ints, not numpy scalars). Map each value from `search.best_params_` to the matching plan param by kind/range — do **not** forward raw `data_op__N` keys.
+- **TUNING_BEST_PARAMS mapping:** match each `search.best_params_` **value** to plan `tunable_params[]` by kind/range; never map by `data_op__` index. For `choose_from`, map from `search.results_.iloc[0]`. See `tuning_dataops_template.md`.
 - Print holdout score as: `Final Validation Performance: {{score}}`
-- Print best params as one line using: `print("TUNING_BEST_PARAMS:", json.dumps(best_params, default=str))`
 - Do **not** load `test_df`, refit on full `train_df`, or write `submission.csv` — holdout metric only.
 - This script **must** contain `make_randomized_search`, `search.fit`, `choose_*`, and the `TUNING_BEST_PARAMS` print.
 
+# Search budget
+- `n_iter={n_iter}`. Holdout only (same split as structural). No CV.
+- `make_randomized_search(..., n_jobs=...)`: search `n_jobs` parallelizes **across trials**; LightGBM/CatBoost/XGBoost (and sklearn with `n_jobs`≠1) also thread **inside each fit** — stacking both can oversubscribe CPUs and blow the timeout. **Default search `n_jobs=1`** for multithreaded backbones (predictable wall-clock, not a correctness rule). Search **`n_jobs=2`** is fine when the estimator uses `n_jobs=1` or trials are very cheap. For single-threaded sklearn, **`n_jobs=2`** is reasonable; up to **`4`** only when each trial is very fast. Never search `n_jobs=-1`.
+- Reduce boosted-tree `iterations`/`n_estimators` to ~1/2 of the structural value during search.
+- Keep total search time under the execution timeout ({exec_time} seconds): runtime ≈ `(n_iter + 1) * per-trial fit time`.
+
 # Response format
 - Single markdown Python code block only.
+- Make sure to also print best search params found as one line using: `print("TUNING_BEST_PARAMS:", json.dumps(best_params, default=str))`
 - Never respond with prose-only messages such as "no more output is needed"; always return runnable Python code.
 - Tool calls are preparation only; finish with runnable Python code."""
 

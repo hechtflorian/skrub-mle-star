@@ -40,8 +40,8 @@ class DefaultConfig:
     use_data_usage_checker: bool = False  # Enable (`True`) or disable (`False`) a check for how data is being used, potentially for compliance or best practices. (DEFAULT: False)
     table_report_enabled: bool = True  # Build TableReport data profile for refinement prompts (ablation + planners).
     tuning_enabled: bool = True  # Run terminal choose_* search after refinement.
-    tuning_n_iter: int = 4  # Max randomized search iterations for terminal tuning.
-    tuning_n_jobs: int = 1  # Parallel jobs for terminal randomized search.
+    tuning_n_iter: int = 5  # Max randomized search iterations for terminal tuning.
+    #tuning_n_jobs: int = 2  # Parallel jobs for terminal randomized search.
 
 
 CONFIG = DefaultConfig()

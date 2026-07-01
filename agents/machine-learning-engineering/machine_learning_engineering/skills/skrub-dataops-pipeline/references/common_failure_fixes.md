@@ -9,6 +9,14 @@ Use this during debugging. Keep DataOps architecture unchanged.
   - compile first: `learner = pred.skb.make_learner(fitted=True)` with the correct bound data (see item 15 for holdout binding).
   - If fitting manually after compile, fit with environment dict (not `X, y` positional form).
 
+## 1b) `SkrubLearner` has no `.predict`
+- Symptom: `AttributeError: 'SkrubLearner' object has no attribute 'predict'`.
+- Root cause: the graph's **last** `.skb.apply(...)` is a transform/vectorizer, not a classifier/regressor with `y=`.
+- Fix:
+  - End the chain with a real model: `pred = X.skb.apply(...).skb.apply(Estimator(...), y=y)`.
+  - Then `learner = pred.skb.make_learner(fitted=True)` and `learner.predict({"data": valid_part})`.
+  - Do not substitute `TableVectorizer` or routing stubs for the final estimator step.
+
 ## 2) Predict environment violation
 - Symptom: `TypeError: environment should be a dictionary of input values`.
 - Fix:

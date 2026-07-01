@@ -154,8 +154,8 @@ pred = augmented_baskets.skb.apply(
     y=fraud_flags,
 )
 search = pred.skb.make_randomized_search(
-    scoring="roc_auc", n_iter=8, n_jobs=4, random_state=0, fitted=True
-)
+    scoring="scoring_func", n_iter=n_iter, n_jobs=n_jobs, random_state=random_state, fitted=True
+)  # tree boosters: default search n_jobs=1; or estimator n_jobs=1 + search n_jobs=2; max 4 for very fast single-threaded fits
 ```
 
 ## Validation checklist

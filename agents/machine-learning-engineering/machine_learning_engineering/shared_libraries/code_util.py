@@ -49,9 +49,19 @@ def retriever_estimator_classes(model_name: str) -> set[str]:
     return set(_ESTIMATOR_CLASS_RE.findall(model_name))
 
 
+def backbone_check_mode(agent_name: str) -> str | None:
+    """Return 'strict' (exact set), 'overlap' (≥1 shared), or None."""
+    if agent_name.startswith("model_eval"):
+        return "strict"
+    if agent_name.startswith("tune_implement") or agent_name.startswith("ablation"):
+        return "overlap"
+    return None
+
+
 def should_enforce_backbone_drift(agent_name: str) -> bool:
     """Stages where debug must not swap the backbone estimator set."""
-    return agent_name.startswith("model_eval") or agent_name.startswith("tune_implement")   # can add more here if needed to enable preexec code checks
+    mode = backbone_check_mode(agent_name)
+    return mode is not None and not agent_name.startswith("ablation")
 
 
 def debug_anchor_code_key(suffix: str) -> str:
@@ -108,24 +118,34 @@ def resolve_backbone_required(
     return set(), ""
 
 
-def backbone_drift_violation(
+def backbone_violation(
     required: set[str],
     candidate_code: str,
     *,
     label: str,
+    mode: str = "strict",
 ) -> str | None:
-    """Return an error if candidate code uses a different estimator set."""
+    """Return an error if candidate code violates backbone constraints."""
     if not required:
         return None
     required_canon = canonical_estimator_set(required)
     candidate_canon = canonical_estimator_set(_estimator_classes(candidate_code))
-    if candidate_canon == required_canon:
+    if mode == "strict":
+        if candidate_canon == required_canon:
+            return None
+        return (
+            "Backbone drift: keep estimator classes "
+            f"{sorted(required_canon)} ({label}); got {sorted(candidate_canon)}. "
+            "Fix the reported error without swapping model families or "
+            "simplifying to a different pipeline."
+        )
+    if required_canon & candidate_canon:
         return None
     return (
-        "Backbone drift: keep estimator classes "
-        f"{sorted(required_canon)} ({label}); got {sorted(candidate_canon)}. "
-        "Fix the reported error without swapping model families or "
-        "simplifying to a different pipeline."
+        "Backbone overlap: anchor uses "
+        f"{sorted(required_canon)} ({label}); script has {sorted(candidate_canon)} "
+        "with no overlap. Keep at least one strong anchor estimator; "
+        "do not swap to a different model family."
     )
 
 
@@ -156,27 +176,6 @@ def ablation_contract_violation(code: str) -> str | None:
     return (
         "Ablation contract: missing Ablation[...] print template "
         "(print(f'Ablation[<variant_name>] <metric>: <value>')). Evaluate at least 2 variants."
-    )
-
-
-def ablation_backbone_violation(
-    required: set[str],
-    candidate_code: str,
-    *,
-    label: str,
-) -> str | None:
-    """Baseline must reuse at least one input-solution estimator (overlap, not set equality)."""
-    if not required:
-        return None
-    required_canon = canonical_estimator_set(required)
-    candidate_canon = canonical_estimator_set(_estimator_classes(candidate_code))
-    if required_canon & candidate_canon:
-        return None
-    return (
-        "Ablation backbone: input solution uses "
-        f"{sorted(required_canon)} ({label}); script has {sorted(candidate_canon)} "
-        "with no overlap. Include at least one input estimator in the baseline "
-        "variant; other variants may test additional models only as explicit hypotheses."
     )
 
 
@@ -212,12 +211,13 @@ def preexec_code_failure(
             "stderr": f"Syntax error: {exc}",
             "execution_time": 0.0,
         }
-    if should_enforce_backbone_drift(agent_name):
+    if mode := backbone_check_mode(agent_name):
         required, label = resolve_backbone_required(
             callback_context, agent_name, suffix
         )
-        drift = backbone_drift_violation(required, raw_code, label=label)
-        if drift:
+        if drift := backbone_violation(
+            required, raw_code, label=label, mode=mode
+        ):
             return {
                 "returncode": 1,
                 "stdout": "",
@@ -240,17 +240,6 @@ def preexec_code_failure(
                 "returncode": 1,
                 "stdout": "",
                 "stderr": contract,
-                "execution_time": 0.0,
-            }
-        required, label = resolve_backbone_required(
-            callback_context, agent_name, suffix
-        )
-        backbone = ablation_backbone_violation(required, raw_code, label=label)
-        if backbone:
-            return {
-                "returncode": 1,
-                "stdout": "",
-                "stderr": backbone,
                 "execution_time": 0.0,
             }
     return None
@@ -422,7 +411,7 @@ def _map_params_by_value_match(values: list[Any], specs: list[dict]) -> dict | N
     used_specs: set[int] = set()
     mapped: dict = {}
     for cost, value_idx, spec_idx in pairs:
-        if cost == float("inf"):
+        if cost != 0.0:
             continue
         if value_idx in used_values or spec_idx in used_specs:
             continue
@@ -433,40 +422,51 @@ def _map_params_by_value_match(values: list[Any], specs: list[dict]) -> dict | N
         used_values.add(value_idx)
         used_specs.add(spec_idx)
 
-    if len(mapped) == len(specs):
-        return mapped
-    return None
+    return mapped or None
+
+
+def _coerce_tuned_param_value(value: Any, spec: dict) -> Any:
+    value = _normalize_param_value(value)
+    kind = spec.get("kind", "")
+    if kind == "choose_int":
+        return int(round(float(value)))
+    if kind == "choose_float":
+        return float(value)
+    return value
 
 
 def map_tuning_best_params(raw: dict, tune_plan: dict) -> dict:
-    """Map skrub search keys (e.g. data_op__0) to plan param names."""
+    """Map skrub search output to plan param names via value-range matching."""
     if not raw:
         return raw
-    tunable = tune_plan.get("tunable_params") or []
-    specs = [p for p in tunable if isinstance(p, dict) and p.get("name")]
-    names = [p["name"] for p in specs]
-    if not names:
+    specs = [
+        p
+        for p in (tune_plan.get("tunable_params") or [])
+        if isinstance(p, dict) and p.get("name")
+    ]
+    if not specs:
         return raw
     raw = normalize_tuning_best_params(raw)
-    if set(raw.keys()) == set(names):
-        return raw
-
-    ordered_values = [
+    values = [
         _normalize_param_value(value)
         for _, value in sorted(raw.items(), key=lambda item: _data_op_sort_key(item[0]))
     ]
-    if len(names) != len(ordered_values):
+    if len(values) != len(specs):
         return raw
 
-    if any(key.startswith("data_op__") for key in raw.keys()) or set(raw.keys()) != set(
-        names
-    ):
-        mapped = _map_params_by_value_match(ordered_values, specs)
-        if mapped:
-            return normalize_tuning_best_params(mapped)
+    mapped = _map_params_by_value_match(values, specs) or {}
+    for spec in specs:
+        name = spec["name"]
+        if name not in mapped and spec.get("default") is not None:
+            mapped[name] = spec["default"]
+    if len(mapped) != len(specs):
+        return raw
 
     return normalize_tuning_best_params(
-        {name: ordered_values[i] for i, name in enumerate(names)}
+        {
+            spec["name"]: _coerce_tuned_param_value(mapped[spec["name"]], spec)
+            for spec in specs
+        }
     )
 
 
