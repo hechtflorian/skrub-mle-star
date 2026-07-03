@@ -183,7 +183,7 @@ Use this during debugging. Keep DataOps architecture unchanged.
 ## 21) Custom wrapper classes/objects around DataOps graphs break `.skb`
 - Symptom: `AttributeError` on `.skb.make_learner(...)` / `.skb` because the object is a custom class or plain function result, not a DataOp; often from a helper that bundles several graphs into an invented "ensemble" wrapper.
 - Root cause: only skrub DataOp objects carry the `.skb` accessor. A hand-written class wrapping graphs (or mimicking `.skb` with a method) is not part of the skrub API.
-- Fix (verified pattern — combine **predictions**, not graph/learner objects):
+- Fix: use **Pattern A** from `ensemble_dataops_patterns.md` — separate `pred` chains, separate learners, blend predictions in numpy:
 ```python
 pred_a = X.skb.apply(vectorizer).skb.apply(model_a, y=y)
 pred_b = X.skb.apply(vectorizer).skb.apply(model_b, y=y)
@@ -202,3 +202,4 @@ blend = 0.7 * np.asarray(learner_a.predict({"data": valid_part})) \
 - Load `choices_hparam_pattern.md` for `choose_*` semantics, fake-tuning prevention, or grid/randomized search fixes.
 - Load `dataops_tuning_optuna.md` for Optuna-specific search/debug patterns.
 - Load `joining_across_columns.md` for multi-table merge/aggregation correctness.
+- Load `ensemble_dataops_patterns.md` for ensemble merge structure or wrapper-class mistakes (#21).

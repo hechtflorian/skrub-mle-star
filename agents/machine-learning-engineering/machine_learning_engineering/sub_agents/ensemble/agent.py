@@ -196,6 +196,7 @@ init_ensemble_plan_agent = agents.Agent(
     instruction=get_init_ensemble_plan_agent_instruction,
     before_agent_callback=init_ensemble_loop_states,
     after_model_callback=get_init_ensemble_plan,
+    tools=[skill_tool_util.get_skill_toolset()],
     generate_content_config=types.GenerateContentConfig(
         temperature=config.get_compatible_temperature(
             config.CONFIG.agent_model, 1.0
@@ -217,6 +218,7 @@ ensemble_plan_refine_agent = agents.Agent(
     description="Refine the ensemble plan.",
     instruction=get_ensemble_plan_refinement_instruction,
     after_model_callback=get_refined_ensemble_plan,
+    tools=[skill_tool_util.get_skill_toolset()],
     generate_content_config=types.GenerateContentConfig(
         temperature=config.get_compatible_temperature(
             config.CONFIG.agent_model, 1.0

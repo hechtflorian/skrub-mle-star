@@ -1347,3 +1347,78 @@ docs/WORKING_PROGRESS_MLE_STAR_SKRUB.md
 - **Search budget:** `tuning_n_iter` in config; **`n_jobs` prompt-driven** with nested-parallelism guidance (not a config flag); grid auto-pick reverted — randomized only.
 - **Next:** fix ensemble holdout leakage; validate tune wins on fresh run post-mapping fix.
 
+---
+
+## Progress update (2026-07-03): ensemble DataOps patterns skill + agent wiring
+
+Follow-up on ensemble pipeline structure: multi-leg vs `VotingClassifier`, a dedicated skill reference, and minimal prompt wiring for ensemble + init merger agents.
+
+### 51) Ensemble DataOps patterns — skill reference (`ensemble_dataops_patterns.md`)
+
+**Problem:** Generated ensemble scripts often mixed patterns — LGBM in DataOps, RF/LR fit outside the graph; skills documented multi-leg blend only implicitly via `common_failure_fixes.md` §21; no guidance on when `VotingClassifier` is appropriate.
+
+**Shipped reference:** `skills/skrub-dataops-pipeline/references/ensemble_dataops_patterns.md`
+
+| Pattern | When | Structure |
+|---------|------|-----------|
+| **A (default)** | Merge existing solutions; varying FE/encoder per leg; custom blend/threshold; tune one leg | Shared `apply_func` → fan-out `pred` chains → `make_learner` per leg → numpy blend |
+| **B (optional)** | Fresh single-file script; simple soft vote; one submission learner | Per-leg sklearn `Pipeline` inside `VotingClassifier` → single `.skb.apply` → one `make_learner` |
+
+**Rules in reference:** holdout bind on `train_part`; no custom wrapper classes; no `choose_*` in ensemble export; keep input solution pred chains intact (Pattern A).
+
+**Concise cross-links added:**
+
+- `SKILL.md` — reference directory entry + one-line ensemble policy (Pattern A default)
+- `common_failure_fixes.md` §21 — points to Pattern A; “when to load” link
+- `tuning_dataops_template.md` Pattern 3 — requires Pattern A for per-leg tuning
+- `dataops_api_quickmap.md` — “when to load” for ensemble merge
+
+**Tune agent:** no extra prompt change — discovers Pattern A via `tuning_dataops_template.md` Pattern 3 cross-link.
+
+### 52) Agent prompt wiring (minimal)
+
+| Agent | Change |
+|-------|--------|
+| `ensemble/prompt.py` — init plan, refine plan, implement | One line each: load `ensemble_dataops_patterns.md`; plan/implement Pattern A |
+| `ensemble/agent.py` — init plan + refine plan | Added `skill_tool_util.get_skill_toolset()` (plan agents previously had no skill tools) |
+| `ensemble/agent.py` — implement | Unchanged — already had skill tools |
+| `initialization/prompt.py` — `CODE_INTEGRATION_INSTR` (merger) | One line: load ensemble reference when ensembling base + reference solutions |
+| Init model eval, refinement, ablation, tune, debug, submission | Unchanged — tune via existing cross-links; debug via §21 if wrapper errors |
+
+**Rationale:** Ensemble implement + init **merger** are the only agents that routinely produce multi-estimator merge scripts. Dedicated ensemble stage and init merger both need Pattern A; tune inherits via template.
+
+### Known open items (updated 2026-07-03)
+
+- [ ] **Ensemble holdout leakage** — highest priority from r8 analysis (carried forward).
+- [ ] **Tune backbone on ensembles** — exclude meta-estimator classes from set-equality or use leaf-only set (carried forward).
+- [ ] Align `BACKBONE_DRIFT_GUARDS.md` tune row with **overlap** mode (carried forward).
+- [ ] Optional: pre-exec check that ensemble/merger scripts have ≥2 DataOps legs or per-leg `make_learner` (not wired).
+- [ ] Validate ensemble/merger agents load and follow `ensemble_dataops_patterns.md` on next full run.
+- [x] **Ensemble skill reference** — `ensemble_dataops_patterns.md` + cross-links + agent wiring.
+
+### Files touched (2026-07-03)
+
+```
+agents/.../skills/skrub-dataops-pipeline/
+  references/ensemble_dataops_patterns.md   # NEW — Pattern A skeleton + Pattern B brief
+  SKILL.md
+  references/common_failure_fixes.md          # §21 → Pattern A
+  references/tuning_dataops_template.md       # Pattern 3 link
+  references/dataops_api_quickmap.md
+
+agents/.../sub_agents/ensemble/
+  prompt.py                                   # plan + implement + refine load hints
+  agent.py                                    # skill tools on plan agents
+
+agents/.../sub_agents/initialization/
+  prompt.py                                   # merger CODE_INTEGRATION load hint
+
+docs/WORKING_PROGRESS_MLE_STAR_SKRUB.md
+```
+
+### TL;DR (2026-07-03)
+
+- **Ensemble default:** Pattern A (multi-leg + blend) documented in `ensemble_dataops_patterns.md`; Pattern B (`VotingClassifier`) optional for single-learner fresh scripts.
+- **Agents:** ensemble plan/implement/refine + init merger prompted to load reference; tune unchanged (template cross-link).
+- **Next:** validate on full run; optional pre-exec for multi-leg structure; ensemble holdout leakage still open.
+

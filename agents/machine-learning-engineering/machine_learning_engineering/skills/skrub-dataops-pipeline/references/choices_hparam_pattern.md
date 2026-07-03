@@ -106,9 +106,7 @@ For holdout search + bake handoff on Pattern 2b, load `encoding_skrub.md` for `T
 ```python
 from sklearn.linear_model import RidgeClassifier
 
-model1 = YourModel1(
-    learning_rate=skrub.choose_float(0.01, 0.9, log=True, name="lr")
-)
+model1 = YourModel1(learning_rate=skrub.choose_float(0.01, 0.9, log=True, name="lr"))
 model2 = YourModel2(alpha=skrub.choose_float(0.01, 100, log=True, name="alpha"))
 classifier = skrub.choose_from({"model1": model1, "model2": model2}, name="classifier")
 pred = X.skb.apply(encoder).skb.apply(classifier, y=y)
@@ -144,7 +142,7 @@ print("TUNING_BEST_PARAMS:", json.dumps(best_params, default=str))
 ## Critical rule: search must fit the execution time budget
 - Total search runtime ≈ (n_iter + 1) × single-fit time; the whole script must finish **well under the execution timeout (default 600s)**. If one structural fit takes minutes, a full-capacity search will time out and the tuning stage fails.
 - For boosted trees, **reduce capacity during search**: cut `iterations`/`n_estimators` to roughly 1/4 of the structural value or use early stopping. Relative ranking of nearby configs is preserved; the winner is baked at structural capacity afterwards.
-- Search `n_jobs` runs trials in parallel; multithreaded estimators (CatBoost, LightGBM, XGBoost) or sklearn with `n_jobs`≠1 also parallelize each fit — default search `n_jobs=1` to avoid CPU oversubscription and stay under the exec timeout (not because higher values fail). Search `n_jobs=2` is OK if the estimator uses `n_jobs=1` or trials are very cheap. For single-threaded sklearn, `n_jobs=2` is reasonable; up to `4` only for very fast fits. Never search `n_jobs=-1`.
+- Search `n_jobs` runs trials in parallel; multithreaded estimators (e.g. CatBoost, LightGBM, XGBoost) or sklearn with `n_jobs`≠1 also parallelize each fit — default search `n_jobs=1` to avoid CPU oversubscription and stay under the exec timeout (not because higher values fail). Search `n_jobs=2` is OK if the estimator uses `n_jobs=1` or trials are very cheap. For single-threaded sklearn, `n_jobs=2` is reasonable; up to `4` only for very fast fits. Never search `n_jobs=-1`.
 - Keep the search space small and focused: few params, tight ranges, low `n_iter`. One cheap completed search beats an ambitious one that times out.
 
 ## Search execution pattern

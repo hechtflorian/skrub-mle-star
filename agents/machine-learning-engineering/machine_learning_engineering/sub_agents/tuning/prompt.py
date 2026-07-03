@@ -18,23 +18,23 @@ TUNE_PLAN_INSTR = """# Introduction
 
 # Your task
 - Pick **one** focus block only: `model` or `encoder`/`preprocessing`.
-- Prefer `model` when ablation showed capacity or model-side effects; prefer `encoder`/`preprocessing` when encoding ablation clearly mattered.
-- Model focus: at most **2** `choose_*` nodes with tight ranges around current literals.
-- Encoder/preprocessing focus: at most **2** `choose_*` nodes; if tuning `TableVectorizer`, plan `choose_from` of whole vectorizers or encoder instances only.
+- Prefer `model` when ablation showed capacity or model-side effects; prefer `encoder`/`preprocessing` when its ablation clearly mattered.
+- If model focus: at most **2** `choose_*` nodes with tight ranges around current literals.
+- If encoder focus: at most **2** `choose_*` nodes; if tuning `TableVectorizer`, plan `choose_from` of whole vectorizers or multiple encoder instances.
 - If the backbone estimator is **not** a sklearn-API estimator (`sklearn.base.BaseEstimator` subclass — e.g. CatBoost is not), numeric `choose_*` in its constructor will not resolve; plan a small discrete variant grid via `choose_from` instead (see `choices_hparam_pattern.md` Pattern 4), still with `default` values per param.
-- Do not propose new feature engineering, backbone swap, or multiple focus blocks.
-- Use the same holdout split as the current solution (`train_test_split` size and `random_state`).
 
 # Requirements
 - Call `list_skills` -> `load_skill` for `skrub-dataops-pipeline` and load `references/choices_hparam_pattern.md` via `load_skill_resource`.
 - If `focus_block` is `encoder` or `preprocessing`, also load `references/encoding_skrub.md`.
 - List which pipeline parts stay frozen in `frozen`.
+- Do not propose new feature engineering, backbone swap, or multiple focus blocks.
+- Use the same holdout split as the current solution (`train_test_split` size and `random_state`).
 - Use the same backbone estimator class(es) as the input Python solution above for your tuning plan; do not substitute a different model family.
 - If the structural solution is an ensemble (multiple estimators blended), pick **one** leg to tune (highest expected impact from ablation) and list the other leg(s) in `frozen` with fixed structural params.
 
 # Search budget
 - `n_iter={n_iter}`. Holdout only (same split as structural). No CV.
-- `make_randomized_search(..., n_jobs=...)`: search `n_jobs` parallelizes **across trials**; LightGBM/CatBoost/XGBoost (and sklearn with `n_jobs`≠1) also thread **inside each fit** — stacking both can oversubscribe CPUs and blow the timeout. **Default search `n_jobs=1`** for multithreaded backbones (predictable wall-clock, not a correctness rule). Search **`n_jobs=2`** is fine when the estimator uses `n_jobs=1` or trials are very cheap. For single-threaded sklearn, **`n_jobs=2`** is reasonable; up to **`4`** only when each trial is very fast. Never search `n_jobs=-1`.
+- `make_randomized_search(..., n_jobs=...)`: use **`n_jobs=1`** when the backbone is internally multithreaded (e.g. LightGBM, CatBoost, XGBoost) or the estimator sets `n_jobs` ≠ 1. Otherwise **`n_jobs=2`** is a reasonable default for fast single-threaded sklearn fits; use **`n_jobs=4`** at most when each trial is very cheap.
 - Reduce boosted-tree `iterations`/`n_estimators` to ~1/2 of the structural value during search.
 - Keep total search time under the execution timeout ({exec_time} seconds): runtime ≈ `(n_iter + 1) * per-trial fit time`.
 
@@ -43,7 +43,7 @@ TUNE_PLAN_INSTR = """# Introduction
 
 Use this JSON schema:
 TunePlan = {{
-  "focus_block": "model" | "encoder" | "preprocessing",
+  "focus_block": "model" | "encoder",
   "rationale": str,
   "tunable_params": [{{"name": str, "kind": "choose_from" | "choose_int" | "choose_float", ...}}],
   "frozen": [str],

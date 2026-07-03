@@ -172,4 +172,5 @@ search = pred.skb.make_randomized_search(
 - Load `encoding_skrub.md` when changing feature encoding, preprocessing, or selector-based routing.
 - Load `joining_across_columns.md` for multi-table merge/aggregation pipelines.
 - Load `common_failure_fixes.md` when runtime errors appear or metric parsing fails.
+- Load `ensemble_dataops_patterns.md` when merging multiple model legs or implementing ensemble export.
 - Load `skrub_subsampling.md` when iteration speed is the bottleneck and subsampling is required.

@@ -123,6 +123,7 @@ CODE_INTEGRATION_INSTR = """# Introduction
 - When integrating, ensemble the models.
 - The solution design should be relatively simple.
 - Use the Skrub DataOps skill: call `list_skills` -> `load_skill` for `skrub-dataops-pipeline` before changing uncertain DataOps parts.
+- When ensembling models, load `references/ensemble_dataops_patterns.md` via `load_skill_resource` (Pattern A default).
 - If API details are unclear, call one focused `load_skill_resource` before editing.
 - The integrated solution must keep a `skrub` DataOps pipeline as the main workflow (`skrub.var`/`skrub.X`/`skrub.y` / `.skb.mark_as_X()`/`.skb.mark_as_y()` + `.skb.apply(...)`).
 - Do not merge by replacing the base with sklearn-only pipeline orchestration or by reducing `skrub` usage to incidental components only.

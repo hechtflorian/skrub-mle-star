@@ -105,7 +105,7 @@ print("TUNING_BEST_PARAMS:", json.dumps(best_params, default=str))
 LightGBM/XGBoost are sklearn-API — use Pattern 1 inline `choose_*` instead. Details: `choices_hparam_pattern.md` Pattern 4.
 
 ## Pattern 3: ensemble structural
-Copy both legs and the blend from structural. Inject `choose_*` only on the tunable leg; keep the other leg fixed; score with the same ensemble rule as structural:
+Requires Pattern A (multi-leg). See `ensemble_dataops_patterns.md`. Copy legs and blend from structural; inject `choose_*` only on the tunable leg; keep others fixed:
 ```python
 # ... same FE + split as structural ...
 lgbm_pred = X_train.skb.apply(vec_lgbm).skb.apply(lgbm_with_choose, y=y_train)
@@ -154,4 +154,7 @@ Final Validation Performance: <value>
 TUNING_BEST_PARAMS: {"param_name": ...}
 ```
 
-Load `references/choices_hparam_pattern.md` for search execution; load `references/encoding_skrub.md` when tuning encoders.
+## When to load additional references
+- Load `references/choices_hparam_pattern.md` for search execution
+- Load `references/encoding_skrub.md` when tuning encoders
+- Load `references/ensemble_dataops_patterns.md` for Pattern 3 ensemble legs.

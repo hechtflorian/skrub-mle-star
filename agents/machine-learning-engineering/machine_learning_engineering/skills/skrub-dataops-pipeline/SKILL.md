@@ -30,6 +30,8 @@ Load only the minimum references needed for the current step to avoid context po
   - Minimal DataOps ablation shape, variant patterns, stdout contract. **Load for every ablation step.**
 - **Tuning search template (terminal tuning)**: `references/tuning_dataops_template.md`
   - Minimal DataOps tune_implement shape; copy structural pipeline, inject `choose_*` on focus block only. **Load for every tune_implement step.**
+- **Ensemble merge patterns (multi-leg default)**: `references/ensemble_dataops_patterns.md`
+  - Pattern A skeleton for ensemble implement; Pattern B (`VotingClassifier`) optional. **Load for ensemble/merging solutions.**
 - **Common skrub failure fixes**: `references/common_failure_fixes.md`
   - Known errors and quick fixes for skrub (DataOps) errors.
 - **Holdout data leakage audit**: `references/holdout_data_leakage.md`
@@ -99,6 +101,8 @@ print(f"Final Validation Performance: {final_validation_score}")
 - Use `make_randomized_search` with `n_iter` from config; no CV, no Optuna.
 - Search `n_jobs`: default 1 for multithreaded tree boosters (avoid nested parallelism / timeout surprises); 2 OK if estimator `n_jobs=1` or trials are cheap; 2 (max 4) for single-threaded sklearn.
 - Bake best params into fixed code before ensemble/submission; downstream code must not contain `choose_*` or search calls.
+
+**Ensemble policy**: load `references/ensemble_dataops_patterns.md` for ensemble implement. Default Pattern A (multi-leg + blend); keep input solution pred chains intact.
 
 ## Output contract
 - Return runnable single-file Python code when code is requested.

@@ -1,0 +1,38 @@
+## Model name
+CatBoostClassifier
+
+## Example Python code
+```python
+import pandas as pd
+from catboost import CatBoostClassifier, Pool
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import accuracy_score
+
+train = pd.read_csv('train.csv')
+test = pd.read_csv('test.csv')
+
+for df in [train, test]:
+    df[['Deck','Num','Side']] = df['Cabin'].fillna('Z/0/Z').str.split('/', expand=True)
+    df[['Spa','VRDeck','RoomService','FoodCourt','ShoppingMall']] = df[['Spa','VRDeck','RoomService','FoodCourt','ShoppingMall']].fillna(0)
+    df['TotalSpend'] = df[['Spa','VRDeck','RoomService','FoodCourt','ShoppingMall']].sum(axis=1)
+
+X = train.drop(columns=['Transported','Name'])
+y = train['Transported'].astype(int)
+X_test = test.drop(columns=['Name'])
+
+cat_cols = ['PassengerId','HomePlanet','CryoSleep','Cabin','Destination','VIP','Deck','Side']
+for c in cat_cols:
+    if c in X.columns: X[c] = X[c].astype(str)
+    if c in X_test.columns: X_test[c] = X_test[c].astype(str)
+
+trX, vaX, trY, vaY = train_test_split(X, y, test_size=0.2, random_state=42, stratify=y)
+model = CatBoostClassifier(iterations=1500, depth=6, learning_rate=0.03, loss_function='Logloss', eval_metric='Accuracy', verbose=0)
+model.fit(Pool(trX, trY, cat_features=[trX.columns.get_loc(c) for c in cat_cols if c in trX.columns]),
+          eval_set=Pool(vaX, vaY, cat_features=[vaX.columns.get_loc(c) for c in cat_cols if c in vaX.columns]),
+          use_best_model=True)
+print('val acc:', accuracy_score(vaY, model.predict(vaX)))
+
+pred = model.predict(X_test).astype(bool).ravel()
+submission = pd.DataFrame({'PassengerId': test['PassengerId'], 'Transported': pred})
+submission.to_csv('submission.csv', index=False)
+```
