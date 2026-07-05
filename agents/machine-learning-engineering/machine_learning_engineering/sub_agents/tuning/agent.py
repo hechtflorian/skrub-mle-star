@@ -27,6 +27,48 @@ def _last_refine_step(state, outer_loop_round: int) -> int:
     return outer_loop_round - 1
 
 
+def _task_id_from_tune_agent(agent_name: str) -> str:
+    return agent_name.split("_")[-1]
+
+
+def mark_tune_skipped_plan(state, task_id: str, reason: str) -> None:
+    """Record plan-level tuning skip (no search/bake LLM)."""
+    state[f"tune_stage_status_{task_id}"] = "skipped_plan"
+    state[f"tune_skip_reason_{task_id}"] = reason
+    state[f"tune_winner_source_{task_id}"] = "structural"
+    state[f"tune_param_source_{task_id}"] = "skipped"
+    state[f"train_code_tune_search_exec_result_{task_id}"] = {
+        "returncode": 0,
+        "skipped_plan": True,
+    }
+    state[f"train_code_tune_exec_result_{task_id}"] = {
+        "returncode": 0,
+        "skipped_plan": True,
+    }
+
+
+def mark_tune_search_failed(state, task_id: str, reason: str) -> None:
+    """Record failed tune search; bake is skipped, structural wins."""
+    state[f"tune_stage_status_{task_id}"] = "failed_search"
+    state[f"tune_skip_reason_{task_id}"] = reason[:500]
+    state[f"tune_param_source_{task_id}"] = "skipped"
+    state[f"train_code_tune_exec_result_{task_id}"] = {
+        "returncode": 0,
+        "skipped_search_failed": True,
+    }
+
+
+def _search_succeeded(state, task_id: str) -> bool:
+    search_result = state.get(f"train_code_tune_search_exec_result_{task_id}", {})
+    best_params = state.get(f"tune_best_params_{task_id}", {})
+    return (
+        search_result.get("returncode", 1) == 0
+        and "score" in search_result
+        and bool(best_params)
+        and not search_result.get("skipped_plan")
+    )
+
+
 def _build_plan_summary(
     context: callback_context_module.ReadonlyContext,
     task_id: str,
@@ -103,6 +145,13 @@ def promote_tuning_winner(
             with open(output_filepath, "w", encoding="utf-8") as f:
                 f.write(tuned_code)
             winner_source = "tuned"
+
+    status = callback_context.state.get(f"tune_stage_status_{task_id}")
+    if not status:
+        if winner_source == "tuned":
+            callback_context.state[f"tune_stage_status_{task_id}"] = "completed"
+        elif _search_succeeded(callback_context.state, task_id):
+            callback_context.state[f"tune_stage_status_{task_id}"] = "ran"
 
     callback_context.state[f"tune_winner_source_{task_id}"] = winner_source
     return None
@@ -183,10 +232,24 @@ def check_tune_plan_finish(
     llm_request: llm_request_module.LlmRequest,
 ) -> llm_response_module.LlmResponse | None:
     """Checks if tune plan is finished."""
-    task_id = callback_context.agent_name.split("_")[-1]
+    task_id = _task_id_from_tune_agent(callback_context.agent_name)
     plan = callback_context.state.get(f"tune_plan_{task_id}", {})
-    if plan and plan.get("focus_block"):
+    if plan.get("skip_tuning") and plan.get("skip_reason"):
         return llm_response_module.LlmResponse()
+    if plan.get("focus_block") in ("model", "encoder", "preprocessing"):
+        return llm_response_module.LlmResponse()
+    return None
+
+
+def finalize_tune_plan_gate(
+    callback_context: callback_context_module.CallbackContext,
+) -> types.Content | None:
+    """Apply skip state after tune plan loop."""
+    task_id = _task_id_from_tune_agent(callback_context.agent_name)
+    plan = callback_context.state.get(f"tune_plan_{task_id}", {})
+    if plan.get("skip_tuning"):
+        reason = plan.get("skip_reason") or plan.get("rationale") or "plan skip"
+        mark_tune_skipped_plan(callback_context.state, task_id, reason)
     return None
 
 
@@ -195,12 +258,15 @@ def check_tune_implement_finish(
     llm_request: llm_request_module.LlmRequest,
 ) -> llm_response_module.LlmResponse | None:
     """Checks if tune implement is finished."""
-    task_id = callback_context.agent_name.split("_")[-1]
+    task_id = _task_id_from_tune_agent(callback_context.agent_name)
     result_dict = callback_context.state.get(
         f"train_code_tune_search_exec_result_{task_id}", {}
     )
     if not result_dict:
         return None
+
+    if result_dict.get("skipped_plan"):
+        return llm_response_module.LlmResponse()
 
     best_params = callback_context.state.get(f"tune_best_params_{task_id}", {})
     compliant = (
@@ -211,24 +277,45 @@ def check_tune_implement_finish(
     callback_context.state[
         f"tune_implement_skip_data_leakage_check_{task_id}"
     ] = compliant
-    # Fail-fast: one implement attempt per rollback round, then debug.
     return llm_response_module.LlmResponse()
+
+
+def finalize_tune_search_failure(
+    callback_context: callback_context_module.CallbackContext,
+) -> types.Content | None:
+    """Skip bake when search never succeeded after bounded debug."""
+    task_id = _task_id_from_tune_agent(callback_context.agent_name)
+    if callback_context.state.get(f"tune_stage_status_{task_id}") == "skipped_plan":
+        return None
+    if _search_succeeded(callback_context.state, task_id):
+        return None
+    search_result = callback_context.state.get(
+        f"train_code_tune_search_exec_result_{task_id}", {}
+    )
+    if search_result.get("skipped_plan"):
+        return None
+    reason = search_result.get("stderr") or "search did not succeed"
+    mark_tune_search_failed(callback_context.state, task_id, str(reason))
+    return None
 
 
 def prepare_tune_bake_inputs(
     callback_context: callback_context_module.CallbackContext,
 ) -> types.Content | None:
     """Skip bake unless search succeeded with parseable best params."""
-    task_id = callback_context.agent_name.split("_")[-1]
+    task_id = _task_id_from_tune_agent(callback_context.agent_name)
+    plan = callback_context.state.get(f"tune_plan_{task_id}", {})
     search_result = callback_context.state.get(
         f"train_code_tune_search_exec_result_{task_id}", {}
     )
-    best_params = callback_context.state.get(f"tune_best_params_{task_id}", {})
-    search_succeeded = (
-        search_result.get("returncode", 1) == 0
-        and "score" in search_result
-        and bool(best_params)
-    )
+    if plan.get("skip_tuning") or search_result.get("skipped_plan"):
+        callback_context.state[f"tune_param_source_{task_id}"] = "skipped"
+        callback_context.state[f"train_code_tune_exec_result_{task_id}"] = {
+            "returncode": 0,
+            "skipped_plan": True,
+        }
+        return None
+    search_succeeded = _search_succeeded(callback_context.state, task_id)
     if search_succeeded:
         callback_context.state[f"tune_param_source_{task_id}"] = "search"
         return None
@@ -237,6 +324,9 @@ def prepare_tune_bake_inputs(
         "returncode": 0,
         "skipped_no_params": True,
     }
+    if callback_context.state.get(f"tune_stage_status_{task_id}") != "skipped_plan":
+        reason = search_result.get("stderr") or "search did not succeed"
+        mark_tune_search_failed(callback_context.state, task_id, str(reason))
     return None
 
 
@@ -249,8 +339,8 @@ def check_tune_bake_finish(
     result_dict = callback_context.state.get(
         f"train_code_tune_exec_result_{task_id}", {}
     )
-    if result_dict.get("skipped_no_params"):
-        # Bake skipped (no search result, no plan defaults): no LLM calls.
+    if result_dict.get("skipped_no_params") or result_dict.get("skipped_plan"):
+        # Bake skipped (no search result, plan skip, or no plan defaults): no LLM calls.
         callback_context.state[
             f"tune_bake_skip_data_leakage_check_{task_id}"
         ] = True
@@ -292,6 +382,7 @@ for k in range(config.CONFIG.num_solutions):
         description="Generate choose_* tuning plan until valid.",
         sub_agents=[tune_plan_agent],
         max_iterations=config.CONFIG.max_retry,
+        after_agent_callback=finalize_tune_plan_gate,
     )
     tune_implement_agent = debug_util.get_run_and_debug_agent(
         prefix="tune_implement",
@@ -301,6 +392,7 @@ for k in range(config.CONFIG.num_solutions):
         before_model_callback=check_tune_implement_finish,
         tools=[skill_tool_util.get_skill_toolset()],
     )
+    tune_implement_agent.after_agent_callback = finalize_tune_search_failure
     tune_bake_agent = debug_util.get_run_and_debug_agent(
         prefix="tune_bake",
         suffix=f"{k + 1}",

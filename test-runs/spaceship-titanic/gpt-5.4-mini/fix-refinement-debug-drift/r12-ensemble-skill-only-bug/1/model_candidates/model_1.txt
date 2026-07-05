@@ -1,0 +1,39 @@
+## Model name
+CatBoostClassifier
+
+## Example Python code
+```python
+import pandas as pd
+from catboost import CatBoostClassifier, Pool
+
+train = pd.read_csv('train.csv')
+test = pd.read_csv('test.csv')
+
+def prep(df):
+    df = df.copy()
+    df[['Deck','Num','Side']] = df['Cabin'].fillna('U/U/U').str.split('/', expand=True)
+    df['Spending'] = df[['RoomService','FoodCourt','ShoppingMall','Spa','VRDeck']].fillna(0).sum(axis=1)
+    X = df.drop(columns=['PassengerId','Name','Cabin','Transported'], errors='ignore')
+    for c in ['HomePlanet','CryoSleep','Destination','VIP','Deck','Side']:
+        X[c] = X[c].astype('string')
+    return X
+
+X = prep(train)
+y = train['Transported'].astype(int)
+X_test = prep(test)
+
+cat_cols = ['HomePlanet','CryoSleep','Destination','VIP','Deck','Side']
+model = CatBoostClassifier(
+    loss_function='Logloss',
+    iterations=1000,
+    depth=6,
+    learning_rate=0.05,
+    random_seed=42,
+    verbose=0
+)
+model.fit(Pool(X, y, cat_features=cat_cols))
+pred = model.predict(Pool(X_test, cat_features=cat_cols)).astype(bool)
+
+sub = pd.DataFrame({'PassengerId': test['PassengerId'], 'Transported': pred})
+sub.to_csv('submission.csv', index=False)
+```

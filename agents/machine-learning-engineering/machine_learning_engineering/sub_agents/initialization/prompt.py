@@ -59,6 +59,7 @@ MODEL_EVAL_INSTR = """# Introduction
 
 # Required
 - There should be no additional headings or text in your response.
+- Holdout only: bind `skrub.var("data", train_part)`, score on `valid_part`, print `Final Validation Performance`, then stop — do not load `test_df`, refit on full `train_df`, or write `submission.csv` (submission agent handles export).
 - Print out or return a final performance metric in your answer in a clear format with the exact words: 'Final Validation Performance: {{final_validation_score}}'.
 - The code should be a single-file Python program that is self-contained and can be executed as-is.
 - Your response should only contain a single code block.
@@ -132,6 +133,7 @@ CODE_INTEGRATION_INSTR = """# Introduction
 
 # Required
 - There should be no additional headings or text in your response.
+- Holdout only: bind `skrub.var("data", train_part)`, score on `valid_part`, print `Final Validation Performance`, then stop — do not load `test_df`, refit on full `train_df`, or write `submission.csv` (submission agent handles export).
 - Print out or return a final performance metric in your answer in a clear format with the exact words: 'Final Validation Performance: {{final_validation_score}}'.
 - The code should be a single-file Python program that is self-contained and can be executed as-is.
 - Your response should only contain a single code block.
@@ -153,7 +155,9 @@ DO NOT USE TRY and EXCEPT; just occur error so we can debug it!
 See the task description carefully, to know how to extract unused information effectively.
 Use the Skrub DataOps skill: call `list_skills` -> `load_skill` for `skrub-dataops-pipeline` before changing uncertain DataOps parts.
 If API details are unclear, make focused `load_skill_resource` calls before editing.
+Keep the skrub DatOps pipeline in tact; if needed make surgical changes only, do not rewrite the main workflow as sklearn-only orchestration.
 When improving the solution code by incorporating unused information, DO NOT FORGET to print out 'Final Validation Performance: {{final_validation_score}}' as in original solution code.
+Holdout only: bind `skrub.var("data", train_part)`, score on `valid_part`, print `Final Validation Performance`, then stop — do not load `test_df`, refit on full `train_df`, or write `submission.csv` (submission agent handles export).
 
 Response format:
 Option 1: If the code did not use all the provided information, your response should be a single markdown code block (wrapped in ```) which is the improved code block. There should be no additional headings or text in your response.

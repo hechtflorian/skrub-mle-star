@@ -1,0 +1,34 @@
+## Model name
+CatBoostClassifier
+
+## Example Python code
+import pandas as pd
+from catboost import CatBoostClassifier
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import accuracy_score
+
+train = pd.read_csv('train.csv')
+test = pd.read_csv('test.csv')
+
+for df in [train, test]:
+    df['CabinDeck'] = df['Cabin'].fillna('X').astype(str).str.split('/').str[0]
+    df['CabinSide'] = df['Cabin'].fillna('X').astype(str).str.split('/').str[-1]
+    df['GroupSize'] = df['PassengerId'].astype(str).str.split('_').str[0].map(
+        pd.concat([train, test]).groupby(train['PassengerId'].astype(str).str.split('_').str[0]).size()
+    )
+
+X = train.drop(columns=['Transported'])
+y = train['Transported'].astype(int)
+cat_cols = [c for c in X.columns if X[c].dtype == 'object']
+
+X_tr, X_va, y_tr, y_va = train_test_split(X, y, test_size=0.2, random_state=42, stratify=y)
+model = CatBoostClassifier(
+    iterations=800, depth=6, learning_rate=0.03,
+    loss_function='Logloss', eval_metric='Accuracy',
+    random_seed=42, verbose=0
+)
+model.fit(X_tr, y_tr, cat_features=cat_cols, eval_set=(X_va, y_va), use_best_model=True)
+print('valid acc:', accuracy_score(y_va, model.predict(X_va)))
+preds = model.predict(test)
+submission = pd.DataFrame({'PassengerId': test['PassengerId'], 'Transported': preds.astype(bool)})
+submission.to_csv('submission.csv', index=False)

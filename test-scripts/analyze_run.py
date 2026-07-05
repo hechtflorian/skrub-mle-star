@@ -350,6 +350,8 @@ def analyze_run(run_path: Path, task_id: str | None = None) -> RunAnalysis:
 
     analysis.extras["tune_param_source"] = state.get(f"tune_param_source_{tid}")
     analysis.extras["tune_winner_source"] = state.get(f"tune_winner_source_{tid}")
+    analysis.extras["tune_stage_status"] = state.get(f"tune_stage_status_{tid}")
+    analysis.extras["tune_skip_reason"] = state.get(f"tune_skip_reason_{tid}")
     analysis.extras["tune_best_params"] = state.get(f"tune_best_params_{tid}")
     analysis.extras["tune_plan_focus"] = (state.get(f"tune_plan_{tid}") or {}).get(
         "focus_block"
@@ -467,6 +469,8 @@ def to_row(analysis: RunAnalysis) -> dict[str, Any]:
         "gain_total": gain(init0, final_best),
         "tune_param_source": ex.get("tune_param_source"),
         "tune_winner_source": ex.get("tune_winner_source"),
+        "tune_stage_status": ex.get("tune_stage_status"),
+        "tune_skip_reason": ex.get("tune_skip_reason"),
         "tune_plan_focus": ex.get("tune_plan_focus"),
         "table_report_chars": ex.get("table_report_chars"),
         "debug_refinement": analysis.log_debug_counts.get("refinement", 0),
@@ -539,6 +543,8 @@ def _print_report(analysis: RunAnalysis) -> None:
     print("\n--- Tuning / TableReport novelty ---")
     print(f"  tune_param_source:          {analysis.extras.get('tune_param_source')}")
     print(f"  tune_winner_source:         {analysis.extras.get('tune_winner_source')}")
+    print(f"  tune_stage_status:          {analysis.extras.get('tune_stage_status')}")
+    print(f"  tune_skip_reason:           {analysis.extras.get('tune_skip_reason')}")
     print(f"  tune_plan focus:            {analysis.extras.get('tune_plan_focus')}")
     print(f"  tune_best_params:           {analysis.extras.get('tune_best_params')}")
     print(f"  table_report in state:      {analysis.extras.get('table_report_present')} ({analysis.extras.get('table_report_chars')} chars)")

@@ -17,7 +17,7 @@ Use this file as the canonical reference for DataOps-first pipeline structure.
 - Invalid: `skrub.choose_from({6: 6, 8: 8}, name="max_depth")`
 - Numeric range fallback: `skrub.choose_int(low, high, name="...")` or `skrub.choose_float(low, high, name="...")`
 
-## Minimum DataOps pipeline shape
+## Minimum DataOps pipeline shape (example)
 ```python
 import skrub
 
@@ -28,18 +28,18 @@ n_components = skrub.choose_int(5, 15, name="n_components")
 encoder = skrub.TableVectorizer(
     high_cardinality=skrub.choose_from(
         {
-            "minhash": skrub.MinHashEncoder(n_components=n_components),
-            "lsa": skrub.StringEncoder(n_components=n_components),
+            "minhash": skrub.MinHashEncoder(n_components=n_components), # your_encoder_1
+            "lsa": skrub.StringEncoder(n_components=n_components),  # your_encoder_2
         },
         name="encoder",
     )
 )
 
-clf = YourModel(
+model = YourModel(
     learning_rate=skrub.choose_float(0.01, 0.9, log=True, name="learning_rate")
 )
 
-pred = X.skb.apply(encoder).skb.apply(clf, y=y)
+pred = X.skb.apply(encoder).skb.apply(model, y=y)
 ```
 
 ## Holdout validation (default for init / ablation / refinement / tuning)
@@ -75,19 +75,9 @@ holdout_score = your_metric_fn(valid_part[target_col], valid_pred)
 print(f"Final Validation Performance: {holdout_score}")
 ```
 
-**Submission stage only** (after printing validation score; only if submission export is demanded and `full_train_df` usage allowed, i.e. not for init/refinement/tuning):
-```python
-data_full = skrub.var("data", train_df)
-X_full = data_full.drop(columns=target_col, errors="ignore").skb.mark_as_X()
-y_full = data_full[target_col].skb.mark_as_y()
-full_pred = X_full.skb.apply(encoder).skb.apply(model, y=y_full)
-full_learner = full_pred.skb.make_learner(fitted=True)
-test_pred = full_learner.predict({"data": test_df})
-```
-
 Rules:
-- Early stages: Block 1 only — bind **`train_part`**, print holdout metric.
-- Submission: add Block 2 on **`train_df`** after the metric print, i.e. you can use the full trainset to refit.
+- Early stages: bind **`train_part`**, print holdout metric, then **stop** — no `test_df`, no full-train refit, no `submission.csv`.
+- Submission export: load `references/submission_export.md` in the submission agent only.
 - Keep the same split (`test_size`, `random_state`) across stages.
 - Preprocessing inside `.skb.apply_func` / transformers learns from bound rows only — binding `train_part` prevents val/test rows from influencing fit-time stats.
 - Tuning search: `search.fit({"data": train_part})`, eval with `search.best_learner_.predict({"data": valid_part})` — see `choices_hparam_pattern.md`.
@@ -100,10 +90,6 @@ cv_results = pred.skb.cross_validate()
 # Option B: holdout metric — bind train_part (default for early stages)
 val_learner = pred.skb.make_learner(fitted=True)
 valid_pred = val_learner.predict({"data": valid_part})
-
-# Option C: submission stage only — full train + test predict
-full_learner = full_pred.skb.make_learner(fitted=True)
-pred_test = full_learner.predict({"data": test_df})
 
 # Avoid redundant target drops at inference time:
 # do not call test_df.drop(columns=target_col) unless truly needed.
@@ -161,16 +147,17 @@ search = pred.skb.make_randomized_search(
 ## Validation checklist
 - Pipeline is DataOps-first (`.skb.apply(...)` main path).
 - `X`/`y` are explicitly marked.
-- Early stages: holdout metric only (`train_part` bind + `valid_part` predict); no `test_df` / full-train refit until submission.
+- Early stages: holdout metric only (`train_part` bind + `valid_part` predict); no `test_df`, full-train refit, or `submission.csv`.
+- Submission export: `references/submission_export.md` (submission agent only).
 - Tunables are embedded with `choose_*`/`choose_from`.
 - Search runs from DataOp (`make_randomized_search` or `make_grid_search`).
 - Prediction uses dict environments keyed by source variable names.
 
 ## When to load other references
 - Load `choices_hparam_pattern.md` when adding `skrub.choose_*` / `skrub.choose_from(...)` or randomized/grid search for hyperparameter tuning.
-- Load `dataops_tuning_optuna.md` when using Optuna backend or trial-based search flows for tuning.
 - Load `encoding_skrub.md` when changing feature encoding, preprocessing, or selector-based routing.
 - Load `joining_across_columns.md` for multi-table merge/aggregation pipelines.
 - Load `common_failure_fixes.md` when runtime errors appear or metric parsing fails.
-- Load `ensemble_dataops_patterns.md` when merging multiple model legs or implementing ensemble export.
+- Load `ensemble_dataops_patterns.md` when merging multiple model legs (holdout metric only).
+- Load `submission_export.md` in the **submission agent only** for full-train refit + test export.
 - Load `skrub_subsampling.md` when iteration speed is the bottleneck and subsampling is required.

@@ -182,7 +182,7 @@ def _get_backbone_contract(
         if is_ablation:
             return (
                 "\n# Backbone contract\n"
-                "- Baseline must keep the input solution's model family.\n"
+                "- Baseline ablation must keep the input solution's model family.\n"
             )
         return ""
 
@@ -377,7 +377,7 @@ def get_run_and_debug_agent(
     tools: list | None = None,
 ) -> agents.LoopAgent:
     """Gets the run and debug agent."""
-    if prefix.startswith("ensemble_plan_implement"):
+    if prefix.startswith("ensemble_plan_implement") or prefix.startswith("submission"):
         use_data_leakage_checker = False
     else:
         use_data_leakage_checker = config.CONFIG.use_data_leakage_checker

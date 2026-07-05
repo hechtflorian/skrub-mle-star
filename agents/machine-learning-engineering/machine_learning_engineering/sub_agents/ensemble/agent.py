@@ -41,6 +41,9 @@ def get_init_ensemble_plan(
 ) -> llm_response_module.LlmResponse | None:
     """Gets the initial plan to ensemble solutions."""
     response_text = common_util.get_text_from_response(llm_response)
+    # ignore empty tool calls
+    if not response_text.strip():
+        return None
     callback_context.state["ensemble_plans"] = [response_text]
     return None
 
@@ -71,6 +74,9 @@ def get_refined_ensemble_plan(
 ) -> llm_response_module.LlmResponse | None:
     """Gets the refined ensemble plan from the response."""
     response_text = common_util.get_text_from_response(llm_response)
+    # ignore empty tool calls
+    if not response_text.strip():
+        return None
     callback_context.state["ensemble_plans"].append(response_text)
     return None
 
@@ -102,21 +108,27 @@ def get_ensemble_plan_refinement_instruction(
     num_top_plans = context.state.get("num_top_plans", 3)
     lower = context.state.get("lower", True)
     prev_plans = context.state.get("ensemble_plans", [])
-    prev_scores = []
-    for k in range(len(prev_plans)):
+    prev_plan_score_pairs = []
+    # Only include plans with scored exec result (ignore tool-only calls, empty plans, implement fails)
+    for k, plan in enumerate(prev_plans):
         exec_result = context.state.get(f"ensemble_code_exec_result_{k}", {})
-        prev_scores.append(exec_result["score"])
-    sorted_idx = np.argsort(prev_scores)[::-1]
-    if lower:
-        sorted_idx = sorted_idx[-num_top_plans:]
-        criteria = "lower"
-    else:
-        sorted_idx = sorted_idx[:num_top_plans]
-        criteria = "higher"
+        # no blind exec_result["score"] parsing
+        if "score" not in exec_result:
+            continue
+        prev_plan_score_pairs.append((exec_result["score"], plan))
+    criteria = "lower" if lower else "higher"
     prev_plans_and_scores = ""
-    for k in sorted_idx:
-        prev_plans_and_scores += f"## Plan: {prev_plans[k]}\n"
-        prev_plans_and_scores += f"## Score: {prev_scores[k]:.5f}\n\n"
+    if prev_plan_score_pairs:
+        scores = [score for score, _ in prev_plan_score_pairs]
+        sorted_idx = np.argsort(scores)[::-1]
+        if lower:
+            sorted_idx = sorted_idx[-num_top_plans:]
+        else:
+            sorted_idx = sorted_idx[:num_top_plans]
+        for idx in sorted_idx:
+            score, plan = prev_plan_score_pairs[idx]
+            prev_plans_and_scores += f"## Plan: {plan}\n"
+            prev_plans_and_scores += f"## Score: {score:.5f}\n\n"
     python_solutions = []
     for task_id in range(1, num_solutions + 1):
         code = context.state.get(f"train_code_{outer_loop_round}_{task_id}", "")

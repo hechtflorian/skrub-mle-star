@@ -36,6 +36,8 @@ Load only the minimum references needed for the current step to avoid context po
   - Known errors and quick fixes for skrub (DataOps) errors.
 - **Holdout data leakage audit**: `references/holdout_data_leakage.md`
   - Incorrect vs correct bind/fit patterns; load for the data leakage checker agent.
+- **Submission export (submission agent only)**: `references/submission_export.md`
+  - Full-train refit, `test_df` predict, and `./final/submission.csv`. **Do not load in early stages.**
 
 ## Rules (must follow)
 1. Build the solution as a DataOps graph first, then write final code.
@@ -50,7 +52,8 @@ Load only the minimum references needed for the current step to avoid context po
 10. If the step changes encoders or `TableVectorizer` config, load `references/encoding_skrub.md` before finalizing.
 11. If the step changes column routing (`ApplyToCols`, `DropCols`, selectors, split/concat paths), load `references/selectors_routing_skrub.md`.
 12. If the step adds derived features, drops redundant columns, cleans/scales numerics, or ablation profile suggests structural feature edits, load `references/feature_engineering_skrub.md`.
-13. **Honest holdout validation:** `skrub.var("data", df)` defines what rows `make_learner(fitted=True)` trains on. For `Final Validation Performance`, bind **`train_part` only**, fit, then `predict({"data": valid_part})`. Do **not** load `test_df`, refit on full `train_df`, or write `submission.csv` in init, ablation, refinement, or tuning — **holdout metric only**. Full-train + test export is **submission stage only** (optional late ensemble export). See `references/dataops_api_quickmap.md`.
+13. **Honest holdout validation:** `skrub.var("data", df)` defines what rows `make_learner(fitted=True)` trains on. For `Final Validation Performance`, bind **`train_part` only**, fit, then `predict({"data": valid_part})`. 
+14. Do **not** load `test_df`, refit on full `train_df`, or write `submission.csv` in init, ablation, refinement, tuning, or ensemble — **holdout metric only**. Full-train + test export is **submission stage only** (`references/submission_export.md` — load only in submission agent).
 
 ## Hard constraints (must follow to prevent common runtime failures)
 - Do not call `.fit(X, y)` on a DataOp chain output.
@@ -86,8 +89,6 @@ valid_pred = val_learner.predict({"data": valid_part})
 final_validation_score = your_metric_fn(valid_part[target_col], valid_pred)
 print(f"Final Validation Performance: {final_validation_score}")
 ```
-
-**Submission stage only** (and optional final ensemble export): after the val metric line above, add full `train_df` refit + `test_df` predict. See `references/dataops_api_quickmap.md` → “Submission stage only”.
 
 **Refinement ablation policy**:
 - Load `references/ablation_dataops_template.md` and use its skeleton + print contract.

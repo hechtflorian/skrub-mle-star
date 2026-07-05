@@ -34,7 +34,7 @@ Standard sklearn transformers work inside `ApplyToCols` or `.skb.apply(...)`:
 
 ## DataOps routing pattern (split → transform → concat)
 Use when different column groups need different preprocessing.
-For holdout scripts, build this graph on `train_part` for the validation metric; rebuild on `train_df` for test/submission.
+For holdout scripts, build this graph on `train_part` for the validation metric only.
 
 ```python
 import skrub

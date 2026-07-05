@@ -26,7 +26,7 @@ products_with_total = kept_products.assign(
     total_price=kept_products["Nbr_of_prod_purchas"] * kept_products["cash_price"]
 )
 
-n = skrub.choose_int(5, 15, name="n_components")
+n = skrub.choose_int(low_int, high_int, name="n_components")
 encoder = skrub.choose_from(
     {
         "MinHash": skrub.MinHashEncoder(n_components=n),
@@ -44,7 +44,7 @@ augmented_baskets = basket_ids.merge(
 
 pred = augmented_baskets.skb.apply(
     YourModel(
-        learning_rate=skrub.choose_float(0.01, 0.9, log=True, name="learning_rate")
+        learning_rate=skrub.choose_float(low_float, high_float, log=True, name="learning_rate")
     ),
     y=fraud_flags,
 )

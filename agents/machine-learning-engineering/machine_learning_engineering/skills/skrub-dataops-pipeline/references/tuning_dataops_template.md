@@ -22,7 +22,7 @@ from sklearn.model_selection import train_test_split
 # model imports + metric_fn — match structural solution
 
 train_idx, valid_idx = train_test_split(
-    np.arange(len(train_df)), test_size=n, random_state=m
+    np.arange(len(train_df)), test_size=test_size, random_state=random_state
 )
 train_part = train_df.iloc[train_idx].copy()
 valid_part = train_df.iloc[valid_idx].copy()
@@ -41,7 +41,7 @@ y_train = data_train_fe[target_col].skb.mark_as_y()
 
 vectorizer = skrub.TableVectorizer(...)  # match structural encoder config
 pred = X_train.skb.apply(vectorizer).skb.apply(
-    YourSklearnEstimator(
+    YourEstimator(
         n_estimators=n_estimators,  # reduced for search budget
         learning_rate=skrub.choose_float(low_float, high_float, log=True, default=default_float, name="lr"),
         depth=skrub.choose_int(low_int, high_int, log=True, default=default_int, name="depth"),
@@ -76,7 +76,7 @@ vectorizer = skrub.choose_from(
 pred = X_train.skb.apply_func(prep).skb.apply(vectorizer).skb.apply(
     YourModel(...), y=y_train,
 )
-search = pred.skb.make_randomized_search(n_iter=n_iter, n_jobs=1, random_state=state, fitted=True)
+search = pred.skb.make_randomized_search(n_iter=n_iter, n_jobs=n_jobs, random_state=random_state, fitted=True)
 search.fit({"data": train_part})
 # ... holdout predict, TUNING_BEST_PARAMS from search.results_.iloc[0]["encoder_variant"]
 ```
@@ -87,16 +87,16 @@ Do **not** use `low_cardinality="one-hot"` or `"auto"` — invalid. Use `"drop"`
 Inline `choose_*` in constructor kwargs does **not** resolve — use a small `choose_from` variant grid (whole pre-built estimator per key):
 ```python
 cat_variants = {
-    "d6_lr0.03": dict(depth=6, learning_rate=0.03, iterations=300, verbose=-1),
-    "d8_lr0.03": dict(depth=8, learning_rate=0.03, iterations=300, verbose=-1),
-    "d8_lr0.05": dict(depth=8, learning_rate=0.05, iterations=300, verbose=-1),
+    "d6_lr0.03": dict(depth=depth_1, learning_rate=lr_1, iterations=iterations, verbose=-1),
+    "d8_lr0.03": dict(depth=depth_2, learning_rate=lr_1, iterations=iterations, verbose=-1),
+    "d8_lr0.05": dict(depth=depth_2, learning_rate=lr_2, iterations=iterations, verbose=-1),
 }
 cat_model = skrub.choose_from(
-    {k: CatBoostClassifier(**p, random_seed=42) for k, p in cat_variants.items()},
+    {k: CatBoostClassifier(**p, random_seed=random_state) for k, p in cat_variants.items()},
     name="cat_variant",
 )
 pred = X_train.skb.apply(vectorizer).skb.apply(cat_model, y=y_train)
-search = pred.skb.make_randomized_search(n_iter=n_iter, n_jobs=1, random_state=n, fitted=True)
+search = pred.skb.make_randomized_search(n_iter=n_iter, n_jobs=n_jobs, random_state=random_state, fitted=True)
 search.fit({"data": train_part})
 chosen = search.results_.iloc[0]["cat_variant"]
 best_params = dict(cat_variants[chosen])

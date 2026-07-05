@@ -29,14 +29,14 @@ max_depth = skrub.choose_from({6: 6, 8: 8, 10: 10}, name="max_depth")
 - If you only need an integer or float range, prefer the following:
 ```python
 max_depth = skrub.choose_int(6, 10, name="max_depth")
-max_depth = skrub.choose_float(6.0, 10.0, name="max_depth")
+max_depth = skrub.choose_float(0.5, 1.0, name="lr")
 ```
-- List form is valid: `skrub.choose_from([0.1, 1.0, 10.0], name="alpha")`
+- List form is also valid: `skrub.choose_from([0.1, 1.0, 10.0], name="alpha")`
 
 ## Critical rule: do not mix train / val / full data
 - `skrub.var("data", train_df)` binds the pipeline to **full** training data.
 - `pred.skb.make_learner(fitted=True)` fits on that bound data (full `train_df`), even if you later `predict({"data": valid_part})` for scoring — **this leaks validation rows into training**.
-- For the `Final Validation Performance` line in fixed-parameter scripts, use the **two-block pattern** in `dataops_api_quickmap.md`: Block 1 binds `train_part`, Block 2 binds `train_df` for test/submission.
+- For the `Final Validation Performance` line in fixed-parameter scripts, bind `train_part` only (see `dataops_api_quickmap.md` holdout section).
 - `search.fit({"data": train_part})` fits search on **only** `train_part`; holdout eval must use `search.best_learner_.predict({"data": valid_part})`.
 - These paths produce **different scores**. For MLE-STAR tune stages, copy the structural solution's exact split, then use the **same fit + eval path** in `tune_implement` and `tune_bake`.
 
@@ -45,7 +45,7 @@ max_depth = skrub.choose_float(6.0, 10.0, name="max_depth")
 import pandas as pd
 import skrub
 
-data = pd.read_csv(skrub.datasets.fetch_toxicity().path).sample(frac=1.0, random_state=1)
+data = pd.read_csv(example_csv_path).sample(frac=1.0, random_state=random_state)
 X = skrub.X(data[["text"]])
 y = skrub.y(data["is_toxic"])
 
@@ -57,7 +57,7 @@ classifier = YourClassifier(
 )
 
 pred = X.skb.apply(encoder).skb.apply(classifier, y=y)
-print(pred.skb.describe_param_grid())
+#print(pred.skb.describe_param_grid())
 ```
 
 ## Pattern 2: choose between encoder families
@@ -65,8 +65,8 @@ print(pred.skb.describe_param_grid())
 n_components = skrub.choose_int(5, 15, name="N components")
 encoder = skrub.choose_from(
     {
-        "minhash": skrub.MinHashEncoder(n_components=n_components),
-        "lse": skrub.StringEncoder(n_components=n_components),
+        "minhash": skrub.MinHashEncoder(n_components=n_components), # your_encoder_1
+        "lse": skrub.StringEncoder(n_components=n_components),  # your_encoder_2
     },
     name="encoder",
 )
@@ -92,8 +92,8 @@ pred = X.skb.apply_func(fe_func).skb.apply(vectorizer).skb.apply(model, y=y)
 ```python
 n = skrub.choose_int(5, 15, name="n_components")
 encoder = skrub.choose_from(
-    {"minhash": skrub.MinHashEncoder(n_components=n),
-     "string": skrub.StringEncoder(n_components=n)},
+    {"minhash": skrub.MinHashEncoder(n_components=n),   # your_encoder_1
+     "string": skrub.StringEncoder(n_components=n)},    # your_encoder_2
     name="encoder",
 )
 vectorizer = skrub.TableVectorizer(high_cardinality=encoder)
@@ -104,10 +104,10 @@ For holdout search + bake handoff on Pattern 2b, load `encoding_skrub.md` for `T
 
 ## Pattern 3: choose between model families
 ```python
-from sklearn.linear_model import RidgeClassifier
+from sklearn.some_model import YourModel 
 
-model1 = YourModel1(learning_rate=skrub.choose_float(0.01, 0.9, log=True, name="lr"))
-model2 = YourModel2(alpha=skrub.choose_float(0.01, 100, log=True, name="alpha"))
+model1 = YourModel1(learning_rate=skrub.choose_float(low_float, high_float, log=True, name="your_model_param"))
+model2 = YourModel2(alpha=skrub.choose_float(low_float, high_float, log=True, name="your_model_param"))
 classifier = skrub.choose_from({"model1": model1, "model2": model2}, name="classifier")
 pred = X.skb.apply(encoder).skb.apply(classifier, y=y)
 ```
@@ -121,17 +121,17 @@ pred = X.skb.apply(encoder).skb.apply(classifier, y=y)
 Select the **whole pre-configured estimator** instead of per-param choices. Keep the grid small (~2x `n_iter` combos), string keys.
 ```python
 variants = {
-    "d7_lr0.03": dict(depth=7, learning_rate=0.03),
-    "d8_lr0.03": dict(depth=8, learning_rate=0.03),
-    "d8_lr0.05": dict(depth=8, learning_rate=0.05),
-    "d9_lr0.05": dict(depth=9, learning_rate=0.05),
+    "d7_lr0.03": dict(depth=depth1, learning_rate=lr1),
+    "d8_lr0.03": dict(depth=depth2, learning_rate=lr1),
+    "d8_lr0.05": dict(depth=depth2, learning_rate=lr2),
+    "d9_lr0.05": dict(depth=depth3, learning_rate=lr2),
 }
 model = skrub.choose_from(
-    {k: YourNonSklearnModel(**p, random_seed=42, verbose=0) for k, p in variants.items()},
+    {k: YourNonSklearnModel(**p, random_seed=random_state, verbose=0) for k, p in variants.items()},
     name="model_variant",
 )
 pred = X.skb.apply(vectorizer).skb.apply(model, y=y)
-search = pred.skb.make_randomized_search(n_iter=4, random_state=42, fitted=True)
+search = pred.skb.make_randomized_search(n_iter=n_iter, random_state=random_state, fitted=True)
 search.fit({"data": train_part})
 
 chosen = search.results_.iloc[0]["model_variant"]  # results_ row 0 = best; column name = choice name
@@ -160,7 +160,7 @@ valid_pred = best_learner.predict({"data": valid_part})
 holdout_score = your_metric_fn(valid_part[target_col].values, valid_pred)
 print(f"Final Validation Performance: {holdout_score}")
 
-print(pred.skb.describe_param_grid())  # inspect param names before bake, returns string
+#print(pred.skb.describe_param_grid())  # inspect param names before bake, returns string
 best_params = {}
 for spec in tune_plan["tunable_params"]:  # use plan param names, not data_op__ keys
     name = spec["name"]

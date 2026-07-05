@@ -261,3 +261,38 @@ def test_resolve_backbone_required_ablation_from_input_solution():
     )
     assert required == {"CatBoostClassifier"}
     assert "input solution" in label
+
+
+def test_submission_export_contract_requires_submission_csv():
+    err = code_util.submission_export_contract_violation(
+        "test_df = 1\nprint('Final Validation Performance: 0.5')"
+    )
+    assert err is not None
+    assert "submission.csv" in err
+
+
+def test_submission_export_contract_requires_test_data():
+    err = code_util.submission_export_contract_violation(
+        "train_df = 1\nsubmission.to_csv('submission.csv')"
+    )
+    assert err is not None
+    assert "test" in err.lower()
+
+
+def test_submission_export_contract_requires_train_df():
+    err = code_util.submission_export_contract_violation(
+        "test_df = 1\nopen('submission.csv', 'w')"
+    )
+    assert err is not None
+    assert "train_df" in err
+
+
+def test_submission_export_contract_passes_minimal_valid_script():
+    code = """
+train_df = pd.read_csv('train.csv')
+test_df = pd.read_csv('test.csv')
+data_full = skrub.var('data', train_df)
+test_pred = learner.predict({'data': test_df})
+submission.to_csv('./final/submission.csv')
+"""
+    assert code_util.submission_export_contract_violation(code) is None

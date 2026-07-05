@@ -1,0 +1,55 @@
+## Model name
+LightGBM (LGBMClassifier)
+
+## Example Python code
+```python
+import pandas as pd
+from lightgbm import LGBMClassifier
+from sklearn.model_selection import train_test_split
+from sklearn.compose import ColumnTransformer
+from sklearn.pipeline import Pipeline
+from sklearn.impute import SimpleImputer
+from sklearn.preprocessing import OneHotEncoder
+
+train = pd.read_csv('train.csv')
+test = pd.read_csv('test.csv')
+
+def prep(df):
+    df = df.copy()
+    cabin = df['Cabin'].fillna('U/U/U').str.split('/', expand=True)
+    df['Deck'] = cabin[0]
+    df['Side'] = cabin[2]
+    df['Spending'] = df[['RoomService','FoodCourt','ShoppingMall','Spa','VRDeck']].fillna(0).sum(axis=1)
+    return df.drop(columns=['PassengerId','Name','Cabin','Transported'], errors='ignore')
+
+X = prep(train)
+y = train['Transported'].astype(int)
+X_test = prep(test)
+
+cat = [c for c in X.columns if X[c].dtype == 'object' or str(X[c].dtype) == 'string']
+num = [c for c in X.columns if c not in cat]
+
+pre = ColumnTransformer([
+    ('num', SimpleImputer(strategy='median'), num),
+    ('cat', Pipeline([
+        ('imp', SimpleImputer(strategy='most_frequent')),
+        ('oh', OneHotEncoder(handle_unknown='ignore'))
+    ]), cat)
+])
+
+model = Pipeline([
+    ('pre', pre),
+    ('clf', LGBMClassifier(
+        n_estimators=800,
+        learning_rate=0.03,
+        num_leaves=31,
+        random_state=42,
+        verbose=-1
+    ))
+])
+
+model.fit(X, y)
+pred = model.predict(X_test).astype(bool)
+sub = pd.DataFrame({'PassengerId': test['PassengerId'], 'Transported': pred})
+sub.to_csv('submission.csv', index=False)
+```

@@ -21,7 +21,7 @@ from sklearn.model_selection import train_test_split
 # metric_fn, target_col, train_df — match input solution
 
 train_idx, valid_idx = train_test_split(
-    np.arange(len(train_df)), test_size=n, random_state=m
+    np.arange(len(train_df)), test_size=test_size, random_state=random_state
 )
 train_part = train_df.iloc[train_idx].copy()
 valid_part = train_df.iloc[valid_idx].copy()

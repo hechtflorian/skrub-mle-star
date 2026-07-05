@@ -14,10 +14,10 @@ def check_submission_finish(
 ) -> llm_response_module.LlmResponse | None:
     """Checks if adding codes for submission is finished."""
     result_dict = callback_context.state.get("submission_code_exec_result", {})
-    callback_context.state["submission_skip_data_leakage_check"] = True
+    #callback_context.state["submission_skip_data_leakage_check"] = True
     if result_dict:
         return llm_response_module.LlmResponse()
-    callback_context.state["submission_skip_data_leakage_check"] = False
+    #callback_context.state["submission_skip_data_leakage_check"] = False
     return None
 
 

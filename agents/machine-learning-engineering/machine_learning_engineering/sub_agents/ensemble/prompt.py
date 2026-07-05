@@ -15,11 +15,12 @@ INIT_ENSEMBLE_PLAN_INSTR = """# Introduction
 - Solutions are already terminal-tuned with fixed parameters; do not add `choose_*` to re-run hyperparameter search.
 - Prefer lightweight merge plans; avoid multi-fold, multi-seed, or repeated full retrains in large spaces unless the gain clearly justifies the extra runtime or the model is small/fast.
 - Load `references/ensemble_dataops_patterns.md` via skill tools; plan for Pattern A (multi-leg + blend), keeping each solution's pred chains intact.
+- Plans should not modify the original solutions too much since exeuction error can occur.
 
 # Respone format
 - Your response should be an outline/sketch of your proposed solution in natural language.
 - There should be no additional headings or text in your response.
-- Plan should not modify the original solutions too much since exeuction error can occur."""
+- Tool calls are preparation only; you must finish by returning the final plan in the same turn."""
 
 ENSEMBLE_PLAN_IMPLEMENT_INSTR = """# Introduction
 - You are a Kaggle grandmaster attending a competition.
@@ -39,11 +40,11 @@ ENSEMBLE_PLAN_IMPLEMENT_INSTR = """# Introduction
 - Keep the original skrub DataOps pipeline(s) intact while implementing the ensemble logic. Do not refactor core preprocessing/modeling flows unless the ensemble plan explicitly requires a minimal compatibility fix.
 - Input pipelines are pre-tuned fixed-parameter code; do not add `choose_*` to re-run hyperparameter search.
 - Load `references/ensemble_dataops_patterns.md` via skill tools before coding; follow Pattern A skeleton, adapt legs/blend from the plan and input solutions.
+- Holdout only: bind `skrub.var("data", train_part)`, score on `valid_part`, print `Final Validation Performance`, then stop — do not load `test_df`, refit on full `train_df`, or write `submission.csv`. Strip any test/submission block from input solutions; submission agent handles export.
 
 # Response format required
 - Your response should be a single markdown code block (wrapped in ```) which is the ensemble of {num_solutions} Python Solutions.
 - There should be no additional headings or text in your response.
-- Do not modify original Python Solutions especially the submission part due to formatting issue of submission.csv.
 - Do not subsample or introduce dummy variables. You have to provide full new Python Solution using the {num_solutions} provided solutions.
 - Print out or return a final performance metric in your answer in a clear format with the exact words: 'Final Validation Performance: {{final_validation_score}}'.
 - The code should be a single-file Python program that is self-contained and can be executed as-is.
@@ -68,8 +69,9 @@ ENSEMBLE_PLAN_REFINE_INSTR = """# Introduction
 - Keep each solution's skrub DataOps pipeline structure intact; propose refinements in ensembling logic rather than rewriting preprocessing/modeling internals.
 - Prefer simple, effective ensemble variants over too heavy CV/seed grids when refining plans; only escalate compute when a prior plan showed a meaningful quality gap or the model is small/fast.
 - Load `references/ensemble_dataops_patterns.md` via skill tools; plan for Pattern A (multi-leg + blend), keeping each solution's pred chains intact.
+- Plans should not modify the original solutions too much since exeuction error can occur.
 
 # Response format
 - Your response should be an outline/sketch of your proposed solution in natural language.
 - There should be no additional headings or text in your response.
-- Plan should not modify the original solutions too much since exeuction error can occur."""
+- Tool calls are preparation only; you must finish by returning the final plan in the same turn."""

@@ -36,12 +36,11 @@ class DefaultConfig:
     outer_loop_round: int = 1  # The number of iterations or rounds to be executed within the outer loop, which might encompass multiple inner loops. (DEFAULT: 1)
     ensemble_loop_round: int = 1  # The number of rounds or iterations dedicated to ensembling, combining multiple models or solutions. (DEFAULT: 1)
     num_top_plans: int = 2  # The number of highest-scoring plans or strategies to select or retain. (DEFAULT: 2)
-    use_data_leakage_checker: bool = False  # Enable (`True`) or disable (`False`) a check for data leakage in the machine learning pipeline. (DEFAULT: False)
+    use_data_leakage_checker: bool = True  # Enable (`True`) or disable (`False`) a check for data leakage in the machine learning pipeline. (DEFAULT: False)
     use_data_usage_checker: bool = False  # Enable (`True`) or disable (`False`) a check for how data is being used, potentially for compliance or best practices. (DEFAULT: False)
     table_report_enabled: bool = True  # Build TableReport data profile for refinement prompts (ablation + planners).
     tuning_enabled: bool = True  # Run terminal choose_* search after refinement.
     tuning_n_iter: int = 5  # Max randomized search iterations for terminal tuning.
-    #tuning_n_jobs: int = 2  # Parallel jobs for terminal randomized search.
 
 
 CONFIG = DefaultConfig()

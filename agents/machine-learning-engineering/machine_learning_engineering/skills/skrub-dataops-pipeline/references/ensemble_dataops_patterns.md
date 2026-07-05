@@ -13,7 +13,7 @@ Load for ensemble implement; also relevant when tuning one leg of a structural e
 | Fresh single-file script; simple soft vote; one submission learner | B (optional) |
 
 ## Rules (both patterns)
-- Holdout only: `skrub.var("data", train_part)` → fit → `predict({"data": valid_part})`. No `test_df` / full-train refit before the metric line (only if you are instructed to export full submission).
+- Holdout only: `skrub.var("data", train_part)` → fit → `predict({"data": valid_part})`. No `test_df`, no full-train refit, no `submission.csv`.
 - FE via plain `def` + `.skb.apply_func(...)`.
 - Estimators via `.skb.apply(...)`; never `.skb.apply(plain_python_fn)`.
 - **Never** invent custom classes/wrappers around graphs or fake `.skb` accessors.
@@ -47,7 +47,7 @@ from sklearn.model_selection import train_test_split
 # metric_fn, target_col, train_df — match input solutions
 
 train_idx, valid_idx = train_test_split(
-    np.arange(len(train_df)), test_size=0.2, random_state=random_state
+    np.arange(len(train_df)), test_size=test_size, random_state=random_state
 )
 train_part = train_df.iloc[train_idx].copy()
 valid_part = train_df.iloc[valid_idx].copy()
@@ -92,8 +92,6 @@ final_validation_score = metric_fn(valid_part[target_col], valid_pred)
 print(f"Final Validation Performance: {final_validation_score}")
 ```
 
-**Submission stage only** (after metric print): refit each leg on full `train_df`, predict `test_df`, apply same blend.
-
 ---
 
 ## Pattern B (optional): VotingClassifier single learner
@@ -123,4 +121,5 @@ Caveats: per-leg `Pipeline` required when encoders differ; `OneHotEncoder(sparse
 ## When to load other references
 - `tuning_dataops_template.md` Pattern 3 — tune one leg, freeze others (Pattern A only).
 - `common_failure_fixes.md` #21 — wrapper-class anti-pattern.
-- `dataops_api_quickmap.md` — holdout bind + submission stage.
+- `dataops_api_quickmap.md` — holdout bind rules.
+- `submission_export.md` — full-train + test export (**submission agent only**).

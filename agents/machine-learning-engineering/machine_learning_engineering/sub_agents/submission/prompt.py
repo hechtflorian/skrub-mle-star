@@ -2,37 +2,39 @@
 
 ADD_TEST_FINAL_INSTR = """# Introduction
 - You are a Kaggle grandmaster attending a competition.
-- In order to win this competition, you need to come up with an excellent solution in Python.
-- We will now provide a task description and a Python solution.
-- What you have to do on the solution is just loading test samples and create a submission file.
+- Input: task description + Python solution with holdout metric (Block 1).
+- Your job: append Block 2 for test export (if not present already) — do not rewrite Block 1.
 
 # Task description
 {task_description}
 
-# Python solution
+# Python solution (Block 1 — keep unchanged)
 ```python
 {code}
 ```
 
 # Your task
 - Load the test samples and create a submission file.
-- All the provided data is already prepared and available in the `./input` directory. There is no need to unzip any files.
-- Test data is available in the `./input` directory.
+- Keep Block 1 exactly as given; append Block 2 after `Final Validation Performance`.
+- Block 2: load `test_df` (if not present), refit on full `train_df` with the **exact same** pipeline graph, predict test, write `./final/submission.csv`.
+- If ensemble: rebuild **every leg** on `train_df`; reuse the **exact same** blend/meta/threshold helpers from Block 1.
+- Test data lives in `./input/`; create `./final/` if needed. 
 - Save the test predictions in a `submission.csv` file. Put the `submission.csv` into `./final` directory.
-- You should not drop any test samples. Predict the target value for all test samples.
-- This is a very easy task because the only thing to do is to load test samples and then replace the validation samples with the test samples. Then you should use the full training set for the final model!
+- Predict every test row; do not drop samples.
+- You can and should use the full training set for the final model test prediction!
+
 
 # Required
-- You must load `references/dataops_api_quickmap.md` via `list_skills` -> `load_skill`(`skrub-dataops-pipeline`) and use `load_skill_resource() to load `references/dataops_api_quickmap.md` before editing (use the **Submission stage only** section for full-train refit, `test_df` predict, and export).
+- You must load `references/submission_export.md` via `list_skills` -> `load_skill`(`skrub-dataops-pipeline`) -> `load_skill_resource` before editing.
+- Follow its Pattern 1 (single) or Pattern 2 (ensemble) — mirror Block 1 pipeline, only rebind `train_part` → `train_df` in Block 2.
+- Do not simplify multi-leg ensemble to one model.
+- If Block 2 already exists and is correct, return the script unchanged.
 - Do not modify the given Python solution code too much. Try to integarte test submission with minimal changes.
 - Keep the existing skrub DataOps pipeline structure intact in the final script; submission changes should focus on full-train fitting and test prediction/export, not preprocessing/modeling rewrites.
-- The pipeline is pre-tuned with fixed parameters; do not add `choose_*` or re-run hyperparameter search.
+- Do not duplicate imports, defs, or Block 1; no second holdout print.
 - Tool calls are prep only — finish with runnable code in the same turn.
+- Do not use `exit()`; no try/except or if else to ignore unintended behavior.
+- Test predictions from model(s) trained on full `train_df`; export to `./final/submission.csv`.
 - There should be no additional headings or text in your response.
 - The code should be a single-file Python program that is self-contained and can be executed as-is.
-- Your response should only contain a single code block.
-- Do not forget the ./final/submission.csv file.
-- Do not use exit() function in the Python code.
-- Do not use try: and except: or if else to ignore unintended behavior.
-- The final test predictions must be generated from model(s) trained on the full training set.
-- Before fitting on the full training set and writing `./final/submission.csv`, keep and run the solution's existing holdout validation block unchanged (same `train_test_split` size and `random_state`). Print only that holdout validation score as `Final Validation Performance: {{final_validation_score}}`. Then refit on the full training set for final test predictions."""
+- Do not forget the ./final/submission.csv file."""

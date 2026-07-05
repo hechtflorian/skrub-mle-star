@@ -1422,3 +1422,346 @@ docs/WORKING_PROGRESS_MLE_STAR_SKRUB.md
 - **Agents:** ensemble plan/implement/refine + init merger prompted to load reference; tune unchanged (template cross-link).
 - **Next:** validate on full run; optional pre-exec for multi-leg structure; ensemble holdout leakage still open.
 
+---
+
+## Progress update (2026-07-03 continued): ensemble tool-only fix + optional tuning skip
+
+Follow-up on the same day as §51–§52: a Spaceship Titanic run (`adk_run_20260703_185459`) crashed at `ensemble_plan_refine_agent` after a skill-only turn; shipped runtime guards mirroring refinement, plus an optional tuning skip gate to cut wasted tune LLM/debug when ablation/refine show no lever.
+
+### 53) Ensemble skill-only turn crash — root cause + fix
+
+**Observed failure:** After successful `ensemble_plan_implement_initial` (code + holdout metric), `ensemble_plan_refine_agent` called `load_skill(name="skrub-dataops-pipeline")` with no plan text. Run crashed on instruction rebuild:
+
+```
+KeyError: 'score'
+  get_ensemble_plan_refinement_instruction → exec_result["score"]
+```
+
+**Root cause (two-part, same class as refinement §8):**
+
+1. **Trigger:** Tool-enabled plan agents sometimes return only `load_skill` / `list_skills` in a turn. `common_util.get_text_from_response()` correctly ignores tool parts → empty text.
+2. **Bug:** `get_refined_ensemble_plan` **appended** that empty string to `ensemble_plans` on every `after_model_callback` (refinement already fixed this in `get_refined_plan`). On the next LLM step, instruction builder iterated all plans and blindly indexed `ensemble_code_exec_result_{k}["score"]` — phantom plan index 1 had no exec result → **KeyError during `canonical_instruction`**, before the refine agent could recover.
+
+**Not the skill itself** — `load_skill` succeeded; the crash was unguarded state handling.
+
+**Fix applied (mirrors refinement):**
+
+| Location | Change |
+|----------|--------|
+| `ensemble/agent.py` — `get_refined_ensemble_plan` | Skip append when `response_text.strip()` is empty |
+| `ensemble/agent.py` — `get_init_ensemble_plan` | Skip setting `ensemble_plans` on empty/whitespace tool-only turns |
+| `ensemble/agent.py` — `get_ensemble_plan_refinement_instruction` | Build summary only from plans with `"score" in ensemble_code_exec_result_{k}`; no blind dict indexing |
+| `ensemble/prompt.py` — init + refine | Tool-call contract: *“Tool calls are preparation only; you must finish by returning the final plan text in the same turn.”* (implement already had the code variant) |
+
+**Already in place (unchanged):** `check_ensemble_plan_implement_finish` requires `returncode==0` and `"score"`; `code_util.get_run_code_condition` gates empty/non-Python ensemble implement output.
+
+**Tests:** `tests/test_ensemble_gate.py` (4 tests) — unscored plans skipped in refine instruction, no crash with zero scored plans, empty refine/init callbacks do not mutate `ensemble_plans`.
+
+### 54) Optional tuning skip gate (`skip_tuning` in tune plan JSON)
+
+**Motivation:** Terminal tuning is low leverage vs structural refinement on many runs (phase-1: tune never beat structural on Titanic; Spaceship tune often burns debug rounds). Agents should be able to **decline** search when ablation/refine context shows no clear tunable lever, without running implement/bake LLM loops.
+
+**Prompt (`tuning/prompt.py`):**
+
+- `TUNE_PLAN_INSTR` asks: run holdout search **or** skip.
+- Skip schema: `"skip_tuning": true` + required `"skip_reason"`; omit `focus_block` / `tunable_params`.
+- Bias: *when uncertain, prefer skip — tuning is polish, not a second refinement loop.*
+
+**Runtime gates (`tuning/agent.py`):**
+
+| Callback | Behavior |
+|----------|----------|
+| `check_tune_plan_finish` | Accept valid plan (`focus_block` in model/encoder/preprocessing) **or** skip plan with reason |
+| `finalize_tune_plan_gate` | On skip → `mark_tune_skipped_plan()` |
+| `check_tune_implement_finish` | Short-circuit if `skipped_plan` on search exec result |
+| `finalize_tune_search_failure` | After bounded implement/debug, if search never succeeded → `mark_tune_search_failed()` |
+| `prepare_tune_bake_inputs` | Skip bake LLM when plan skipped or search failed / no `tune_best_params` |
+| `check_tune_bake_finish` | Short-circuit on `skipped_plan` / `skipped_no_params` |
+| `promote_tuning_winner` | Sets `tune_stage_status_{id}` to `completed` (tuned win) or `ran` (search ran, structural won); preserves `skipped_plan` / `failed_search` from earlier gates |
+
+**State keys written:**
+
+| Key | Values / meaning |
+|-----|------------------|
+| `tune_stage_status_{task_id}` | `skipped_plan` \| `failed_search` \| `ran` \| `completed` |
+| `tune_skip_reason_{task_id}` | Human-readable reason (truncated on search failure) |
+| `tune_winner_source_{task_id}` | `structural` (default on skip/fail) or `tuned` |
+| `tune_param_source_{task_id}` | `skipped` \| `search` |
+| `train_code_tune_search_exec_result_{task_id}` | `{skipped_plan: true}` on plan skip |
+| `train_code_tune_exec_result_{task_id}` | `{skipped_plan: true}` or `{skipped_search_failed: true}` when bake skipped |
+
+**Helpers (testable):** `mark_tune_skipped_plan`, `mark_tune_search_failed`, `_search_succeeded` — covered in `tests/test_tuning_gate.py`.
+
+**Analysis tooling:** `test-scripts/analyze_run.py` logs `tune_stage_status` and `tune_skip_reason` in extras / CSV row.
+
+**Design note:** Search budget remains **`tuning_n_iter` in config only**; `tuning_n_jobs` was removed (§49). `n_jobs` guidance stays prompt/skill-driven. Grid-search auto-pick was prototyped then reverted — randomized search only.
+
+### 55) Validation context — Spaceship run that motivated ensemble fix
+
+Run: `workspace/spaceship-titanic/adk_run_20260703_185459.log`
+
+| Stage | Outcome |
+|-------|---------|
+| Init + refinement | Completed (prior stages) |
+| `init_ensemble_plan_agent` | Plan + skill loads OK |
+| `ensemble_plan_implement_initial_agent` | Full Pattern A blend script; `Final Validation Performance` printed |
+| `ensemble_plan_refine_agent` | `load_skill` only → **crash** on refine instruction rebuild (fixed by §53) |
+
+After §53, refine loop should survive tool-only turns and retry until plan text is returned; implement finish gate still requires scored execution before progressing.
+
+### Known open items (updated 2026-07-03 continued)
+
+- [ ] **Ensemble holdout leakage** — highest priority from r8 analysis (carried forward).
+- [ ] **Tune backbone on ensembles** — meta-estimator / leaf-only set (carried forward).
+- [ ] Optional pre-exec: ensemble/merger ≥2 DataOps legs (carried forward).
+- [ ] Pattern 2b B encoder tuning handoff (`encoder_slot` in tune bake) — discussed, not shipped.
+- [ ] DataOps usage pre-exec checker (hybrid sklearn fits outside graph) — deferred.
+- [x] **Ensemble tool-only / KeyError fix** — §53 + `test_ensemble_gate.py`.
+- [x] **Optional tuning skip gate** — §54 + `test_tuning_gate.py`.
+- [x] **`analyze_run.py`** tune stage status fields — §54.
+
+### Files touched (2026-07-03 continued)
+
+```
+agents/.../sub_agents/ensemble/
+  agent.py                    # empty-response guards; safe score aggregation in refine instruction
+  prompt.py                   # tool-only contract on init + refine plan prompts
+
+agents/.../sub_agents/tuning/
+  agent.py                    # skip/fail gates, mark_tune_* helpers, bake short-circuit
+  prompt.py                   # skip_tuning JSON schema + skip-when-no-lever bias
+
+agents/.../tests/
+  test_ensemble_gate.py       # NEW — 4 tests
+  test_tuning_gate.py         # NEW — 3 tests
+
+test-scripts/analyze_run.py   # tune_stage_status, tune_skip_reason
+
+docs/WORKING_PROGRESS_MLE_STAR_SKRUB.md
+```
+
+### TL;DR (2026-07-03 continued)
+
+- **Ensemble crash:** skill-only refine turn appended `""` to `ensemble_plans` → `KeyError: 'score'` on instruction rebuild; fixed by mirroring refinement empty-response guards + scored-plan-only summary.
+- **Tuning cost control:** agents may emit `skip_tuning: true` with reason; runtime skips implement/bake LLM and records `tune_stage_status` / `tune_skip_reason` for analysis.
+- **Tests:** 29 passing in gate + `test_code_util` suite (`test_ensemble_gate`, `test_tuning_gate`, `test_code_util`).
+- **Still open:** ensemble holdout leakage; validate full Spaceship rerun post-fix.
+
+---
+
+## Progress update (2026-07-03 evening): holdout-only export isolation, leakage checker, r14 post-mortem
+
+### 56) Submission export moved out of early-stage skill refs
+
+**Problem:** Agents in init/refinement/tuning/ensemble copied Block 2 (full `train_df` refit + `test_df` predict + `submission.csv`) from skill templates, doubling runtime per script execution.
+
+**Shipped:**
+
+| Change | Detail |
+|--------|--------|
+| **New ref** | `references/submission_export.md` — single + multi-leg ensemble export patterns (**submission agent only**) |
+| **Removed Block 2** from early-agent refs | `SKILL.md`, `dataops_api_quickmap.md`, `holdout_data_leakage.md`, `ensemble_dataops_patterns.md`, `choices_hparam_pattern.md`, `selectors_routing_skrub.md`, `common_failure_fixes.md` |
+| **Submission agent** | `submission/prompt.py` loads `submission_export.md` (not quickmap Block 2) |
+| **Pre-exec gate** | `submission_export_contract_violation()` in `code_util.py` — requires `submission.csv`, test data, `train_df` before subprocess |
+
+**Intent:** Skill docs alone teach holdout-only scripts; export pattern exists in one place the submission agent loads.
+
+### 57) Data leakage checker — skill-only turn crash fix
+
+**Symptom:** With `use_data_leakage_checker=True`, run crashed after `model_eval_agent` at `check_leakage_util.update_extract_status` with `UnboundLocalError: leakage_status`.
+
+**Root cause:** Tool-only `load_skill` turn → empty `get_text_from_response()` → parse fails → `leakage_status` never assigned (same class as ensemble §53).
+
+**Fix (`check_leakage_util.py`):**
+
+- Initialize `leakage_status` / `code_block` / `extract_status` defaults before parse.
+- `replace_leakage_code` skips empty responses; wired with `functools.partial(..., prefix=prefix)`.
+- Prompts: tool calls prep-only; finish with JSON / patched code in same turn.
+
+**Tests:** `tests/test_leakage_gate.py` (3 tests).
+
+### 58) r14 post-mortem — early-stage export still happens (skill isolation not sufficient)
+
+**Run:** `test-runs/spaceship-titanic/gpt-5.4-mini/fix-refinement-debug-drift/r14/` (`adk_run_20260703_223452.log`)
+
+**Evidence (init path):**
+
+| Step | Script shape | Export block? |
+|------|----------------|---------------|
+| `model_eval_agent_1_1` **first** output | Holdout only — ends at `Final Validation Performance` | **No** |
+| `model_eval_debug_agent_1_1` fix | Adds `# Build submission on full training data...` + `train_df` refit + `test_df` + `submission.csv` | **Yes** ← seeds pipeline |
+| `model_eval_agent_1_2` first output | Loads `test.csv`, full export in first turn | **Yes** (no debug needed) |
+| `merger_agent_1_1` | Copies upstream + export | **Yes** |
+| `ablation_0.py` | Holdout only (`train_part` bind, no `test_df`) | **No** ✓ |
+
+**Root causes (ranked):**
+
+1. **Debug agent (`debug_prompt.py`)** — not forbidden from adding export; explicitly adds submission when fixing CatBoost/sklearn errors. **Primary propagator** after first holdout-only init script.
+2. **Model retriever web examples (`MODEL_RETRIEVAL_INSTR`)** — DDG/search returns classic Kaggle snippets (`train.csv` + `test.csv` + `model.fit(X,y)` + `submission.csv`); `model_eval` copies this pattern (especially candidate 2).
+3. **Upstream code inheritance** — merger / refinement / ensemble start from scripts that already contain export (`init_code_1.py` → `train0.py` → …).
+4. **Task description priming** — `# Submission Format` section nudges toward export (weaker than above).
+5. **Skill refs** — **partially working**: ablation/refine-implement agents that load holdout-only templates behave; quickmap still loaded at init but Block 2 removed — **not the main remaining leak**.
+
+**Not the main cause:** Kaggle framing in prompts alone (first `model_eval_1_1` turn was holdout-only despite “Kaggle grandmaster” intro).
+
+**Recommended fix stack (next, surgical):**
+
+| Priority | Target | Change |
+|----------|--------|--------|
+| **P0** | `debug_prompt.py` (`BUG_REFINE_INSTR`) | “Do not add `test_df`, full-train refit, or `submission.csv`; stop at holdout metric print (submission agent only).” |
+| **P1** | Implement prompts | Same one-liner on `MODEL_EVAL_INSTR`, `CODE_INTEGRATION_INSTR`, `CHECK_DATA_USE_INSTR`, `ENSEMBLE_PLAN_IMPLEMENT_INSTR` (refinement/tuning already have it) |
+| **P1** | `MODEL_RETRIEVAL_INSTR` | Require holdout-only `example_code` (no test load / submission write in retrieval examples) |
+| **P2** | `code_util.preexec_code_failure` | Optional inverted gate for non-`submission*` agents: fail if `submission.csv` write or post-metric `skrub.var("data", train_df)` + `test_df` |
+
+Prompt one-liners **are warranted** — r14 shows skill-doc isolation fixed ablation and first init turn, but **debug + retriever + copy-forward** bypass it without explicit agent instructions.
+
+### Known open items (updated 2026-07-03 evening)
+
+- [ ] **Early-stage export** — P0 debug prompt + P1 implement one-liners + retriever holdout-only examples (§58).
+- [ ] Optional **early-stage export pre-exec gate** (§58 P2).
+- [ ] **Ensemble holdout leakage** — cross-split eval (carried forward).
+- [ ] Tune backbone on ensembles / Pattern 2b B / DataOps usage checker (carried forward).
+- [x] Submission export skill isolation + submission pre-exec (§56).
+- [x] Leakage checker tool-only crash (§57).
+- [x] Ensemble refine KeyError + tuning skip gate (§53–§54).
+
+### Files touched (2026-07-03 evening)
+
+```
+agents/.../skills/skrub-dataops-pipeline/
+  references/submission_export.md          # NEW
+  SKILL.md, dataops_api_quickmap.md, holdout_data_leakage.md,
+  ensemble_dataops_patterns.md, choices_hparam_pattern.md,
+  selectors_routing_skrub.md, common_failure_fixes.md
+
+agents/.../sub_agents/submission/prompt.py
+agents/.../shared_libraries/
+  code_util.py                             # submission_export_contract_violation
+  check_leakage_util.py                    # leakage parse guards
+  data_leakage_prompt.py
+
+agents/.../tests/
+  test_leakage_gate.py                     # NEW
+  test_code_util.py                        # submission contract tests
+
+docs/WORKING_PROGRESS_MLE_STAR_SKRUB.md
+```
+
+### TL;DR (2026-07-03 evening)
+
+- **Shipped:** export pattern quarantined to `submission_export.md`; submission pre-exec gate; leakage checker empty-response fix.
+- **r14 lesson:** skill ref cleanup **works for ablation and first init turn**, but **debug agent adds export** and **retriever Kaggle examples** re-introduce it; downstream agents copy polluted scripts.
+- **Next:** debug prompt + implement one-liners + holdout-only retriever examples (prompt layer); optional early-stage export pre-exec for enforcement.
+
+---
+
+## Progress update (2026-07-05): early-stage export guards, submission export, leakage checker, validated rerun
+
+### 59) Early-stage export — prompt one-liners shipped
+
+**Follow-up to r14 (§58):** Skill ref isolation alone was insufficient; debug/retriever/copy-forward re-introduced export.
+
+**Shipped (prompt layer):**
+
+| Target | Change |
+|--------|--------|
+| `debug_prompt.py` | Do not add `test_df`, full-train refit, or `submission.csv` while fixing — stop at holdout print |
+| `initialization/prompt.py` | Holdout-only one-liner on `MODEL_EVAL_INSTR`, `CODE_INTEGRATION_INSTR`, `CHECK_DATA_USE_INSTR`, `MODEL_RETRIEVAL_INSTR` |
+| `ensemble/prompt.py` | Holdout-only on `ENSEMBLE_PLAN_IMPLEMENT_INSTR`; strip export blocks from input solutions |
+
+**Not shipped:** early-stage export pre-exec gate (§58 P2) — deferred.
+
+### 60) Submission agent — export templates, wiring, leakage skip
+
+**Problems (r15/r16 runs):** False-positive Block 2 leakage flags → full-script splice duplication; `do_eval=False` when leakage checker on → 5× submission retries; debug backbone drift (LGBM ensemble → RF/sklearn).
+
+**Shipped:**
+
+| Change | Detail |
+|--------|--------|
+| **`references/submission_export.md`** | Block-2-only tutorial: Block 1 vs Block 2 table; Pattern 1 (single pipeline) + Pattern 2 (ensemble legs + blend); anti-patterns (no duplicate script, no ensemble collapse) |
+| **`submission/prompt.py`** | Append-only contract; load `submission_export.md`; copy Block 1 verbatim; rebuild all ensemble legs on `train_df` |
+| **`debug_util.py`** | **Skip leakage checker on submission** (`prefix == "submission"`) — same as `ensemble_plan_implement`; **`evaluate_code` runs immediately** after submission agent output |
+| **`code_util.py`** | `submission_export_contract_violation()` pre-exec on submission scripts (requires `submission.csv`, test data) |
+| **`submission/agent.py`** | Removed obsolete `submission_skip_data_leakage_check` toggle |
+
+**Intent:** Submission = one clean turn: append Block 2, exec, finish. No leakage checker false positives, no retry spiral.
+
+### 61) Leakage checker — early-stage only, simplified reference
+
+**Shipped:**
+
+| Change | Detail |
+|--------|--------|
+| **`holdout_data_leakage.md`** | Rewritten for **init → ensemble holdout scripts only**; removed submission Block 1+2 exception section; expanded general leakage signals (`train_df` bind for metric, `test_df` before print, train+test concat, global stats on full train) |
+| **`data_leakage_prompt.py`** | Removed `SUBMISSION_CHECK_ADDENDUM` / `SUBMISSION_REFINE_ADDENDUM` (submission no longer checked) |
+| **`check_leakage_util.py`** | Tool-only turn guards (§57); empty-response safe parse; submission addendum wiring removed |
+
+**Checker scope today:** model_eval, merger, ablation, plan_implement, tune_implement — all answer `No Data Leakage` / `Yes Data Leakage` on **holdout path before metric print** only.
+
+### 62) Validated rerun — Spaceship Titanic (`adk_run_20260705_141932`)
+
+**Run:** `workspace/spaceship-titanic/` (user aborted after submission completed).
+
+**Score trajectory (holdout accuracy, higher is better):**
+
+| Stage | Score | Notes |
+|-------|-------|-------|
+| Init LGBM (model 2) | 0.787 | |
+| Merger → `train0` | 0.801 | LGBM + CatBoost blend |
+| Refinement `train1` | 0.793 / 0.776 | Not promoted |
+| Tune | skipped (`tune_stage_status: skipped_plan`) | |
+| **`ensemble0`** | **0.806** | **Best — selected for submission** |
+| ensemble1 | 0.804 | |
+| **`final_solution.py`** | **0.805** | ensemble0 + Block 2 append |
+
+**Submission:** ✅ Single `submission_agent` turn; loaded `submission_export.md`; **no** `submission_check_leakage`, **no** `submission_debug`; `submission_bug_summary` empty. Export: `./final/submission.csv` (4277 rows, `PassengerId,Transported`).
+
+**`final_solution.py` quality:** ✅ Matches `ensemble0.py` Block 1 (dual LGBM+CatBoost legs, weight search, `best_w` blend) + correct Block 2 (`skrub.var("data", train_df)`, both legs refit, same blend on test). No duplication, no backbone drift.
+
+**Early scripts:** ✅ Promoted path (`train0.py`, `train0_improve*.py`, `ablation_0.py`, `ensemble0.py`) — holdout-only, no `submission.csv`, no full-train refit. Minor leftover: `init_code_2.py` / `train0_0.py` load `test.csv` but **do not** export (unused variable; not promoted winner).
+
+**Leakage:** ✅ All early-stage checker steps returned **`No Data Leakage`** with honest `train_part` binds.
+
+**vs prior broken runs:** r15 duplication (0.798, double holdout print); r16 233126 RF drift (0.782). This run is **cleaner and ~0.02–0.03 better** on holdout.
+
+### Known open items (updated 2026-07-05)
+
+- [ ] Optional **early-stage export pre-exec gate** (fail non-submission scripts with `submission.csv` / post-metric full-train block).
+- [ ] **Retriever holdout-only examples** — `init_code_2` still loads unused `test_df` from web-search pattern.
+- [ ] **Submission debug backbone contract** — prompt-only guard if debug ever triggers on submission again.
+- [ ] Ensemble holdout leakage audit (carried forward).
+- [x] Early-stage export prompt one-liners (§59).
+- [x] Submission export template + skip submission leakage checker (§60).
+- [x] Leakage checker early-stage-only reference (§61).
+- [x] Validated clean Spaceship rerun post-fix (§62).
+
+### Files touched (2026-07-05)
+
+```
+agents/.../skills/skrub-dataops-pipeline/references/
+  submission_export.md                     # Block-2 tutorial (single + ensemble)
+  holdout_data_leakage.md                  # early-stage only; general leakage patterns
+
+agents/.../sub_agents/
+  submission/prompt.py, submission/agent.py
+  initialization/prompt.py, ensemble/prompt.py
+
+agents/.../shared_libraries/
+  debug_util.py                            # skip leakage on submission; do_eval=True
+  debug_prompt.py                          # no export in debug fixes
+  check_leakage_util.py, data_leakage_prompt.py
+  code_util.py                             # submission_export_contract_violation
+
+agents/.../tests/test_leakage_gate.py
+
+docs/WORKING_PROGRESS_MLE_STAR_SKRUB.md
+```
+
+### TL;DR (2026-07-05)
+
+- **Early stages:** holdout-only via skill ref cleanup + implement/debug prompt one-liners; promoted scripts no longer export.
+- **Submission:** dedicated `submission_export.md` + append-only prompt; leakage checker **disabled** on submission so code executes once; clean dual-leg export in validated run.
+- **Leakage checker:** fixed tool-only crashes; reference scoped to holdout metric path; submission Block 2 rules removed.
+- **Prototype state:** Spaceship rerun (`20260705_141932`) — ensemble0 → `final_solution.py` + CSV, no submission debug, all checker steps clean.
+

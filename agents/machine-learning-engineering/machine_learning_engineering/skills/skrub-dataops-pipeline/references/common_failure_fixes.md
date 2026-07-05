@@ -20,7 +20,8 @@ Use this during debugging. Keep DataOps architecture unchanged.
 ## 2) Predict environment violation
 - Symptom: `TypeError: environment should be a dictionary of input values`.
 - Fix:
-  - Use `learner.predict({"data": test_df})` (or multiple named tables for multi-table flows).
+  - Use `learner.predict({"data": valid_part})` for holdout scoring in early stages.
+  - Submission stage: `learner.predict({"data": test_df})` — see `references/submission_export.md`.
   - Do not pass raw `DataOp` objects to `predict`.
 
 ## 3) Target or feature not tracked correctly
@@ -107,7 +108,7 @@ Use this during debugging. Keep DataOps architecture unchanged.
   - applying multiple inconsistent train/test feature-prep branches.
 - Fast fix:
   - Prefer one canonical feature split once: `X = data.drop(columns=target_col, errors="ignore")`.
-  - For prediction, pass raw table environments to the learner (no extra ad-hoc drop): `learner.predict({"data": test_df})`.
+  - For prediction, pass raw table environments to the learner (no extra ad-hoc drop): holdout uses `valid_part`; submission uses `test_df` per `submission_export.md`.
   - If a drop is unavoidable in shared code, use `errors="ignore"` and keep the same helper for train/val/test.
 - Prevention:
   - Do not re-drop target columns at inference time.

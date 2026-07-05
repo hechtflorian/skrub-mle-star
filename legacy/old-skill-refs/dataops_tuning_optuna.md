@@ -1,86 +1,74 @@
-# Tuning DataOps with Optuna
+# DataOps Tuning with Optuna
 
-This example shows how to use Optuna to tune the hyperparameters of a skrub `DataOp`. Skrub DataOps contain "choices", objects created with `skrub.choose_from()`, `skrub.choose_int()`, `skrub.choose_float()`, etc. and we can use hyperparameter search techniques to pick the best outcome for each choice. Performing this search with Optuna allows us to benefit from its many features, such as state-of-the-art search strategies, monitoring and visualization, stopping and resuming searches, and parallel or distributed computation.
+Use this reference when the task requires Optuna-backed search for `choose_*` nodes in a DataOps plan.
 
-## Agent Verification Checklist (Skrub) - MODIFY THIS
-Use this checklist when generating data preprocessing code:
-- [ ] **No Pandas Engineering**: Did you use `skrub.TableVectorizer` to transform the dataframe to a vectorized representation?
-- [ ] **DataOps Graph**: Did you define inputs using `skrub.X()`, `skrub.y()` or `skrub.var()` and `skrub.DataOp.skb.mark_as_X()`, `skrub.DataOp.skb.mark_as_y()`?
-- [ ] **Relational Data**: If given multiple tables, did you use `skrub.Joiner` or `skrub.AggJoiner` instead of `pd.merge()`?
+## APIs quickmap
+- `pred.skb.make_randomized_search(backend="optuna", ...)`
+- `pred.skb.make_learner(choose=trial)`
+- `skrub.cross_validate(learner, environment=env, cv=cv)`
+- `search.study_` and `search.study_.best_params`
 
----
+## Critical rule: no fake tuning with Optuna
+- `choose_*` and `choose_from(...)` only become tuned hyperparameters when an Optuna search/study is actually executed.
+- A plain `.skb.make_learner(...)` call on a graph containing `choose_*` still uses defaults and is not tuned; it should only serve as a quick baseline validation.
+- Always produce the final model from the best search result (`search.best_learner_`) or best trial (`pred.skb.make_learner(choose=study.best_trial)`).
 
-## 1. Simple Regressor and example data
-We will fit a regressor containing a few choices on a toy dataset. We try 2 regressors: extra trees and ridge. They both have hyperparameters that we want to tune.
+## Pattern A: Optuna as backend for DataOps randomized search
 ```python
-# pip install optuna
 import pandas as pd
-
-from sklearn.model_selection import KFold
+import skrub
 from sklearn.ensemble import ExtraTreesRegressor
 from sklearn.linear_model import Ridge
-
-import optuna
-import skrub
+from sklearn.model_selection import KFold
 
 extra_tree = ExtraTreesRegressor(
-    min_samples_leaf=skrub.choose_int(1, 32, log=True, name="min_samples_leaf"),
+    min_samples_leaf=skrub.choose_int(1, 32, log=True, name="min_samples_leaf")
 )
-ridge = Ridge(alpha=skrub.choose_float(0.01, 10.0, log=True, name="α"))
+ridge = Ridge(alpha=skrub.choose_float(0.01, 10.0, log=True, name="alpha"))
+regressor = skrub.choose_from({"extra_tree": extra_tree, "ridge": ridge}, name="regressor")
 
-regressor = skrub.choose_from(
-    {"extra_tree": extra_tree, "ridge": ridge}, name="regressor"
-)
 data = skrub.var("data")
 X = data.drop(columns="MedHouseVal", errors="ignore").skb.mark_as_X()
 y = data["MedHouseVal"].skb.mark_as_y()
 pred = X.skb.apply(regressor, y=y)
-#print(pred.skb.describe_param_grid())
 
-# Load data
-# (We subsample the dataset by half to make the example run faster)
-file_path = skrub.datasets.fetch_california_housing().path
-df = pd.read_csv(file_path).sample(10_000, random_state=0)
-
-# The environment we will use to fit the learners created by our DataOp.
+df = pd.read_csv(skrub.datasets.fetch_california_housing().path).sample(10_000, random_state=0)
 env = {"data": df}
 cv = KFold(n_splits=4, shuffle=True, random_state=0)
 
-# Selecting the best hyperparams with Optuna
 search = pred.skb.make_randomized_search(
     backend="optuna", cv=cv, n_iter=10, random_state=10
 )
 search.fit(env)
-#search.results_
+best_params = search.study_.best_params
+```
 
-# The Optuna Study that was used to run the hyperparameter search is available in the attribute `study_`
-#search.study_
-#search.study_.best_params
+## Pattern B: direct Optuna study with DataOps learner
+```python
+import optuna
 
 def objective(trial):
     learner = pred.skb.make_learner(choose=trial)
     cv_results = skrub.cross_validate(learner, environment=env, cv=cv)
     return cv_results["test_score"].mean()
 
-
 study = optuna.create_study(direction="maximize")
 study.optimize(objective, n_trials=10)
-#study.best_params
 
-# Build a learner with best hyperparams and fit on full dataset
 best_learner = pred.skb.make_learner(choose=study.best_trial)
 best_learner.fit(env)
-#print(best_learner.describe_params())
 ```
 
+## Checklist
+- `choose_*`/`choose_from` exist before search.
+- Optuna is used either through `backend="optuna"` or explicit `trial` workflow.
+- Final model is created from best trial and fit on full environment.
+- Holdout scripts (no CV): bind `train_part` for search/metric, `train_df` only for final test block — see `dataops_api_quickmap.md`.
+- If no search is run, remove `choose_*` and switch to fixed values instead of leaving pseudo-tunable placeholders.
 
-## When to load deeper references
-- Multi-table joins/aggregations/entity relationships: load `multi_table_pipeline_pattern.md`.
-- Choice/tuning logic and search-space composition: load `choices_hparam_pattern.md`.
-- Runtime exceptions, shape/type mismatches, unresolved symbols: load `common_failure_fixes.md`.
-
-## Web verification pattern (when uncertain)
-Use targeted searches and patch only the uncertain line:
-- `site:skrub-data.org <symbol_name>`
-- `site:skrub-data.org DataOps <symbol_name>`
-- `site:skrub-data.org reference data_ops`
+## When to load other references
+- Load `dataops_api_quickmap.md` for canonical DataOps pipeline shape and safe fit/predict patterns.
+- Load `choices_hparam_pattern.md` for non-Optuna choice/search conventions and tuning rules, and details on hyperparam search with `skrub.choose_*`
+- Load `common_failure_fixes.md` for search-space/runtime failures and fast remediation.
+- Load `encoding_skrub.md` when trials include encoder or column-routing decisions.
+- Load `skrub_subsampling.md` when iteration speed is the bottleneck and subsampling is required.

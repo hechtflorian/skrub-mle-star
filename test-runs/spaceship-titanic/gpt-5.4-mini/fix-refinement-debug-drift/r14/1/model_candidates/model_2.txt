@@ -1,0 +1,31 @@
+## Model name
+LightGBM (LGBMClassifier)
+
+## Example Python code
+import pandas as pd
+from lightgbm import LGBMClassifier
+
+train = pd.read_csv('train.csv')
+test = pd.read_csv('test.csv')
+
+for df in [train, test]:
+    c = df['Cabin'].fillna('X/0/X').str.split('/', expand=True)
+    df['Deck'] = c[0]
+    df['Num'] = pd.to_numeric(c[1], errors='coerce')
+    df['Side'] = c[2]
+    df['TotalSpent'] = df[['RoomService','FoodCourt','ShoppingMall','Spa','VRDeck']].fillna(0).sum(axis=1)
+    df['NoSpend'] = (df['TotalSpent'] == 0).astype(int)
+
+feat = ['HomePlanet','CryoSleep','Destination','Age','VIP','Deck','Num','Side','TotalSpent','NoSpend']
+X = pd.get_dummies(train[feat], dummy_na=True)
+y = train['Transported'].astype(int)
+X_test = pd.get_dummies(test[feat], dummy_na=True).reindex(columns=X.columns, fill_value=0)
+
+model = LGBMClassifier(
+    n_estimators=2000, learning_rate=0.02, num_leaves=64,
+    min_child_samples=20, subsample=0.85, colsample_bytree=0.85,
+    random_state=42
+)
+model.fit(X, y)
+sub = pd.DataFrame({'PassengerId': test['PassengerId'], 'Transported': model.predict(X_test).astype(bool)})
+sub.to_csv('submission.csv', index=False)

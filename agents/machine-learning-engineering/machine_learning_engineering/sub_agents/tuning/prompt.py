@@ -17,7 +17,10 @@ TUNE_PLAN_INSTR = """# Introduction
 {plan_summary}
 
 # Your task
-- Pick **one** focus block only: `model` or `encoder`/`preprocessing`.
+- Decide whether terminal holdout search is worth running, or skip it.
+- If skip: set `"skip_tuning": true` with a one-sentence `"skip_reason"` (required). Omit `focus_block` / `tunable_params`.
+- Skip when ablation and refine context show **no clear tunable lever** (flat model+encoder ablation, refinement already captured the main gain, ensemble too complex for one-block polish, or only marginal hparam headroom on the current backbone). When uncertain, prefer skip — tuning is polish, not a second refinement loop.
+- If not skipping: pick **one** focus block only: `model` or `encoder`/`preprocessing`.
 - Prefer `model` when ablation showed capacity or model-side effects; prefer `encoder`/`preprocessing` when its ablation clearly mattered.
 - If model focus: at most **2** `choose_*` nodes with tight ranges around current literals.
 - If encoder focus: at most **2** `choose_*` nodes; if tuning `TableVectorizer`, plan `choose_from` of whole vectorizers or multiple encoder instances.
@@ -43,7 +46,9 @@ TUNE_PLAN_INSTR = """# Introduction
 
 Use this JSON schema:
 TunePlan = {{
-  "focus_block": "model" | "encoder",
+  "skip_tuning": bool,
+  "skip_reason": str,
+  "focus_block": "model" | "encoder" | null,
   "rationale": str,
   "tunable_params": [{{"name": str, "kind": "choose_from" | "choose_int" | "choose_float", ...}}],
   "frozen": [str],

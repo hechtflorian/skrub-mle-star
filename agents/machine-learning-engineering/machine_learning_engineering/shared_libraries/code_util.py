@@ -179,6 +179,21 @@ def ablation_contract_violation(code: str) -> str | None:
     )
 
 
+def submission_export_contract_violation(code: str) -> str | None:
+    """Submission scripts must refit on full train, predict test, and write submission.csv."""
+    if "submission.csv" not in code:
+        return (
+            "Submission export contract: script must write submission.csv "
+            "(expected ./final/submission.csv)."
+        )
+    if "test_df" not in code or "test.csv" not in code:
+        return (
+            "Submission export contract: script must load test data "
+            "(test_df from ./input/test.csv)."
+        )
+    return None
+
+
 def maybe_set_debug_anchor(
     callback_context: callback_context_module.CallbackContext,
     agent_name: str,
@@ -235,6 +250,15 @@ def preexec_code_failure(
             }
     if agent_name.startswith("ablation"):
         contract = ablation_contract_violation(raw_code)
+        if contract:
+            return {
+                "returncode": 1,
+                "stdout": "",
+                "stderr": contract,
+                "execution_time": 0.0,
+            }
+    if agent_name.startswith("submission"):
+        contract = submission_export_contract_violation(raw_code)
         if contract:
             return {
                 "returncode": 1,
