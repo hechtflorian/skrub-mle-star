@@ -1673,7 +1673,7 @@ docs/WORKING_PROGRESS_MLE_STAR_SKRUB.md
 
 ### 60) Submission agent — export templates, wiring, leakage skip
 
-**Problems (r15/r16 runs):** False-positive Block 2 leakage flags → full-script splice duplication; `do_eval=False` when leakage checker on → 5× submission retries; debug backbone drift (LGBM ensemble → RF/sklearn).
+**Problems (r15/r16 runs):** False-positive Block 2 leakage flags → full-script splice duplication; `do_eval=False` when leakage checker on → 5× submission retries; debug backbone drift (LGBM ensemble → RF/sklearn) when `submission_debug_agent` ran.
 
 **Shipped:**
 
@@ -1685,7 +1685,18 @@ docs/WORKING_PROGRESS_MLE_STAR_SKRUB.md
 | **`code_util.py`** | `submission_export_contract_violation()` pre-exec on submission scripts (requires `submission.csv`, test data) |
 | **`submission/agent.py`** | Removed obsolete `submission_skip_data_leakage_check` toggle |
 
-**Intent:** Submission = one clean turn: append Block 2, exec, finish. No leakage checker false positives, no retry spiral.
+**Not shipped (submission backbone / anchor — still open):**
+
+| Planned | Actual implementation today |
+|---------|----------------------------|
+| `SUBMISSION_ANCHOR_CODE_KEY` / stable winning-script anchor | **Not wired** — winning code is passed only via `get_submission_and_debug_agent_instruction()` input prompt, not stored for debug |
+| `_get_backbone_contract()` on submission debug | **Returns `""`** — submission is excluded from `backbone_check_mode` / `resolve_backbone_required()` |
+| `SUBMISSION_DEBUG_ADDENDUM` in `debug_prompt.py` | **Not added** — global `BUG_REFINE_INSTR` still says “do not add `test_df`…” for all debug agents (wrong if submission debug runs) |
+| Hard backbone pre-exec on submission | **Not enforced** — only `submission_export_contract_violation()` (export presence, not estimator family) |
+
+**Intent:** Submission = one clean turn: append Block 2, exec, finish. No leakage checker false positives, no retry spiral. r15/r16 backbone drift is mitigated **operationally** (clean first-turn success in §62) rather than by submission-specific debug guards.
+
+**Protection scope today:** export template + append-only submission prompt + leakage skip + export pre-exec. Backbone drift on submission debug remains a **prompt-layer gap** (see open item below).
 
 ### 61) Leakage checker — early-stage only, simplified reference
 
@@ -1717,7 +1728,7 @@ docs/WORKING_PROGRESS_MLE_STAR_SKRUB.md
 
 **Submission:** ✅ Single `submission_agent` turn; loaded `submission_export.md`; **no** `submission_check_leakage`, **no** `submission_debug`; `submission_bug_summary` empty. Export: `./final/submission.csv` (4277 rows, `PassengerId,Transported`).
 
-**`final_solution.py` quality:** ✅ Matches `ensemble0.py` Block 1 (dual LGBM+CatBoost legs, weight search, `best_w` blend) + correct Block 2 (`skrub.var("data", train_df)`, both legs refit, same blend on test). No duplication, no backbone drift.
+**`final_solution.py` quality:** ✅ Matches `ensemble0.py` Block 1 (dual LGBM+CatBoost legs, weight search, `best_w` blend) + correct Block 2 (`skrub.var("data", train_df)`, both legs refit, same blend on test). No duplication; backbone preserved because submission succeeded on the **first turn without debug** — not because submission debug has backbone enforcement.
 
 **Early scripts:** ✅ Promoted path (`train0.py`, `train0_improve*.py`, `ablation_0.py`, `ensemble0.py`) — holdout-only, no `submission.csv`, no full-train refit. Minor leftover: `init_code_2.py` / `train0_0.py` load `test.csv` but **do not** export (unused variable; not promoted winner).
 
@@ -1729,7 +1740,7 @@ docs/WORKING_PROGRESS_MLE_STAR_SKRUB.md
 
 - [ ] Optional **early-stage export pre-exec gate** (fail non-submission scripts with `submission.csv` / post-metric full-train block).
 - [ ] **Retriever holdout-only examples** — `init_code_2` still loads unused `test_df` from web-search pattern.
-- [ ] **Submission debug backbone contract** — prompt-only guard if debug ever triggers on submission again.
+- [ ] **Submission debug backbone contract** — wire winning-script anchor into `_get_backbone_contract()` + conditional `SUBMISSION_DEBUG_ADDENDUM` (preserve Block 2 / allow `test_df`); optional overlap pre-exec in `code_util.py`.
 - [ ] Ensemble holdout leakage audit (carried forward).
 - [x] Early-stage export prompt one-liners (§59).
 - [x] Submission export template + skip submission leakage checker (§60).
@@ -1761,7 +1772,7 @@ docs/WORKING_PROGRESS_MLE_STAR_SKRUB.md
 ### TL;DR (2026-07-05)
 
 - **Early stages:** holdout-only via skill ref cleanup + implement/debug prompt one-liners; promoted scripts no longer export.
-- **Submission:** dedicated `submission_export.md` + append-only prompt; leakage checker **disabled** on submission so code executes once; clean dual-leg export in validated run.
+- **Submission:** dedicated `submission_export.md` + append-only prompt; leakage checker **disabled** on submission so code executes once; export pre-exec only (no submission backbone/anchor guard yet); clean dual-leg export in validated run (no debug).
 - **Leakage checker:** fixed tool-only crashes; reference scoped to holdout metric path; submission Block 2 rules removed.
 - **Prototype state:** Spaceship rerun (`20260705_141932`) — ensemble0 → `final_solution.py` + CSV, no submission debug, all checker steps clean.
 

@@ -63,8 +63,6 @@ selected = s.string() & low_cardinality
 ```
 
 ## When to load other references
-- Load `dataops_api_quickmap.md` when the task requires DataOps graph creation (`var/X/y`, `.skb.apply`, learner execution).
-- Load `encoding_skrub.md` for deeper encoder/preprocessing/routing strategy beyond API overview.
-- Load `choices_hparam_pattern.md` and `dataops_tuning_optuna.md` when adding or debugging hyperparameter search.
-- Load `joining_across_columns.md` for multi-table feature construction and merge logic.
-- Load `common_failure_fixes.md` when runtime errors, API misuse, or parsing issues appear.
+- Load `dataops_api_quickmap.md` when building DataOps graphs.
+- Load `encoding_skrub.md` for encoder and preprocessing depth.
+- Load `joining_across_columns.md` for multi-table features.

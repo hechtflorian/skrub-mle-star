@@ -92,7 +92,6 @@ X_clean = X.skb.apply(DropCols(cols=s.cols("households")))
 - Applying one heavy encoder to all strings without cardinality routing.
 
 ## When to load other references
-- Load `encoding_skrub.md` when choosing encoders or `TableVectorizer` settings.
-- Load `feature_engineering_skrub.md` when adding derived columns, ratios, or redundancy edits.
+- Load `encoding_skrub.md` when choosing encoders after routing.
+- Load `feature_engineering_skrub.md` for derived columns on routed paths.
 - Load `dataops_api_quickmap.md` for learner/predict contracts.
-- Load `common_failure_fixes.md` for runtime errors in routing/concat paths.

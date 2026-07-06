@@ -22,9 +22,8 @@ BUG_REFINE_INSTR = """# Your Task:
 - Do not remove subsampling if exists.
 - Only for skrub-related errors: call `list_skills` -> `load_skill` for `skrub-dataops-pipeline` and load 1-2 most relevant references via `load_skill_resource` before major edits (not for errors unrelated to skrub).
 - Preserve the existing DataOps pipeline structure while fixing errors (`skrub.var`/`skrub.X`/`skrub.y` / `.skb.mark_as_X()`/`.skb.mark_as_y()` + `.skb.apply(...)`) and do not rewrite the main workflow as sklearn-only orchestration.
-- If unsure about skrub DataOps usage to keep the pipeline structure, make focused `load_skill_resource` calls — load only the 2-3 most relevant references (start with `references/dataops_api_quickmap.md`); do not load the whole reference set unless explicitly relevant.
-- When fixing validation logic, preserve honest holdout binding: metric line uses `train_part`, not full `train_df` (see holdout section in `dataops_api_quickmap.md`).
-- Do not add `test_df`, full-train refit, or `submission.csv` while fixing errors — stop at the holdout metric print (submission agent handles export).
+- If unsure about skrub DataOps usage to keep the pipeline structure, make focused `load_skill_resource` calls — load only the most relevant references; do not load the whole reference set unless explicitly relevant.
+- When fixing validation logic, preserve honest holdout binding: metric line uses `train_part`, not full `train_df`.
 - Only if skrub DataOps usage uncertainty remains even after skill tool calls, use `site:skrub-data.org` web search and patch only the uncertain call.
 - Follow `# Backbone contract` when present: fix the error in place without swapping model family or dropping `.skb.apply_func` / encoder blocks, unless the bug is truly unfixable without that change.
 - Provide the improved, self-contained Python script again.

@@ -161,7 +161,7 @@ def _get_backbone_contract(
     agent_name: str,
     suffix: str,
 ) -> str:
-    """Deterministic anti-drift context from retriever/structural anchor (for debug agent)."""
+    """Anti-drift context from retriever/structural anchor (for debug agent)."""
     mode = code_util.backbone_check_mode(agent_name)
     is_plan = agent_name.startswith("plan_implement")
     is_ablation = agent_name.startswith("ablation")
@@ -270,13 +270,11 @@ def get_code_from_response(
             if not code.strip():    # return early if no code (tool-call only)
                 return None
             if not code_block.strip():
-                # Empty extracted block (init_plan never produced a valid
-                # one): str.replace("") would insert the new code between
-                # every character of prev_code (multi-MB string -> context
-                # window explosion). Treat as no-op.
+                # Empty extracted block: str.replace("") would insert the new code
+                # between every character of prev_code (multi-MB string -> context-window explosion)
                 return None
             new_code = prev_code.replace(code_block, code)
-            if new_code == prev_code:    # no change, return early (tool-call only)
+            if new_code == prev_code:
                 return None
         else:
             new_code = code

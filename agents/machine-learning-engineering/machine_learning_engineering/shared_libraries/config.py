@@ -25,12 +25,12 @@ class DefaultConfig:
     exec_timeout: int = (
         600  # The maximum time in seconds allowed to complete the task. (DEFAULT: 600)
     )
-    num_solutions: int = 1  # The number of different solutions to generate or attempt for the given task. (DEFAULT: 2)
+    num_solutions: int = 2  # The number of different solutions to generate or attempt for the given task. (DEFAULT: 2)
     num_model_candidates: int = 2  # The number of different model architectures or hyperparameter sets to consider as candidates. (DEFAULT: 2)
     max_retry: int = (
         10  # The maximum number of times to retry a failed operation. (DEFAULT: 10)
     )
-    max_debug_round: int = 3  # The maximum number of iterations or rounds allowed for the debugging step. (DEFAULT: 5)
+    max_debug_round: int = 5  # The maximum number of iterations or rounds allowed for the debugging step. (DEFAULT: 5)
     max_rollback_round: int = 2  # The maximum number of times the system can rollback to a previous state, in case of errors or poor performance. (DEFAULT: 2)
     inner_loop_round: int = 1  # The number of iterations or rounds to be executed within an inner loop of the system. (DEFAULT: 1)
     outer_loop_round: int = 1  # The number of iterations or rounds to be executed within the outer loop, which might encompass multiple inner loops. (DEFAULT: 1)
@@ -45,7 +45,8 @@ class DefaultConfig:
 
 CONFIG = DefaultConfig()
 
-# Helper functions to run GPT-5 models with litellm by setting temperature=1.0
+
+# --- Helper functions for model compatibility (GPT-5 family + litellm expect temp=1.0) ---
 def is_gpt5_family_model(model_name: str) -> bool:
     """Returns True for OpenAI GPT-5 family models only."""
     if not model_name:

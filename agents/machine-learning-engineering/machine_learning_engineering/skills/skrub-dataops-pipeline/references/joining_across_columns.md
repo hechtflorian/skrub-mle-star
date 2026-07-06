@@ -56,7 +56,7 @@ pred = augmented_baskets.skb.apply(
 - Aggregate child-table features to the prediction unit before final estimator.
 
 ## When to load other references
-- Load `dataops_api_quickmap.md` for the baseline DataOps graph and execution contracts.
-- Load `encoding_skrub.md` when joined features require targeted encoding/preprocessing.
-- Load `choices_hparam_pattern.md` / `dataops_tuning_optuna.md` if join-derived features are included in tuning.
-- Load `common_failure_fixes.md` for merge-key mismatch, aggregation errors, or runtime debugging.
+- Load `dataops_api_quickmap.md` for baseline DataOps graph and holdout rules.
+- Load `encoding_skrub.md` when encoding joined features.
+- Load `choices_hparam_pattern.md` when tuning join-derived parameters.
+- Load `common_failure_fixes.md` for merge or aggregation errors.

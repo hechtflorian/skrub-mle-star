@@ -224,8 +224,7 @@ X_scaled = X.skb.apply(
 Missing values are left as-is (not imputed by `SquashingScaler`).
 
 ## When to load other references
-
-- Load `selectors_routing_skrub.md` for multi-path encoding/routing and `DropCols` selectors.
-- Load `encoding_skrub.md` for string/datetime encoders and `TableVectorizer` tuning.
-- Load `choices_hparam_pattern.md` only if ablation explicitly compares tuning vs fixed params.
-- Load `common_failure_fixes.md` for target-drop and learner/predict contract errors.
+- Load `selectors_routing_skrub.md` for column routing on derived features.
+- Load `encoding_skrub.md` when FE changes encoder inputs.
+- Load `ablation_dataops_template.md` for ablation stdout contract.
+- Load `choices_hparam_pattern.md` only when ablation compares tuning.

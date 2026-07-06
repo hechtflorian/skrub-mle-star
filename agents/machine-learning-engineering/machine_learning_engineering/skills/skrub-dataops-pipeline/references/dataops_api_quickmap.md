@@ -24,7 +24,7 @@ import skrub
 X = skrub.X(df.drop(columns=target_col, errors="ignore"))
 y = skrub.y(df[target_col])
 
-n_components = skrub.choose_int(5, 15, name="n_components")
+n_components = skrub.choose_int(low_int, high_int, name="n_components")
 encoder = skrub.TableVectorizer(
     high_cardinality=skrub.choose_from(
         {
@@ -36,7 +36,7 @@ encoder = skrub.TableVectorizer(
 )
 
 model = YourModel(
-    learning_rate=skrub.choose_float(0.01, 0.9, log=True, name="learning_rate")
+    learning_rate=skrub.choose_float(low_float, high_float, log=True, name="learning_rate")
 )
 
 pred = X.skb.apply(encoder).skb.apply(model, y=y)
@@ -60,7 +60,7 @@ from sklearn.model_selection import train_test_split
 # Use the competition metric from task_description.txt (# Metric section)
 
 train_idx, valid_idx = train_test_split(
-    np.arange(len(train_df)), test_size=0.2, random_state=42
+    np.arange(len(train_df)), test_size=test_size, random_state=random_state
 )
 train_part = train_df.iloc[train_idx].copy()
 valid_part = train_df.iloc[valid_idx].copy()
@@ -77,7 +77,6 @@ print(f"Final Validation Performance: {holdout_score}")
 
 Rules:
 - Early stages: bind **`train_part`**, print holdout metric, then **stop** — no `test_df`, no full-train refit, no `submission.csv`.
-- Submission export: load `references/submission_export.md` in the submission agent only.
 - Keep the same split (`test_size`, `random_state`) across stages.
 - Preprocessing inside `.skb.apply_func` / transformers learns from bound rows only — binding `train_part` prevents val/test rows from influencing fit-time stats.
 - Tuning search: `search.fit({"data": train_part})`, eval with `search.best_learner_.predict({"data": valid_part})` — see `choices_hparam_pattern.md`.
@@ -117,7 +116,7 @@ products_with_total = kept_products.assign(
     total_price=kept_products["Nbr_of_prod_purchas"] * kept_products["cash_price"]
 )
 
-n = skrub.choose_int(5, 15, name="n_components")
+n = skrub.choose_int(low_int, high_int, name="n_components")
 encoder = skrub.choose_from(
     {
         "MinHash": skrub.MinHashEncoder(n_components=n),
@@ -135,7 +134,7 @@ augmented_baskets = basket_ids.merge(
 
 pred = augmented_baskets.skb.apply(
     YourModel(
-        learning_rate=skrub.choose_float(0.01, 0.9, log=True, name="learning_rate")
+        learning_rate=skrub.choose_float(low_float, high_float, log=True, name="learning_rate")
     ),
     y=fraud_flags,
 )
@@ -148,16 +147,17 @@ search = pred.skb.make_randomized_search(
 - Pipeline is DataOps-first (`.skb.apply(...)` main path).
 - `X`/`y` are explicitly marked.
 - Early stages: holdout metric only (`train_part` bind + `valid_part` predict); no `test_df`, full-train refit, or `submission.csv`.
-- Submission export: `references/submission_export.md` (submission agent only).
 - Tunables are embedded with `choose_*`/`choose_from`.
 - Search runs from DataOp (`make_randomized_search` or `make_grid_search`).
 - Prediction uses dict environments keyed by source variable names.
 
 ## When to load other references
-- Load `choices_hparam_pattern.md` when adding `skrub.choose_*` / `skrub.choose_from(...)` or randomized/grid search for hyperparameter tuning.
-- Load `encoding_skrub.md` when changing feature encoding, preprocessing, or selector-based routing.
-- Load `joining_across_columns.md` for multi-table merge/aggregation pipelines.
-- Load `common_failure_fixes.md` when runtime errors appear or metric parsing fails.
-- Load `ensemble_dataops_patterns.md` when merging multiple model legs (holdout metric only).
-- Load `submission_export.md` in the **submission agent only** for full-train refit + test export.
-- Load `skrub_subsampling.md` when iteration speed is the bottleneck and subsampling is required.
+- Load `encoding_skrub.md` when changing encoders or preprocessing.
+- Load `selectors_routing_skrub.md` for column routing or split/concat.
+- Load `feature_engineering_skrub.md` for derived features or ablation FE.
+- Load `choices_hparam_pattern.md` when adding `choose_*` or search.
+- Load `joining_across_columns.md` for multi-table pipelines.
+- Load `ensemble_dataops_patterns.md` when merging model legs.
+- Load `ablation_dataops_template.md` or `tuning_dataops_template.md` for stage skeletons.
+- Load `skrub_subsampling.md` when iteration speed is the bottleneck.
+- Load `skrub_general_api.md` for non-DataOps skrub API details.

@@ -8,8 +8,7 @@ import pandas as pd
 import skrub
 
 PROFILE_STATE_KEY = "ablation_table_report_profile_{task_id}"
-PROFILE_UNAVAILABLE = "Data profile unavailable."
-_DEFAULT_MAX_COLUMNS = 10
+_DEFAULT_MAX_COLUMNS = 12
 
 _TARGET_PATTERNS = (
     re.compile(r"""target_col\s*=\s*['"]([^'"]+)['"]""", re.IGNORECASE),
@@ -25,7 +24,7 @@ def profile_state_key(task_id: str) -> str:
 def get_profile_from_state(state: Any, task_id: str) -> str:
     """Read the precomputed profile string from session state."""
     profile = state.get(profile_state_key(task_id), "")
-    return profile or PROFILE_UNAVAILABLE
+    return profile or "Data profile unavailable."
 
 
 def extract_target_from_code(code: str) -> str | None:

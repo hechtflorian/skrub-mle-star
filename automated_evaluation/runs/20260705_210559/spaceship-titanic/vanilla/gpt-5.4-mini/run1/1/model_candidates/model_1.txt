@@ -1,0 +1,32 @@
+## Model name
+CatBoostClassifier
+
+## Example Python code
+import pandas as pd
+from catboost import CatBoostClassifier
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import accuracy_score
+
+train = pd.read_csv('train.csv')
+test = pd.read_csv('test.csv')
+
+for df in [train, test]:
+    df[['Deck','Num','Side']] = df['Cabin'].fillna('X/0/X').str.split('/', expand=True)
+    df['Group'] = df['PassengerId'].astype(str).str.split('_').str[0]
+    df['NameLen'] = df['Name'].fillna('').str.len()
+    df['CabinNum'] = pd.to_numeric(df['Num'], errors='coerce')
+    df.drop(['Cabin','Name'], axis=1, inplace=True)
+
+X = train.drop(['Transported'], axis=1)
+y = train['Transported'].astype(int)
+cat_cols = X.select_dtypes('object').columns.tolist()
+X[cat_cols] = X[cat_cols].fillna('missing')
+test[cat_cols] = test[cat_cols].fillna('missing')
+X = X.fillna(X.median(numeric_only=True))
+test = test.fillna(X.median(numeric_only=True))
+
+model = CatBoostClassifier(loss_function='Logloss', verbose=0, depth=6, learning_rate=0.05, iterations=1500)
+model.fit(X, y, cat_features=cat_cols)
+preds = model.predict(test)
+submission = pd.DataFrame({'PassengerId': test['PassengerId'], 'Transported': preds.astype(bool)})
+submission.to_csv('submission.csv', index=False)

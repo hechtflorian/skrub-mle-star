@@ -39,7 +39,6 @@ full_cv = pred.skb.cross_validate()
 - Run final search/evaluation on full data.
 
 ## When to load other references
-- Load `dataops_api_quickmap.md` to keep subsampling within a correct DataOps flow.
-- Load `encoding_skrub.md` if subsampling is used to evaluate encoding/preprocessing hypotheses quickly.
-- Load `choices_hparam_pattern.md` when preview tuning is needed before larger search.
-- Load `common_failure_fixes.md` if preview/final score behavior is inconsistent and runtime errors occur.
+- Load `dataops_api_quickmap.md` to keep subsampling inside DataOps.
+- Load `encoding_skrub.md` for fast encoder experiments.
+- Load `choices_hparam_pattern.md` for preview search before full tune.

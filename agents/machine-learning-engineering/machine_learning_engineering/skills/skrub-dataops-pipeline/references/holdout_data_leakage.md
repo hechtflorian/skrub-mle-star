@@ -69,3 +69,8 @@ Rebuild the graph on `train_part`; never score holdout with a learner fit on ful
 - Remove `test_df` load, full-train refit, or `submission.csv` from early-stage scripts if present.
 - Preserve DataOps structure and model logic; patch bind/fit scope only.
 - Return the **smallest patched block** for in-place replace — not the full file unless necessary.
+
+## When to load other references
+- Load `dataops_api_quickmap.md` for correct holdout bind patterns.
+- Load `submission_export.md` for submission Block 2 (submission agent only).
+- Load `common_failure_fixes.md` for leakage symptom fixes (#15).

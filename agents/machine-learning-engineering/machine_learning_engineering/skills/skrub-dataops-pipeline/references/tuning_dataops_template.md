@@ -154,7 +154,8 @@ Final Validation Performance: <value>
 TUNING_BEST_PARAMS: {"param_name": ...}
 ```
 
-## When to load additional references
-- Load `references/choices_hparam_pattern.md` for search execution
-- Load `references/encoding_skrub.md` when tuning encoders
-- Load `references/ensemble_dataops_patterns.md` for Pattern 3 ensemble legs.
+## When to load other references
+- Load `choices_hparam_pattern.md` for search patterns and tune rules.
+- Load `encoding_skrub.md` when tuning encoders.
+- Load `ensemble_dataops_patterns.md` when the structural solution is multi-leg.
+- Load `dataops_api_quickmap.md` for holdout bind and learner contracts.

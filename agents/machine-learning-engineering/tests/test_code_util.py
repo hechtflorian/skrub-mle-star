@@ -166,14 +166,15 @@ def test_backbone_check_mode():
     assert code_util.backbone_check_mode("plan_implement_agent_1") is None
 
 
-def test_should_enforce_backbone_drift_init_and_tune_only():
-    assert code_util.should_enforce_backbone_drift("model_eval_agent_1_1")
-    assert code_util.should_enforce_backbone_drift(
+def test_should_snapshot_debug_anchor_init_and_tune_only():
+    assert code_util.should_snapshot_debug_anchor("model_eval_agent_1_1")
+    assert code_util.should_snapshot_debug_anchor(
         "model_eval_debug_agent_1_1"
     )
-    assert code_util.should_enforce_backbone_drift("tune_implement_agent_1")
-    assert not code_util.should_enforce_backbone_drift("plan_implement_agent_1")
-    assert not code_util.should_enforce_backbone_drift("merger_agent_1_1")
+    assert code_util.should_snapshot_debug_anchor("tune_implement_agent_1")
+    assert not code_util.should_snapshot_debug_anchor("plan_implement_agent_1")
+    assert not code_util.should_snapshot_debug_anchor("merger_agent_1_1")
+    assert not code_util.should_snapshot_debug_anchor("ablation_agent_1")
 
 
 def test_resolve_backbone_required_refinement_from_structural_code():
@@ -277,14 +278,6 @@ def test_submission_export_contract_requires_test_data():
     )
     assert err is not None
     assert "test" in err.lower()
-
-
-def test_submission_export_contract_requires_train_df():
-    err = code_util.submission_export_contract_violation(
-        "test_df = 1\nopen('submission.csv', 'w')"
-    )
-    assert err is not None
-    assert "train_df" in err
 
 
 def test_submission_export_contract_passes_minimal_valid_script():

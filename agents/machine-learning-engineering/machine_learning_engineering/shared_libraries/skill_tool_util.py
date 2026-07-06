@@ -23,6 +23,7 @@ SKILL_LOG_TOOLS = frozenset(
 )
 
 
+# --- Helper functions for skill tool logging ---
 def _skill_logging_enabled() -> bool:
     return os.environ.get("MLE_STAR_LOG_SKILL_TOOLS", "1") != "0"
 
@@ -97,6 +98,7 @@ def _wrap_skill_tool_logging(tool: BaseTool) -> BaseTool:
     return tool
 
 
+# --- Skill tool implementation for agents using adk native skill ---
 @lru_cache(maxsize=1)
 def get_skill_toolset() -> SkillToolset:
     """Builds and caches the native SkillToolset for skrub DataOps."""

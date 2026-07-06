@@ -196,11 +196,11 @@ blend = 0.7 * np.asarray(learner_a.predict({"data": valid_part})) \
 - Helpers are fine when they return DataOps (e.g. a function building and returning `pred`); never invent classes that wrap graphs or expose a fake `.skb`.
 
 ## When to load other references
-- Load `dataops_api_quickmap.md` when rebuilding a broken DataOps path from a known-good template.
-- Load `encoding_skrub.md` if failures are tied to weak/default encoding strategy.
-- Load `selectors_routing_skrub.md` for split/concat routing or selector mistakes.
-- Load `feature_engineering_skrub.md` for ratios, redundancy drops, cleaning, ablation alignment, or DataOp helper / eager-pandas errors (#17–#19).
-- Load `choices_hparam_pattern.md` for `choose_*` semantics, fake-tuning prevention, or grid/randomized search fixes.
-- Load `dataops_tuning_optuna.md` for Optuna-specific search/debug patterns.
-- Load `joining_across_columns.md` for multi-table merge/aggregation correctness.
-- Load `ensemble_dataops_patterns.md` for ensemble merge structure or wrapper-class mistakes (#21).
+- Load `dataops_api_quickmap.md` to rebuild a correct DataOps path.
+- Load `encoding_skrub.md` for encoding-related failures.
+- Load `selectors_routing_skrub.md` for routing or concat errors.
+- Load `feature_engineering_skrub.md` for FE, ratios, or ablation alignment (#17–19).
+- Load `choices_hparam_pattern.md` for `choose_*` or fake-tuning issues.
+- Load `joining_across_columns.md` for multi-table merge errors.
+- Load `ensemble_dataops_patterns.md` for ensemble structure (#21).
+- Load `holdout_data_leakage.md` for bind/fit scope leaks.

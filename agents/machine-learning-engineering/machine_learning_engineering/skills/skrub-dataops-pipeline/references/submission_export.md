@@ -75,3 +75,8 @@ Replace example `blend_or_meta` / `to_submission_labels` with whatever Block 1 u
 - Collapsing multi-leg ensemble to a single model
 - Adding a second `Final Validation Performance` print
 - Rewriting the pipeline (FE, models, hyperparameters, blend logic, etc.)
+
+## When to load other references
+- Load `dataops_api_quickmap.md` for Block 1 holdout pattern.
+- Load `ensemble_dataops_patterns.md` when Block 1 is multi-leg.
+- Load `holdout_data_leakage.md` to audit Block 1 before export.

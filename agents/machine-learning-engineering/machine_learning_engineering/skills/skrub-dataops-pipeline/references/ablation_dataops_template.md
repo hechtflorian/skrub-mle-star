@@ -84,5 +84,10 @@ Best ablation variant: <name> | <metric>: <value>
 ```
 At least **three** `Ablation[...]` lines (baseline + two ablated). Use the task metric label.
 
-## If a variant needs extra detail
-Load only when that variant needs it and you need more context on how to use skrub for your ablation: `encoding_skrub.md`, `feature_engineering_skrub.md`, `selectors_routing_skrub.md`, `choices_hparam_pattern.md`.
+## When to load other references
+- Load `dataops_api_quickmap.md` for holdout pipeline shape.
+- Load `feature_engineering_skrub.md` when ablating derived features.
+- Load `encoding_skrub.md` when ablating encoders.
+- Load `selectors_routing_skrub.md` when ablating routing.
+- Load `choices_hparam_pattern.md` only when ablation includes tuning.
+- Load `holdout_data_leakage.md` to verify holdout bind.

@@ -11,13 +11,14 @@ Use this reference when adding tunable parameters or model/encoder alternatives 
 - `.skb.make_grid_search(...)`
 - `.skb.make_learner(...)`
 
-## Critical rule: `choose_*` defaults are not tuning
-- `choose_*` nodes define a search space, but no search happens unless you run `.skb.make_randomized_search(...)` or `.skb.make_grid_search(...)` (or Optuna trial flow).
+## Critical Rules (must follow)
+### Critical rule 1: `choose_*` defaults are not tuning
+- `choose_*` nodes define a search space, but no search happens unless you run `.skb.make_randomized_search(...)`.
 - Calling `.skb.make_learner(...)` on a graph that contains `choose_*` uses default choice values only.
 - This default behavior is valid for a quick baseline, but it must not be presented as tuned.
 - If you are not running search, replace `choose_*` with explicit fixed constants in final training code.
 
-## Critical rule: `choose_from` dict keys must be strings
+### Critical rule 2: `choose_from` dict keys must be strings
 - Valid:
 ```python
 max_depth = skrub.choose_from({"6": 6, "8": 8, "10": 10}, name="max_depth")
@@ -33,12 +34,23 @@ max_depth = skrub.choose_float(0.5, 1.0, name="lr")
 ```
 - List form is also valid: `skrub.choose_from([0.1, 1.0, 10.0], name="alpha")`
 
-## Critical rule: do not mix train / val / full data
+### Critical rule 3: do not mix train / val / full data
 - `skrub.var("data", train_df)` binds the pipeline to **full** training data.
 - `pred.skb.make_learner(fitted=True)` fits on that bound data (full `train_df`), even if you later `predict({"data": valid_part})` for scoring — **this leaks validation rows into training**.
 - For the `Final Validation Performance` line in fixed-parameter scripts, bind `train_part` only (see `dataops_api_quickmap.md` holdout section).
 - `search.fit({"data": train_part})` fits search on **only** `train_part`; holdout eval must use `search.best_learner_.predict({"data": valid_part})`.
 - These paths produce **different scores**. For MLE-STAR tune stages, copy the structural solution's exact split, then use the **same fit + eval path** in `tune_implement` and `tune_bake`.
+
+### Critical rule 4: inline `choose_*` in constructor kwargs works only for sklearn-API estimators
+- skrub substitutes `choose_*` placed inside an estimator's constructor kwargs **only when the estimator subclasses `sklearn.base.BaseEstimator`** (all sklearn models, LightGBM `LGBM*`, XGBoost `XGB*`).
+- For estimators that are **not** `BaseEstimator` subclasses (e.g. `catboost.CatBoostRegressor`), the choice object is never resolved, reaches `fit` raw, and crashes (CatBoost: `TypeError: Object of type NumericChoice is not JSON serializable`). Patterns 1/3 inline kwargs cannot work there — use Pattern 4.
+- Quick check when unsure: `from sklearn.base import BaseEstimator; isinstance(est, BaseEstimator)`.
+
+### Critical rule 5: search must fit the execution time budget
+- Total search runtime ≈ (n_iter + 1) × single-fit time; the whole script must finish **well under the execution timeout (default 600s)**. If one structural fit takes minutes, a full-capacity search will time out and the tuning stage fails.
+- For boosted trees, **reduce capacity during search**: cut `iterations`/`n_estimators` to roughly 1/4 of the structural value or use early stopping. Relative ranking of nearby configs is preserved; the winner is baked at structural capacity afterwards.
+- Search `n_jobs` runs trials in parallel; multithreaded estimators (e.g. CatBoost, LightGBM, XGBoost) or sklearn with `n_jobs`≠1 also parallelize each fit — default search `n_jobs=1` to avoid CPU oversubscription and stay under the exec timeout (not because higher values fail). Search `n_jobs=2` is OK if the estimator uses `n_jobs=1` or trials are very cheap. For single-threaded sklearn, `n_jobs=2` is reasonable; up to `4` only for very fast fits. Never search `n_jobs=-1`.
+- Keep the search space small and focused: few params, tight ranges, low `n_iter`. One cheap completed search beats an ambitious one that times out.
 
 ## Pattern 1: tune scalar hyperparameters in place
 ```python
@@ -112,11 +124,6 @@ classifier = skrub.choose_from({"model1": model1, "model2": model2}, name="class
 pred = X.skb.apply(encoder).skb.apply(classifier, y=y)
 ```
 
-## Critical rule: inline `choose_*` in constructor kwargs works only for sklearn-API estimators
-- skrub substitutes `choose_*` placed inside an estimator's constructor kwargs **only when the estimator subclasses `sklearn.base.BaseEstimator`** (all sklearn models, LightGBM `LGBM*`, XGBoost `XGB*`).
-- For estimators that are **not** `BaseEstimator` subclasses (e.g. `catboost.CatBoostRegressor`), the choice object is never resolved, reaches `fit` raw, and crashes (CatBoost: `TypeError: Object of type NumericChoice is not JSON serializable`). Patterns 1/3 inline kwargs cannot work there — use Pattern 4.
-- Quick check when unsure: `from sklearn.base import BaseEstimator; isinstance(est, BaseEstimator)`.
-
 ## Pattern 4: tune non-sklearn estimators via a `choose_from` variant grid
 Select the **whole pre-configured estimator** instead of per-param choices. Keep the grid small (~2x `n_iter` combos), string keys.
 ```python
@@ -138,12 +145,6 @@ chosen = search.results_.iloc[0]["model_variant"]  # results_ row 0 = best; colu
 best_params = dict(variants[chosen])               # literal params -> clean bake handoff
 print("TUNING_BEST_PARAMS:", json.dumps(best_params, default=str))
 ```
-
-## Critical rule: search must fit the execution time budget
-- Total search runtime ≈ (n_iter + 1) × single-fit time; the whole script must finish **well under the execution timeout (default 600s)**. If one structural fit takes minutes, a full-capacity search will time out and the tuning stage fails.
-- For boosted trees, **reduce capacity during search**: cut `iterations`/`n_estimators` to roughly 1/4 of the structural value or use early stopping. Relative ranking of nearby configs is preserved; the winner is baked at structural capacity afterwards.
-- Search `n_jobs` runs trials in parallel; multithreaded estimators (e.g. CatBoost, LightGBM, XGBoost) or sklearn with `n_jobs`≠1 also parallelize each fit — default search `n_jobs=1` to avoid CPU oversubscription and stay under the exec timeout (not because higher values fail). Search `n_jobs=2` is OK if the estimator uses `n_jobs=1` or trials are very cheap. For single-threaded sklearn, `n_jobs=2` is reasonable; up to `4` only for very fast fits. Never search `n_jobs=-1`.
-- Keep the search space small and focused: few params, tight ranges, low `n_iter`. One cheap completed search beats an ambitious one that times out.
 
 ## Search execution pattern
 Holdout search (`tune_implement` only — holdout metric + `TUNING_BEST_PARAMS`):
@@ -203,8 +204,8 @@ Tune agents should prefer explicit holdout `search.fit` above when structural co
 - `describe_param_grid()` checked; bake literals mapped from `best_params_` **values** to plan param names by kind/range, not assumed key names or creation order.
 
 ## When to load other references
-- Load `dataops_api_quickmap.md` for canonical DataOps pipeline shape and safe fit/predict patterns.
-- Load `dataops_tuning_optuna.md` when using Optuna backend or trial-based search flows for tuning.
-- Load `common_failure_fixes.md` when runtime errors appear, for fake-tuning, unresolved `choose_*` in estimator kwargs (#16), `choose_from` key-type, or scoring/debug issues.
-- Load `encoding_skrub.md` when tuning scope includes encoding/preprocessing choices or `TableVectorizer` config.
-- Load `skrub_subsampling.md` when iteration speed is the bottleneck and subsampling is required.
+- Load `dataops_api_quickmap.md` for holdout pipeline shape and fit/predict contracts.
+- Load `tuning_dataops_template.md` for tune_implement script skeleton.
+- Load `encoding_skrub.md` when tuning encoders or `TableVectorizer`.
+- Load `common_failure_fixes.md` for fake-tuning (#16) or unresolved `choose_*` errors.
+- Load `skrub_subsampling.md` when search is too slow.

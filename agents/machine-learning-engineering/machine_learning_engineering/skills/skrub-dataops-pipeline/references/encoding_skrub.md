@@ -140,8 +140,8 @@ X2 = X1.skb.apply(ApplyToCols(skrub.StringEncoder(), cols=high_card))
 - Final path remains DataOps-first (`.skb.apply(...)` chain).
 
 ## When to load other references
-- Load `selectors_routing_skrub.md` for multi-path routing, `DropCols`, split/concat.
-- Load `feature_engineering_skrub.md` for ratios, redundancy drops, cleaning, scaling.
-- Load `dataops_api_quickmap.md` for learner/predict contracts.
-- Load `choices_hparam_pattern.md` when encoding options are tuned via `choose_*`.
-- Load `common_failure_fixes.md` for pipeline breakages and holdout scoring issues.
+- Load `selectors_routing_skrub.md` for multi-path routing or `DropCols`.
+- Load `feature_engineering_skrub.md` for FE before or after encoding.
+- Load `choices_hparam_pattern.md` when tuning encoders (Pattern 2b).
+- Load `dataops_api_quickmap.md` for pipeline shape.
+- Load `common_failure_fixes.md` on encoding or scoring errors.

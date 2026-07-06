@@ -40,20 +40,16 @@ MODEL_EVAL_INSTR = """# Introduction
 {model_description}
 
 # Your task
-- Implement the solution in Python.
-- You must use the model as described in the model description.
-- This first solution design should be relatively simple, without ensembling or hyper-parameter optimization.
-- Propose an evaluation metric that is reasonable for this task.
-- All the provided data is already prepared and available in the `./input` directory. There is no need to unzip any files.
-- Do not include other models that are not directly related to the model described.
+- Implement the solution in Python using only the model from the model description.
+- Keep the design relatively simple: no ensembling or hyper-parameter optimization.
+- Use the competition metric from the task description.
+- Data lives in `./input` (train only); all prepared, no unzip needed.
+- Do not add unrelated models.
 - Use PyTorch rather than TensorFlow. Use CUDA if you need. All the necessary libraries are installed.
-- The full ML pipeline must be implemented as a `skrub` DataOps workflow, not as sklearn-only orchestration.
-- Use DataOps primitives for pipeline structure: variables (`skrub.var` or `skrub.X`/`skrub.y`), dataframe/table transforms, and estimator application via `.skb.apply(...)`.
-- Use the Skrub DataOps skill: call `list_skills` -> `load_skill` for `skrub-dataops-pipeline` before changing uncertain DataOps parts.
-- Load `references/dataops_api_quickmap.md` via `load_skill_resource` before finalizing; use holdout-only scripts in early stages (`train_part` bind → metric print).
-- If API details are unclear, call one focused `load_skill_resource` before editing.
-- If multiple related tables exist, assemble them in the same DataOps workflow (join/aggregate/select before learner application), consistent with official multi-table DataOps usage.
-- Keep the model in the model description, but integrate its preprocessing/training path inside the DataOps workflow.
+- DataOps-first pipeline (`skrub.var`, `.skb.mark_as_Xs`/`.skb.mark_as_y` + `.skb.apply(...)`); not sklearn-only orchestration.
+- Before uncertain DataOps edits: `list_skills` → `load_skill`(`skrub-dataops-pipeline`) → `load_skill_resource`(`references/dataops_api_quickmap.md` or other relevant ref) before editing.
+- If multiple related tables exist, join/aggregate in the same DataOps workflow before the learner.
+- Keep the model from the model description and integrate its preprocessing/training path inside the DataOps graph.
 - The code should implement the proposed solution and print the value of the evaluation metric computed on a hold-out validation set.
 - Only use the provided train data in the `./input` directory.
 
@@ -69,36 +65,6 @@ MODEL_EVAL_INSTR = """# Introduction
 - Do not use try: and except: or if else to ignore unintended behavior.
 """
 
-BUG_SUMMARY_INSTR = """# Error report
-{bug}
-
-# Your task
-- Remove all unnecessary parts of the above error report.
-- We are now running {filename}.py. Do not remove where the error occurred."""
-
-BUG_REFINE_INSTR = """# Task description
-{task_description}
-
-# Code with an error:
-{code}
-
-# Error:
-{bug}
-
-# Your task
-- Please revise the code to fix the error.
-- Do not remove subsampling if exists.
-- Use the Skrub DataOps skill: call `list_skills` -> `load_skill` for `skrub-dataops-pipeline` before major changes.
-- If DataOps API usage is uncertain, make focused `load_skill_resource` calls first.
-- If uncertainty remains, use `site:skrub-data.org` web search and patch only the uncertain call.
-- Preserve the existing `skrub` DataOps architecture while fixing the error (do not rewrite into sklearn-only pipeline code).
-- Provide the improved, self-contained Python script again.
-- There should be no additional headings or text in your response.
-- All the provided input data is stored in \"./input\" directory.
-- Remember to print a line in the code with 'Final Validation Performance: {{final_validation_score}}' so we can parse performance.
-- The code should be a single-file python program that is self-contained and can be executed as-is.
-- Your response should only contain a single code block.
-- Do not use exit() function in the refined Python code."""
 
 CODE_INTEGRATION_INSTR = """# Introduction
 - You are a Kaggle grandmaster attending a competition.

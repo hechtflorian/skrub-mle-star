@@ -9,6 +9,8 @@ from typing import Any
 
 from google.adk.agents import callback_context as callback_context_module
 
+# --- Backbone drift ---
+
 _ESTIMATOR_CLASS_RE = re.compile(
     r"\b("
     r"[A-Z]\w*(?:Regressor|Classifier)"
@@ -22,7 +24,7 @@ def _estimator_classes(code: str) -> set[str]:
     return set(_ESTIMATOR_CLASS_RE.findall(code))
 
 
-# TODO: naive, doesnt cover all cases. If too strict, remove pre-exec model drift check.
+# There can be unforeseen cases. If too strict, remove pre-exec model drift check.
 # Alternate public / retriever names → import symbol used in generated code.
 _ESTIMATOR_CANONICAL_ALIASES: dict[str, str] = {
     "LightGBMClassifier": "LGBMClassifier",
@@ -50,7 +52,7 @@ def retriever_estimator_classes(model_name: str) -> set[str]:
 
 
 def backbone_check_mode(agent_name: str) -> str | None:
-    """Return 'strict' (exact set), 'overlap' (≥1 shared), or None."""
+    """Pre-exec backbone gate mode: 'strict' (exact set), 'overlap' (≥1 shared), or None (no gate)."""
     if agent_name.startswith("model_eval"):
         return "strict"
     if agent_name.startswith("tune_implement") or agent_name.startswith("ablation"):
@@ -58,10 +60,11 @@ def backbone_check_mode(agent_name: str) -> str | None:
     return None
 
 
-def should_enforce_backbone_drift(agent_name: str) -> bool:
-    """Stages where debug must not swap the backbone estimator set."""
-    mode = backbone_check_mode(agent_name)
-    return mode is not None and not agent_name.startswith("ablation")
+def should_snapshot_debug_anchor(agent_name: str) -> bool:
+    """True for init/tune implement only — snapshot first failing script as fallback anchor for preexec checks."""
+    return agent_name.startswith("model_eval") or agent_name.startswith(
+        "tune_implement"
+    )
 
 
 def debug_anchor_code_key(suffix: str) -> str:
@@ -73,7 +76,12 @@ def resolve_backbone_required(
     agent_name: str,
     suffix: str,
 ) -> tuple[set[str], str]:
-    """Return (required_estimator_classes, short_label) for backbone drift checks."""
+    """Stable backbone anchor: (required_estimator_classes, label).
+
+    Shared by preexec gates (``preexec_code_failure``) and debug prompts
+    (``debug_util._get_backbone_contract``). Prompt-only for plan_implement;
+    hard-enforced only where ``backbone_check_mode`` is not None.
+    """
     if agent_name.startswith("model_eval"):
         task_id = agent_name.split("_")[-2]
         model_id = agent_name.split("_")[-1]
@@ -149,6 +157,9 @@ def backbone_violation(
     )
 
 
+# --- Stage pre-exec contracts ---
+
+
 def tune_search_contract_violation(code: str) -> str | None:
     """Tune scripts must keep in-graph search, not fake tuning or debug shortcuts."""
     missing: list[str] = []
@@ -180,7 +191,7 @@ def ablation_contract_violation(code: str) -> str | None:
 
 
 def submission_export_contract_violation(code: str) -> str | None:
-    """Submission scripts must refit on full train, predict test, and write submission.csv."""
+    """Submission source must reference test data and submission.csv export."""
     if "submission.csv" not in code:
         return (
             "Submission export contract: script must write submission.csv "
@@ -200,8 +211,10 @@ def maybe_set_debug_anchor(
     suffix: str,
     code: str,
 ) -> None:
-    """Snapshot the first failing script for init fallback anchoring."""
-    if "debug_agent" in agent_name or not should_enforce_backbone_drift(agent_name):
+    """Snapshot the first failing script as backup for init fallback anchoring - 
+    only if subprocess fails, to ensure parseable estimator.
+    """
+    if "debug_agent" in agent_name or not should_snapshot_debug_anchor(agent_name):
         return
     key = debug_anchor_code_key(suffix)
     if not callback_context.state.get(key) and code.strip():
@@ -214,7 +227,9 @@ def preexec_code_failure(
     suffix: str,
     raw_code: str,
 ) -> dict[str, Any] | None:
-    """Compile + backbone/search gates before subprocess (cheap, explicit stderr)."""
+    """Compile + hard backbone gates before subprocess to catch backbone drift
+    and contractviolations before execution (explicit stderr).
+    """
     if not raw_code.strip():
         return None
     try:
@@ -267,6 +282,9 @@ def preexec_code_failure(
                 "execution_time": 0.0,
             }
     return None
+
+
+# --- Subprocess execution ---
 
 
 class Result:
@@ -323,6 +341,9 @@ def truncate_for_state(text: str, head: int = 2000, tail: int = 4000) -> str:
         + f"\n... [{omitted} characters of output omitted] ...\n"
         + text[-tail:]
     )
+
+
+# --- Tuning param mapping ---
 
 
 def normalize_tuning_best_params(params: dict) -> dict:
@@ -519,6 +540,9 @@ def extract_performance_from_text(text: str) -> float | None:
     return performance_value
 
 
+# --- Agent state keys ---
+
+
 def get_name_with_prefix_and_suffix(
     base_name: str,
     prefix: str = "",
@@ -627,6 +651,9 @@ def get_code_execution_result_state_key(
     return key
 
 
+# --- Run gates ---
+
+
 def get_run_code_condition(
     agent_name: str,
     raw_code: str,
@@ -646,8 +673,6 @@ def get_run_code_condition(
             "Final Validation Performance" in raw_code
             and "exit()" not in raw_code
         ):
-            #if code_contains_tuning_placeholders(raw_code):
-                #return False
             return True
     elif agent_name.startswith("ablation"):
         # With tool-enabled ablation agents, responses can contain tool/prose output which will be empty.
@@ -670,8 +695,6 @@ def get_run_code_condition(
             compile(raw_code, "<plan_implement>", "exec")
         except SyntaxError:
             return False
-        #if code_contains_tuning_placeholders(raw_code):
-            #return False
         if "debug_agent" not in agent_name:
             return True
         if "exit()" not in raw_code:
@@ -683,13 +706,7 @@ def get_run_code_condition(
             compile(raw_code, "<tune_implement>", "exec")
         except SyntaxError:
             return False
-        if "TUNING_BEST_PARAMS" not in raw_code:
-            return False
-        if "choose_" not in raw_code:
-            return False
-        if "make_randomized_search" not in raw_code:
-            return False
-        if "search.fit" not in raw_code:
+        if tune_search_contract_violation(raw_code):
             return False
         if "debug_agent" not in agent_name:
             return True
@@ -717,18 +734,17 @@ def get_run_code_condition(
             and "exit()" not in raw_code
             and "submission.csv" in raw_code
         ):
-            #if code_contains_tuning_placeholders(raw_code):
-                #return False
             return True
         if "debug_agent" in agent_name and "exit()" not in raw_code:
-            #if code_contains_tuning_placeholders(raw_code):
-                #return False
             return True
     elif (
         "Final Validation Performance" in raw_code and "exit()" not in raw_code
     ):
         return True
     return False
+
+
+# --- evaluate_code ---
 
 
 def evaluate_code(

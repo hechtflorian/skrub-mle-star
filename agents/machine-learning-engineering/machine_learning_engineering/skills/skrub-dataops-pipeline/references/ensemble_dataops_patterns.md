@@ -119,7 +119,7 @@ valid_pred = learner.predict({"data": valid_part})
 Caveats: per-leg `Pipeline` required when encoders differ; `OneHotEncoder(sparse_output=False)` inside DataOps; no custom calibration/threshold; tuning one leg retrains the whole voter — **prefer Pattern A for tuning**.
 
 ## When to load other references
-- `tuning_dataops_template.md` Pattern 3 — tune one leg, freeze others (Pattern A only).
-- `common_failure_fixes.md` #21 — wrapper-class anti-pattern.
-- `dataops_api_quickmap.md` — holdout bind rules.
-- `submission_export.md` — full-train + test export (**submission agent only**).
+- Load `tuning_dataops_template.md` when tuning one ensemble leg (Pattern 3).
+- Load `dataops_api_quickmap.md` for holdout scoring.
+- Load `submission_export.md` for submission Block 2 (submission agent only).
+- Load `common_failure_fixes.md` for wrapper-class mistakes (#21).
