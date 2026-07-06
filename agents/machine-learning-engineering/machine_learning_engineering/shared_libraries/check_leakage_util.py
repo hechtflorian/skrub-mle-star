@@ -52,8 +52,10 @@ def get_refine_leakage_agent_instruction(
 def parse_leakage_status(text: str) -> tuple[str, str]:
     """Parses the leakage status from the text."""
     start_idx, end_idx = text.find("["), text.rfind("]") + 1
-    text = text[start_idx:end_idx]
-    result = json.loads(text)[0]
+    if start_idx < 0 or end_idx <= start_idx:
+        raise ValueError("missing leakage JSON list")
+    payload = text[start_idx:end_idx]
+    result = json.loads(payload)[0]
     leakage_status = result["leakage_status"]
     code_block = (
         result["code_block"].replace("```python", "").replace("```", "")
@@ -68,6 +70,9 @@ def update_extract_status(
 ) -> llm_response_module.LlmResponse | None:
     """Updates the status of extraction."""
     response_text = common_util.get_text_from_response(llm_response)
+    leakage_status = ""
+    code_block = ""
+    extract_status = False
     agent_name = callback_context.agent_name
     suffix = code_util.get_updated_suffix(callback_context=callback_context)
     code_state_key = code_util.get_code_state_key(
@@ -75,17 +80,19 @@ def update_extract_status(
         suffix=suffix,
     )
     code = callback_context.state.get(code_state_key, "")
-    if "No Data Leakage" in response_text:
-        leakage_status = "No Data Leakage"
-    try:
-        leakage_status, code_block = parse_leakage_status(response_text)
-        if leakage_status == "No Data Leakage":
+    if response_text.strip():
+        if "No Data Leakage" in response_text and "[" not in response_text:
+            leakage_status = "No Data Leakage"
             extract_status = True
         else:
-            extract_status = code_block in code
-    except Exception:
-        code_block = ""
-        extract_status = False
+            try:
+                leakage_status, code_block = parse_leakage_status(response_text)
+                if leakage_status == "No Data Leakage":
+                    extract_status = True
+                else:
+                    extract_status = code_block in code
+            except Exception:
+                pass
     extract_status_key = code_util.get_name_with_prefix_and_suffix(
         base_name="extract_status",
         prefix=prefix,
@@ -138,6 +145,8 @@ def replace_leakage_code(
 ) -> llm_response_module.LlmResponse | None:
     """Replace the code block that has the data leakage issue."""
     response_text = common_util.get_text_from_response(llm_response)
+    if not response_text.strip():
+        return None
     refined_code_block = response_text.replace("```python", "").replace(
         "```", ""
     )
@@ -238,7 +247,10 @@ def get_data_leakage_checker_agent(
             check_data_leakage,
             prefix=prefix,
         ),
-        after_model_callback=replace_leakage_code,
+        after_model_callback=functools.partial(
+            replace_leakage_code,
+            prefix=prefix,
+        ),
         generate_content_config=types.GenerateContentConfig(
             temperature=config.get_compatible_temperature(
                 config.CONFIG.agent_model, 0.0
