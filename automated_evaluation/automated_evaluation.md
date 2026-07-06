@@ -2,7 +2,27 @@
 
 `automated_evaluation/` provides a reproducible benchmark pipeline for MLE-STAR: define task metadata, execute agent runs, archive artifacts, and aggregate metrics into reports.
 
-**Run all commands from the `mle-star_improved` repo root** (the directory that contains `automated_evaluation/` and `agents/`).
+**Run all commands from the improved checkout root** — the directory that contains `automated_evaluation/` and `agents/` (conventionally named `mle-star_improved/`).
+
+## Repository layout
+
+Improved and vanilla are **two branches of the same Git repository**, checked out as **sibling worktrees**:
+
+```
+<parent>/
+├── mle-star_improved/          # branch: main — skrub-full (TableReport, tuning, skills)
+│   ├── automated_evaluation/
+│   └── agents/machine-learning-engineering/
+└── mle-star_vanilla/           # branch: vanilla-baseline — baseline MLE-STAR (no skrub)
+    └── agents/machine-learning-engineering/
+```
+
+| Branch | Worktree (default path) | Role |
+|--------|-------------------------|------|
+| `main` | `mle-star_improved/` | Improved agent (`--systems improved` → archive folder `skrub-full`) |
+| `vanilla-baseline` | `../mle-star_vanilla/` | Vanilla baseline (`--systems vanilla` → archive folder `vanilla`) |
+
+Both branches include the same bundled benchmark task packs under `machine_learning_engineering/tasks/`.
 
 ## Directory layout
 
@@ -27,6 +47,21 @@ Each task folder needs `train.csv`, `test.csv`, and `task_description.txt`.
 
 ## One-time setup
 
+### 0. Clone and check out both branches
+
+```bash
+git clone https://git.tu-berlin.de/wang.zk25/mle-star_improved.git mle-star_improved
+cd mle-star_improved
+git checkout main
+
+# Sibling worktree for vanilla (same repo, branch vanilla-baseline)
+git worktree add ../mle-star_vanilla vanilla-baseline
+```
+
+If `../mle-star_vanilla` already exists, skip `git worktree add`.
+
+**Custom layout:** pass `--vanilla-agent-dir /path/to/vanilla/agents/machine-learning-engineering` to `run_experiments.py` (default expects the sibling path above).
+
 ### 1. Improved agent environment
 
 ```bash
@@ -48,26 +83,18 @@ Create `agents/machine-learning-engineering/.env` (see `.env.example`), at minim
 
 ### 3. Vanilla baseline (required when `--systems vanilla`)
 
-Vanilla is a **sibling checkout** at `../mle-star_vanilla` (default). Bootstrap from the **improved repo root**:
-
-```bash
-./sh-scripts/bootstrap_vanilla_baseline.sh --revert-prompts
-```
-
-This creates a git worktree at `../mle-star_vanilla` pinned to the baseline commit with sklearn-only prompts (no skrub skills / TableReport / tuning stage).
-
-Then set up vanilla the same way as improved:
+The `vanilla-baseline` branch is maintained in the repo (standard (sklearn) prompts; no TableReport / tuning / skrub skills). After the worktree from step 0, set up the agent environment the same way as improved:
 
 ```bash
 cd ../mle-star_vanilla/agents/machine-learning-engineering
-cp ../../mle-star_improved/agents/machine-learning-engineering/.env .   # or symlink
+cp ../../../mle-star_improved/agents/machine-learning-engineering/.env .   # or symlink
 uv sync
-cd ../../mle-star_improved    # back to improved root for experiments
+cd ../../../mle-star_improved    # back to improved root for experiments
 ```
 
-**Custom vanilla path:** pass `--vanilla-agent-dir /path/to/vanilla/agents/machine-learning-engineering` to `run_experiments.py`.
+**Task packs:** both branches already ship the bundled tasks. Use `--sync-tasks-to-vanilla` only when you changed tasks on `main` and want to copy them into the vanilla worktree before a run.
 
-**Re-bootstrap / fix prompts:** run `bootstrap_vanilla_baseline.sh` again with `--revert-prompts` (and optionally `--sync-tasks` to refresh task packs in the vanilla tree).
+**Legacy bootstrap:** `sh-scripts/bootstrap_vanilla_baseline.sh` recreates vanilla from an old commit in git history. Prefer the `vanilla-baseline` worktree above for normal evaluation; use the script only when reproducing a historical baseline snapshot. Make sure prompts do not mention skrub, or run `--revert-prompts`.
 
 ### 4. Task manifest
 
@@ -95,25 +122,27 @@ python automated_evaluation/run_experiments.py --dry-run
 # Smoke test: one task, improved only
 python automated_evaluation/run_experiments.py --tasks spaceship-titanic --systems improved
 
-# Compare improved + vanilla on one task (sync task packs into vanilla checkout)
+# Compare improved + vanilla on one task (both worktrees from One-time setup)
 python automated_evaluation/run_experiments.py \
   --tasks spaceship-titanic \
-  --systems improved vanilla \
-  --sync-tasks-to-vanilla
+  --systems improved vanilla
 
 # Full matrix: all tasks × improved + vanilla
+python automated_evaluation/run_experiments.py
+
+# Three repeats per (task, system) - expensive
+python automated_evaluation/run_experiments.py --repeat-count 3
+
+# After editing task packs on main, sync into vanilla before comparing
 python automated_evaluation/run_experiments.py --sync-tasks-to-vanilla
 
-# Three repeats per (task, system)
-python automated_evaluation/run_experiments.py --repeat-count 3 --sync-tasks-to-vanilla
-
-# Resume: skip archives that already contain final_state.json
-python automated_evaluation/run_experiments.py --skip-existing --sync-tasks-to-vanilla
+# Resume: skip archives that already completed successfully
+python automated_evaluation/run_experiments.py --skip-existing
 ```
 
-**Improved vs vanilla:** one command runs both systems in sequence. Each system uses its own agent checkout and config flags (see table below). Use `--sync-tasks-to-vanilla` whenever vanilla is in the matrix so both checkouts see the same task packs.
+**Improved vs vanilla:** one command runs both systems in sequence. Each system uses its own worktree and config flags (see table below). Task sync is optional because both branches bundle the same tasks; use `--sync-tasks-to-vanilla` when `main` has newer task packs than `vanilla-baseline`.
 
-**Improved only:** omit `--sync-tasks-to-vanilla` and pass `--systems improved`.
+**Improved only:** pass `--systems improved` (default still runs both — set explicitly to skip vanilla).
 
 ### Step 2: Analyze results
 
@@ -153,9 +182,9 @@ Document your chosen policy in experiment notes. For strict cross-task isolation
 | `--runs-root` | run, evaluate | Root directory for run archives | `runs/<UTC stamp>` |
 | `--improved-agent-dir` | run | Path to improved agent checkout | `agents/machine-learning-engineering` |
 | `--vanilla-agent-dir` | run | Path to vanilla agent checkout | `../mle-star_vanilla/agents/...` |
-| `--sync-tasks-to-vanilla` | run | Copy task packs into both agent checkouts | Off |
+| `--sync-tasks-to-vanilla` | run | Copy task packs from improved into both agent checkouts | Off |
 | `--uv-sync-before-run` | run | `uv sync` before each run | Off |
-| `--skip-existing` | run | Skip completed archives | Off |
+| `--skip-existing` | run | Skip archives with `final_state.json` and ADK prompt return in log | Off |
 | `--dry-run` | run | Print matrix only | Off |
 | `--quiet` | run | No live ADK log or status lines (tqdm if installed) | Off |
 | `--summarize-only` | evaluate | Analyze existing runs only | Off |
@@ -173,10 +202,10 @@ Original config is restored after each run.
 
 ### Systems under comparison
 
-| Internal key | Archive folder | Agent checkout | Description |
-|--------------|----------------|----------------|-------------|
-| `improved` | `skrub-full` | `mle-star_improved/.../machine-learning-engineering` | TableReport + tuning + skrub skills enabled |
-| `vanilla` | `vanilla` | `mle-star_vanilla/.../machine-learning-engineering` | Baseline: sklearn-only prompts; no TableReport / tuning / skills |
+| Internal key | Archive folder | Worktree / branch | Description |
+|--------------|----------------|-------------------|-------------|
+| `improved` | `skrub-full` | `mle-star_improved/` · `main` | TableReport + tuning + skrub skills enabled |
+| `vanilla` | `vanilla` | `mle-star_vanilla/` · `vanilla-baseline` | Baseline: sklearn-only prompts; no TableReport / tuning / skills |
 
 ---
 
@@ -195,11 +224,11 @@ Per-run archive contents:
 | File / directory | Description |
 |------------------|-------------|
 | `final_state.json` | Final agent pipeline state (required for analysis) |
+| `adk_run_*.log` | ADK execution log (second `[user]:` prompt at end ⇒ agent finished) |
 | `table_report.json` | Tabular data profile (improved only) |
 | `meta.json` | Run metadata: task, metric, seed, config flags, timestamps |
 | `analysis.json` | Per-run metrics from `test-scripts/analyze_run.py` |
 | `1/`, `ensemble/` | Workspace stages |
-| `adk_run_*.log` | ADK execution log |
 
 Batch-level files:
 
@@ -255,12 +284,12 @@ cat automated_evaluation/eval_results/latest.json
 ### Compare improved vs vanilla (one task)
 
 ```bash
-# Prerequisites: bootstrap vanilla (see One-time setup) and .env in both checkouts
+# Prerequisites: clone + worktrees (see One-time setup) and .env in both agent dirs
 python automated_evaluation/generate_tasks_manifest.py
 python automated_evaluation/run_experiments.py --dry-run \
-  --tasks spaceship-titanic --systems improved vanilla --sync-tasks-to-vanilla
+  --tasks spaceship-titanic --systems improved vanilla
 python automated_evaluation/run_experiments.py \
-  --tasks spaceship-titanic --systems improved vanilla --sync-tasks-to-vanilla
+  --tasks spaceship-titanic --systems improved vanilla
 python automated_evaluation/evaluate.py --summarize-only \
   --runs-root automated_evaluation/runs/<stamp>
 ```
