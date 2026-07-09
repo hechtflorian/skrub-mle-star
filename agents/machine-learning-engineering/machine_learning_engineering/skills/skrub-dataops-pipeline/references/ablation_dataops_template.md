@@ -90,4 +90,3 @@ At least **three** `Ablation[...]` lines (baseline + two ablated). Use the task 
 - Load `encoding_skrub.md` when ablating encoders.
 - Load `selectors_routing_skrub.md` when ablating routing.
 - Load `choices_hparam_pattern.md` only when ablation includes tuning.
-- Load `holdout_data_leakage.md` to verify holdout bind.

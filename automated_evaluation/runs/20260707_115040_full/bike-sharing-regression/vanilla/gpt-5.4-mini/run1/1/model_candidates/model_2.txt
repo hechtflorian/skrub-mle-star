@@ -1,0 +1,32 @@
+## Model name
+XGBoost
+
+## Example Python code
+import pandas as pd
+from xgboost import XGBRegressor
+
+train = pd.read_csv('train.csv')
+test = pd.read_csv('test.csv')
+
+for df in [train, test]:
+    dt = pd.to_datetime(df['datetime'])
+    df['hour'] = dt.dt.hour
+    df['month'] = dt.dt.month
+    df['weekday'] = dt.dt.weekday
+    df['year'] = dt.dt.year
+
+features = ['season','holiday','workingday','weather','temp','atemp','humidity','windspeed','hour','month','weekday','year']
+X = train[features]
+y = train['count']
+
+model = XGBRegressor(
+    n_estimators=1500,
+    learning_rate=0.03,
+    max_depth=6,
+    subsample=0.8,
+    colsample_bytree=0.8,
+    reg_lambda=1.0,
+)
+model.fit(X, y)
+pred = model.predict(test[features]).clip(min=0)
+print(pred[:5])

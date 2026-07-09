@@ -1,0 +1,22 @@
+## Model name
+CatBoostRegressor
+
+## Example Python code
+import pandas as pd
+import skrub
+from catboost import CatBoostRegressor
+
+train_df = pd.read_csv('train.csv')
+test_df = pd.read_csv('test.csv')
+X = skrub.X(train_df.drop(columns='Rings'))
+y = skrub.y(train_df['Rings'])
+
+pred = X.skb.apply(
+    skrub.TableVectorizer(),
+).skb.apply(
+    CatBoostRegressor(loss_function='RMSE', depth=8, learning_rate=0.05, iterations=3000, random_seed=42, verbose=0),
+    y=y,
+)
+model = pred.skb.make_learner(fitted=True)
+sub = pd.DataFrame({'id': test_df['id'], 'Rings': model.predict({'data': test_df.drop(columns='id', errors='ignore')})})
+sub.to_csv('submission.csv', index=False)

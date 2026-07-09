@@ -207,5 +207,4 @@ Tune agents should prefer explicit holdout `search.fit` above when structural co
 - Load `dataops_api_quickmap.md` for holdout pipeline shape and fit/predict contracts.
 - Load `tuning_dataops_template.md` for tune_implement script skeleton.
 - Load `encoding_skrub.md` when tuning encoders or `TableVectorizer`.
-- Load `common_failure_fixes.md` for fake-tuning (#16) or unresolved `choose_*` errors.
 - Load `skrub_subsampling.md` when search is too slow.

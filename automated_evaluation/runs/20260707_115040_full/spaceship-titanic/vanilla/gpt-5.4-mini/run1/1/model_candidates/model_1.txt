@@ -1,0 +1,23 @@
+## Model name
+CatBoostClassifier
+
+## Example Python code
+import pandas as pd
+from catboost import CatBoostClassifier
+from sklearn.model_selection import train_test_split
+
+train = pd.read_csv('train.csv')
+test = pd.read_csv('test.csv')
+y = train['Transported'].astype(int)
+X = train.drop(columns=['Transported'])
+cat_cols = X.select_dtypes(include='object').columns.tolist()
+for c in ['CryoSleep','VIP']:
+    if c in X.columns: X[c] = X[c].astype('object')
+    if c in test.columns: test[c] = test[c].astype('object')
+cat_cols = X.select_dtypes(include='object').columns.tolist()
+X = X.fillna('NA'); test = test.fillna('NA')
+model = CatBoostClassifier(loss_function='Logloss', iterations=2000, depth=6, learning_rate=0.03, verbose=0)
+model.fit(X, y, cat_features=cat_cols)
+pred = model.predict(test)
+sub = pd.DataFrame({'PassengerId': test['PassengerId'], 'Transported': pred.astype(bool)})
+sub.to_csv('submission.csv', index=False)

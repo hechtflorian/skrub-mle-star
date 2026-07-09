@@ -1,0 +1,37 @@
+## Model name
+CatBoostRegressor
+
+## Example Python code
+import pandas as pd
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import mean_squared_error
+from catboost import CatBoostRegressor
+
+train = pd.read_csv('train.csv')
+test = pd.read_csv('test.csv')
+
+for df in [train, test]:
+    df['Open Date'] = pd.to_datetime(df['Open Date'])
+    df['Year'] = df['Open Date'].dt.year
+    df['Month'] = df['Open Date'].dt.month
+    df['Day'] = df['Open Date'].dt.day
+    df['Age'] = 2026 - df['Year']
+
+X = train.drop(columns=['Id', 'Revenue'])
+y = train['Revenue']
+X_test = test.drop(columns=['Id'])
+
+cat_cols = ['City', 'City Group', 'Type']
+X[cat_cols] = X[cat_cols].astype(str)
+X_test[cat_cols] = X_test[cat_cols].astype(str)
+
+X_tr, X_va, y_tr, y_va = train_test_split(X, y, test_size=0.2, random_state=42)
+model = CatBoostRegressor(loss_function='RMSE', iterations=2000, depth=6, learning_rate=0.03, random_seed=42, verbose=0)
+model.fit(X_tr, y_tr, cat_features=cat_cols, eval_set=(X_va, y_va), use_best_model=True)
+
+pred = model.predict(X_va)
+print('RMSE:', mean_squared_error(y_va, pred) ** 0.5)
+
+model.fit(X, y, cat_features=cat_cols, verbose=0)
+submission = pd.DataFrame({'Id': test['Id'], 'Prediction': model.predict(X_test)})
+submission.to_csv('submission.csv', index=False)

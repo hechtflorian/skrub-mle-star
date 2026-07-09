@@ -63,17 +63,35 @@ def task_is_complete(task_name: str) -> bool:
 
 
 SYSTEM_SPECS: dict[str, dict[str, Any]] = {
-    "improved": {
-        "archive_label": "skrub-full",
-        "table_report_enabled": True,
-        "tuning_enabled": True,
-    },
-    "vanilla": {
-        "archive_label": "vanilla",
-        "table_report_enabled": False,
-        "tuning_enabled": False,
-    },
+    "improved": {"archive_label": "skrub-full"},
+    "vanilla": {"archive_label": "vanilla"},
 }
+
+# Patched per run from task manifest + experiment CLI; everything else comes from config.py.
+PER_RUN_PATCH_FIELDS = frozenset({"task_name", "task_type", "lower", "seed"})
+
+AGENT_CONFIG_SNAPSHOT_KEYS = (
+    "num_solutions",
+    "num_model_candidates",
+    "seed",
+    "exec_timeout",
+    "max_retry",
+    "max_debug_round",
+    "max_rollback_round",
+    "inner_loop_round",
+    "outer_loop_round",
+    "ensemble_loop_round",
+    "num_top_plans",
+    "use_data_leakage_checker",
+    "use_data_usage_checker",
+    "table_report_enabled",
+    "tuning_enabled",
+    "tuning_n_iter",
+    "lower",
+    "task_name",
+    "task_type",
+    "agent_model",
+)
 
 
 @dataclass
@@ -90,8 +108,6 @@ class SystemSpec:
     key: str
     archive_label: str
     agent_dir: Path
-    table_report_enabled: bool
-    tuning_enabled: bool
 
 
 @dataclass
@@ -315,6 +331,34 @@ def _replace_config_field(
     raise ValueError(f"Could not patch config field: {field}")
 
 
+def _parse_config_fields(text: str) -> dict[str, Any]:
+    """Parse bool/int defaults from shared_libraries/config.py without importing the agent."""
+    fields: dict[str, Any] = {}
+    for match in re.finditer(r"^\s+(\w+):\s*bool\s*=\s*(True|False)", text, re.MULTILINE):
+        fields[match.group(1)] = match.group(2) == "True"
+    for match in re.finditer(r"^\s+(\w+):\s*int\s*=\s*(\d+)", text, re.MULTILINE):
+        fields[match.group(1)] = int(match.group(2))
+    return fields
+
+
+def _read_config_file(agent_dir: Path) -> dict[str, Any]:
+    """Read parsed config.py defaults for an agent checkout."""
+    config_path = agent_dir / CONFIG_REL
+    if not config_path.is_file():
+        return {}
+    return _parse_config_fields(config_path.read_text(encoding="utf-8"))
+
+
+def _read_agent_config(agent_dir: Path) -> dict[str, Any]:
+    """Agent config snapshot from config.py (excluding per-run patched fields)."""
+    parsed = _read_config_file(agent_dir)
+    return {
+        key: parsed[key]
+        for key in AGENT_CONFIG_SNAPSHOT_KEYS
+        if key not in PER_RUN_PATCH_FIELDS and key in parsed
+    }
+
+
 @contextmanager
 def patched_agent_config(
     agent_dir: Path,
@@ -323,8 +367,6 @@ def patched_agent_config(
     task_type: str,
     lower: bool,
     seed: int,
-    table_report_enabled: bool,
-    tuning_enabled: bool,
 ) -> Iterator[None]:
     config_path = agent_dir / CONFIG_REL
     if not config_path.is_file():
@@ -335,16 +377,6 @@ def patched_agent_config(
     patched = _replace_config_field(patched, "task_type", task_type)
     patched = _replace_config_field(patched, "lower", lower)
     patched = _replace_config_field(patched, "seed", seed)
-    # Vanilla baseline config omits skrub-only flags; skip when absent.
-    patched = _replace_config_field(
-        patched, "table_report_enabled", table_report_enabled, required=False
-    )
-    patched = _replace_config_field(
-        patched, "tuning_enabled", tuning_enabled, required=False
-    )
-    patched = _replace_config_field(
-        patched, "use_data_leakage_checker", True, required=False
-    )
     config_path.write_text(patched, encoding="utf-8")
     try:
         yield
@@ -410,6 +442,25 @@ def _run_bundle_complete(archive_path: Path) -> bool:
 
 _PROMPT_MARKER = "[user]:"
 _ABORTED_LINE = "Aborted!"
+
+
+def _agent_config_snapshot(state: dict[str, Any]) -> dict[str, Any]:
+    return {key: state[key] for key in AGENT_CONFIG_SNAPSHOT_KEYS if key in state}
+
+
+def _num_solutions_from_state(state: dict[str, Any]) -> int:
+    try:
+        return max(1, int(state.get("num_solutions") or 1))
+    except (TypeError, ValueError):
+        return 1
+
+
+def _workspace_solution_dirs(workspace: Path, num_solutions: int | None = None) -> list[str]:
+    if num_solutions is not None and num_solutions >= 1:
+        return [str(i) for i in range(1, num_solutions + 1)]
+    return sorted(
+        entry.name for entry in workspace.iterdir() if entry.is_dir() and entry.name.isdigit()
+    )
 
 
 def _archived_run_log(archive_path: Path) -> Path | None:
@@ -508,8 +559,6 @@ def run_agent_once(
         task_type=task.task_type,
         lower=task.lower,
         seed=seed,
-        table_report_enabled=system.table_report_enabled,
-        tuning_enabled=system.tuning_enabled,
     ):
         workspace = _workspace_dir(agent_dir, task.task_name)
         if workspace.exists():
@@ -565,17 +614,27 @@ def archive_run_bundle(
     archive_path.mkdir(parents=True, exist_ok=True)
 
     final_state = workspace / "final_state.json"
+    state: dict[str, Any] | None = None
     if final_state.is_file():
         shutil.copy2(final_state, archive_path / "final_state.json")
+        try:
+            state = json.loads(final_state.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            state = None
 
     table_report = workspace / "table_report.json"
     if table_report.is_file():
         shutil.copy2(table_report, archive_path / "table_report.json")
 
-    for sub in ("1", "ensemble"):
+    num_solutions = _num_solutions_from_state(state) if state else None
+    for sub in _workspace_solution_dirs(workspace, num_solutions):
         src = workspace / sub
         if src.is_dir():
             shutil.copytree(src, archive_path / sub)
+
+    ensemble_dir = workspace / "ensemble"
+    if ensemble_dir.is_dir():
+        shutil.copytree(ensemble_dir, archive_path / "ensemble")
 
     for pattern in ("adk_run_*.log",):
         for src in sorted(agent_dir.glob(pattern)):
@@ -587,6 +646,9 @@ def archive_run_bundle(
 
     if log_path and log_path.is_file():
         shutil.copy2(log_path, archive_path / log_path.name)
+
+    if state:
+        meta = {**meta, "agent_config": _agent_config_snapshot(state)}
 
     (archive_path / "meta.json").write_text(
         json.dumps(meta, indent=2),
@@ -622,8 +684,6 @@ def build_system_specs(config: EvalConfig) -> list[SystemSpec]:
                 key=key,
                 archive_label=base["archive_label"],
                 agent_dir=agent_dir.resolve(),
-                table_report_enabled=base["table_report_enabled"],
-                tuning_enabled=base["tuning_enabled"],
             )
         )
     return specs
@@ -782,6 +842,7 @@ def execute_evaluation_matrix(config: EvalConfig) -> list[dict[str, Any]]:
                         )
                         finished_at = datetime.now(timezone.utc).isoformat()
                         wall_seconds = _iso_duration_seconds(started_at, finished_at)
+                        agent_cfg = _read_agent_config(system.agent_dir)
                         meta = {
                             "task": task.task_name,
                             "task_type": task.task_type,
@@ -795,9 +856,7 @@ def execute_evaluation_matrix(config: EvalConfig) -> list[dict[str, Any]]:
                             "agent_dir": str(system.agent_dir),
                             "model": config.model_label,
                             "seed": config.seed,
-                            "table_report_enabled": system.table_report_enabled,
-                            "tuning_enabled": system.tuning_enabled,
-                            "use_data_leakage_checker": True,
+                            "agent_config_from_file": agent_cfg,
                             "uv_sync_before_run": config.uv_sync_before_run,
                             "started_at": started_at,
                             "finished_at": finished_at,
@@ -922,19 +981,30 @@ def _mean_std(values: list[float]) -> tuple[float | None, float | None]:
     return statistics.mean(values), statistics.stdev(values)
 
 
+def _model_from_row(row: dict[str, Any]) -> str:
+    model = row.get("model")
+    if model:
+        return str(model)
+    variant = row.get("variant", "")
+    parts = variant.split("/")
+    if len(parts) > 1:
+        return parts[1]
+    return "unknown"
+
+
 def summarize_by_task_system(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    groups: dict[tuple[str, str], list[dict[str, Any]]] = defaultdict(list)
+    groups: dict[tuple[str, str, str], list[dict[str, Any]]] = defaultdict(list)
     for row in rows:
         variant = row.get("variant", "")
         system = variant.split("/")[0] if variant else "unknown"
-        groups[(row["task"], system)].append(row)
+        groups[(row["task"], system, _model_from_row(row))].append(row)
 
     summary: list[dict[str, Any]] = []
-    for (task, system), group in sorted(groups.items()):
+    for (task, system, model), group in sorted(groups.items()):
         scores = [
-            float(r["score_submission"])
+            float(r["primary_score"])
             for r in group
-            if r.get("score_submission") is not None
+            if r.get("primary_score") is not None
         ]
         walls = [
             float(r["wall_seconds"])
@@ -955,56 +1025,118 @@ def summarize_by_task_system(rows: list[dict[str, Any]]) -> list[dict[str, Any]]
         mean_wall, std_wall = _mean_std(walls)
         mean_exec, std_exec = _mean_std(execs)
         mean_dataops, std_dataops = _mean_std(dataops)
+        source_scores = [
+            float(r["score_submission_source"])
+            for r in group
+            if r.get("score_submission_source") is not None
+        ]
+        submission_scores = [
+            float(r["score_submission"])
+            for r in group
+            if r.get("score_submission") is not None
+        ]
+        mean_source, _ = _mean_std(source_scores)
+        mean_submission, _ = _mean_std(submission_scores)
+        stage_exec = {
+            f"exec_{stage}_mean": _mean_std(
+                [
+                    float(r[f"exec_seconds_{stage}"])
+                    for r in group
+                    if r.get(f"exec_seconds_{stage}") is not None
+                ]
+            )[0]
+            for stage in ("init", "refine", "tune", "ensemble", "submission")
+        }
+        tune_ran = None
+        skill_tool_calls_total = None
+        if system == "skrub-full":
+            tune_ran = any(bool(r.get("tune_ran")) for r in group)
+            skill_tool_calls_total = sum(
+                int(r.get("skill_tool_calls") or 0) for r in group
+            )
         lower = group[0].get("lower_is_better")
+        metric = group[0].get("metric") or ""
         summary.append(
             {
                 "task": task,
                 "system": system,
+                "model": model,
+                "metric": metric,
                 "n_runs": len(group),
                 "lower_is_better": lower,
-                "score_submission_mean": mean_score,
-                "score_submission_std": std_score,
+                "primary_score_mean": mean_score,
+                "primary_score_std": std_score,
+                "score_submission_mean": mean_submission,
+                "score_submission_source_mean": mean_source,
                 "wall_seconds_mean": mean_wall,
                 "wall_seconds_std": std_wall,
                 "exec_seconds_mean": mean_exec,
                 "exec_seconds_std": std_exec,
                 "dataops_adherence_mean": mean_dataops,
                 "dataops_adherence_std": std_dataops,
+                "tune_ran": tune_ran,
+                "skill_tool_calls_total": skill_tool_calls_total,
+                **stage_exec,
             }
         )
     return summary
 
 
+def _score_delta_and_winner(
+    vanilla_score: float | None,
+    skrub_score: float | None,
+    *,
+    lower: bool | None,
+) -> tuple[float | None, str | None]:
+    if vanilla_score is None or skrub_score is None or lower is None:
+        return None, None
+    if vanilla_score == skrub_score:
+        return 0.0, "tie"
+    if lower:
+        delta = vanilla_score - skrub_score
+        winner = "skrub-full" if skrub_score < vanilla_score else "vanilla"
+    else:
+        delta = skrub_score - vanilla_score
+        winner = "skrub-full" if skrub_score > vanilla_score else "vanilla"
+    return delta, winner
+
+
 def compare_systems(summary_rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    by_task: dict[str, dict[str, dict[str, Any]]] = defaultdict(dict)
+    by_task_model: dict[tuple[str, str], dict[str, dict[str, Any]]] = defaultdict(dict)
     for row in summary_rows:
-        by_task[row["task"]][row["system"]] = row
+        by_task_model[(row["task"], row.get("model", "unknown"))][row["system"]] = row
 
     comparisons: list[dict[str, Any]] = []
-    for task, systems in sorted(by_task.items()):
+    for (task, model), systems in sorted(by_task_model.items()):
         vanilla = systems.get("vanilla")
         skrub = systems.get("skrub-full")
         if not vanilla or not skrub:
             continue
-        v_score = vanilla.get("score_submission_mean")
-        s_score = skrub.get("score_submission_mean")
         lower = vanilla.get("lower_is_better")
-        if v_score is None or s_score is None:
-            delta = None
-            winner = None
-        elif lower:
-            delta = v_score - s_score
-            winner = "skrub-full" if s_score < v_score else "vanilla"
-        else:
-            delta = s_score - v_score
-            winner = "skrub-full" if s_score > v_score else "vanilla"
+        metric = vanilla.get("metric") or skrub.get("metric") or ""
+        vanilla_sub = vanilla.get("score_submission_mean")
+        skrub_sub = skrub.get("score_submission_mean")
+        vanilla_best = vanilla.get("score_submission_source_mean")
+        skrub_best = skrub.get("score_submission_source_mean")
+        delta_sub, winner_sub = _score_delta_and_winner(
+            vanilla_sub, skrub_sub, lower=lower
+        )
+        delta_best, winner_best = _score_delta_and_winner(
+            vanilla_best, skrub_best, lower=lower
+        )
         comparisons.append(
             {
                 "task": task,
-                "vanilla_mean": v_score,
-                "skrub_full_mean": s_score,
-                "delta_skrub_minus_vanilla_signed": delta,
-                "winner": winner,
+                "model": model,
+                "metric": metric,
+                "vanilla_sub": vanilla_sub,
+                "skrub_sub": skrub_sub,
+                "delta_sub": delta_sub,
+                "winner_sub": winner_sub,
+                "vanilla_best": vanilla_best,
+                "skrub_best": skrub_best,
+                "delta_best": delta_best,
+                "winner_best": winner_best,
                 "lower_is_better": lower,
             }
         )
@@ -1076,117 +1208,188 @@ RUN_MATRIX_COLUMNS: list[tuple[str, str, str]] = [
 
 COMPARISON_TABLE_COLUMNS: list[tuple[str, str, str]] = [
     ("task", "Task", "Benchmark task name."),
+    ("metric", "Metric", "Validation metric for this task."),
     (
-        "vanilla_mean",
-        "Vanilla",
-        "Mean submission holdout score across vanilla repeats.",
+        "vanilla_sub",
+        "Vanilla (sub)",
+        "Mean holdout score printed by the submission agent script (`final_solution.py` / `submission_code_exec_result`).",
     ),
     (
-        "skrub_full_mean",
-        "Skrub-full",
-        "Mean submission holdout score across skrub-full repeats.",
+        "skrub_sub",
+        "Skrub-full (sub)",
+        "Mean submission-stage holdout score for skrub-full repeats.",
     ),
     (
-        "delta_skrub_minus_vanilla_signed",
-        "Delta",
-        "Signed skrub advantage: for **lower-is-better** tasks, `vanilla − skrub` (positive ⇒ vanilla better); for **higher-is-better**, `skrub − vanilla` (positive ⇒ skrub better).",
+        "delta_sub",
+        "Delta (sub)",
+        "Signed skrub advantage on submission scores (positive ⇒ skrub better).",
     ),
     (
-        "winner",
-        "Winner",
-        "System with the better mean submission score on this task.",
+        "vanilla_best",
+        "Vanilla (best)",
+        "Mean holdout score of the upstream script passed into the submission agent (best structural/ensemble solution before export).",
+    ),
+    (
+        "skrub_best",
+        "Skrub-full (best)",
+        "Mean upstream-script holdout score for skrub-full repeats.",
+    ),
+    (
+        "delta_best",
+        "Delta (best)",
+        "Signed skrub advantage on upstream-script scores (positive ⇒ skrub better).",
+    ),
+    (
+        "winner_best",
+        "Winner (best)",
+        "System with better mean upstream-script score (`vanilla`, `skrub-full`, or `tie`).",
+    ),
+    (
+        "winner_sub",
+        "Winner (sub)",
+        "System with better mean submission-script score.",
     ),
 ]
 
 SUMMARY_TABLE_COLUMNS: list[tuple[str, str, str]] = [
     ("task", "Task", "Benchmark task name."),
     ("system", "System", "Agent variant aggregated (`vanilla` or `skrub-full`)."),
-    ("n_runs", "N", "Number of archived runs in this (task, system) group."),
+    ("model", "Model", "LLM model slug from the run archive path / state."),
+    ("metric", "Metric", "Validation metric for this task."),
+    ("n_runs", "N", "Number of archived runs in this group."),
     (
-        "score_submission_mean",
+        "primary_score_mean",
         "Score mean",
-        "Mean **submission** holdout score — the primary end-to-end metric.",
+        "Mean `score_final_best` across repeats.",
     ),
     (
-        "score_submission_std",
+        "primary_score_std",
         "Score std",
-        "Standard deviation of submission scores across repeats (`-` when *N* = 1).",
+        "Standard deviation of primary scores across repeats (`-` when *N* = 1).",
     ),
     (
         "wall_seconds_mean",
         "Wall mean (s)",
-        "Mean end-to-end wall-clock time per run (`started_at` → `finished_at` in `meta.json`; includes LLM latency).",
-    ),
-    (
-        "wall_seconds_std",
-        "Wall std",
-        "Standard deviation of wall-clock times across repeats (`-` when *N* = 1).",
+        "Mean end-to-end wall-clock time per run.",
     ),
     (
         "exec_seconds_mean",
         "Exec mean (s)",
-        "Mean total Python script execution time per run (excludes LLM latency).",
+        "Mean total Python script execution time per run.",
     ),
     (
         "dataops_adherence_mean",
         "DataOps mean",
-        "Mean DataOps adherence in `[0, 1]`: share of skrub DataOps patterns in workspace scripts.",
+        "Mean core DataOps adherence in `[0, 1]` across produced scripts.",
     ),
 ]
 
 ALL_RUNS_TABLE_COLUMNS: list[tuple[str, str, str]] = [
     ("task", "Task", "Benchmark task name."),
     ("system", "System", "Agent variant for this run (`vanilla` or `skrub-full`)."),
+    ("model", "Model", "LLM model slug."),
+    ("metric", "Metric", "Validation metric for this task."),
     ("run", "Run", "Repeat label (e.g. `run1`)."),
     (
-        "score_submission",
-        "Submission",
-        "Holdout score from the **submission** stage — primary comparison metric.",
+        "primary_score",
+        "Best",
+        "`score_final_best` across init/refine/tune/ensemble/submission.",
+    ),
+    (
+        "score_submission_source",
+        "Src val",
+        "Holdout score of the upstream script chosen for submission export.",
     ),
     (
         "score_init",
         "Init",
-        "Best holdout score after the **initialization** stage.",
+        "Best holdout score after initialization.",
     ),
     (
         "score_refine_promoted",
         "Refine",
-        "Holdout score of the solution **promoted after refinement**.",
+        "Holdout score promoted after refinement.",
     ),
     (
-        "score_tune_search",
+        "score_tune_bake",
         "Tune",
-        "Best holdout score from **tuning search** (`-` for vanilla).",
+        "Holdout score after tuning (`-` if tuning did not run).",
+    ),
+    (
+        "score_ensemble_best",
+        "Ensemble",
+        "Best holdout score from the ensemble stage.",
     ),
     (
         "gain_total",
         "Gain",
-        "Signed improvement from init to final best (positive = better).",
+        "Signed improvement from init to `primary_score`.",
     ),
     (
         "dataops_adherence",
         "DataOps",
-        "DataOps adherence `[0, 1]` for this run's workspace scripts.",
-    ),
-    (
-        "exec_seconds",
-        "Exec (s)",
-        "Total seconds executing generated Python scripts (not full wall-clock time).",
+        "Core DataOps adherence `[0, 1]`.",
     ),
     (
         "wall_seconds",
         "Wall (s)",
-        "End-to-end wall-clock seconds for this run (orchestrator `started_at` → `finished_at`).",
+        "End-to-end wall-clock seconds for this run.",
+    ),
+]
+
+STAGE_EXEC_TABLE_COLUMNS: list[tuple[str, str, str]] = [
+    ("task", "Task", "Benchmark task name."),
+    ("system", "System", "Agent variant."),
+    ("run", "Run", "Repeat label."),
+    (
+        "exec_seconds_init",
+        "Init exec",
+        "Summed Python script execution time during initialization.",
     ),
     (
-        "debug_refinement",
-        "Dbg refine",
-        "Refinement-stage debug agent events in the ADK log.",
+        "exec_seconds_refine",
+        "Refine exec",
+        "Summed Python script execution time during refinement.",
     ),
     (
-        "debug_tuning",
-        "Dbg tune",
-        "Tuning-stage debug agent events in the ADK log.",
+        "exec_seconds_tune",
+        "Tune exec",
+        "Summed Python script execution time during tuning.",
+    ),
+    (
+        "exec_seconds_ensemble",
+        "Ensemble exec",
+        "Summed Python script execution time during ensembling.",
+    ),
+    (
+        "exec_seconds_submission",
+        "Submit exec",
+        "Summed Python script execution time during submission export.",
+    ),
+    (
+        "exec_seconds",
+        "Exec total",
+        "Total Python script execution time across all stages.",
+    ),
+    (
+        "wall_seconds",
+        "Wall total",
+        "End-to-end wall-clock seconds for the full run (LLM + scripts).",
+    ),
+]
+
+IMPROVED_TASK_EXTRAS_COLUMNS: list[tuple[str, str, str]] = [
+    ("task", "Task", "Benchmark task name."),
+    ("metric", "Metric", "Validation metric for this task."),
+    (
+        "tune_ran",
+        "Tuning ran",
+        "`yes` if the tuning stage executed for any repeat of this task.",
+    ),
+    (
+        "skill_tool_calls_total",
+        "Skill calls",
+        "Total skill tool invocations (`list_skills` / `load_skill*`) in ADK logs.",
     ),
 ]
 
@@ -1196,8 +1399,84 @@ def _all_runs_display_rows(run_rows: list[dict[str, Any]]) -> list[dict[str, Any
     for row in run_rows:
         variant = row.get("variant", "")
         system = variant.split("/")[0] if variant else "-"
-        display.append({**row, "system": system})
+        display.append({**row, "system": system, "model": _model_from_row(row)})
     return display
+
+
+def _win_rate_lines(
+    comparison_rows: list[dict[str, Any]], *, winner_key: str, label: str
+) -> list[str]:
+    if not comparison_rows:
+        return []
+    total = len(comparison_rows)
+    skrub_wins = sum(
+        1 for row in comparison_rows if row.get(winner_key) == "skrub-full"
+    )
+    vanilla_wins = sum(
+        1 for row in comparison_rows if row.get(winner_key) == "vanilla"
+    )
+    ties = sum(1 for row in comparison_rows if row.get(winner_key) == "tie")
+    return [
+        f"{label} — Skrub-full wins: **{skrub_wins}/{total}** · "
+        f"Vanilla wins: **{vanilla_wins}/{total}** · "
+        f"Ties: **{ties}/{total}**"
+    ]
+
+
+def _improved_task_extras_rows(
+    summary_rows: list[dict[str, Any]], *, model: str
+) -> list[dict[str, Any]]:
+    rows: list[dict[str, Any]] = []
+    for row in summary_rows:
+        if row.get("model") != model or row.get("system") != "skrub-full":
+            continue
+        rows.append(
+            {
+                "task": row["task"],
+                "metric": row.get("metric") or "",
+                "tune_ran": row.get("tune_ran"),
+                "skill_tool_calls_total": row.get("skill_tool_calls_total"),
+            }
+        )
+    return rows
+
+
+def _stage_exec_summary_rows(
+    summary_rows: list[dict[str, Any]], *, model: str
+) -> list[dict[str, Any]]:
+    rows: list[dict[str, Any]] = []
+    for row in summary_rows:
+        if row.get("model") != model:
+            continue
+        rows.append(
+            {
+                "task": row["task"],
+                "system": row["system"],
+                "metric": row.get("metric") or "",
+                "exec_init_mean": row.get("exec_init_mean"),
+                "exec_refine_mean": row.get("exec_refine_mean"),
+                "exec_tune_mean": row.get("exec_tune_mean"),
+                "exec_ensemble_mean": row.get("exec_ensemble_mean"),
+                "exec_submission_mean": row.get("exec_submission_mean"),
+                "exec_seconds_mean": row.get("exec_seconds_mean"),
+                "wall_seconds_mean": row.get("wall_seconds_mean"),
+            }
+        )
+    return rows
+
+
+STAGE_EXEC_SUMMARY_COLUMNS: list[tuple[str, str, str]] = [
+    ("task", "Task", "Benchmark task name."),
+    ("system", "System", "Agent variant."),
+    ("metric", "Metric", "Validation metric."),
+    ("exec_init_mean", "Init exec", "Mean script execution time in initialization (s)."),
+    ("exec_refine_mean", "Refine exec", "Mean script execution time in refinement (s)."),
+    ("exec_tune_mean", "Tune exec", "Mean script execution time in tuning (s)."),
+    ("exec_ensemble_mean", "Ensemble exec", "Mean script execution time in ensembling (s)."),
+    ("exec_submission_mean", "Submit exec", "Mean script execution time in submission (s)."),
+    ("exec_seconds_mean", "Exec total", "Mean total script execution time (s)."),
+    ("wall_seconds_mean", "Wall total", "Mean end-to-end wall-clock time (s)."),
+]
 
 
 def task_status_payload(tasks: list[TaskSpec]) -> dict[str, Any]:
@@ -1299,49 +1578,118 @@ def write_markdown_report(
     )
 
     if comparison_rows:
-        lines.extend(
-            [
-                "",
-                "## Vanilla vs skrub-full",
-                "",
-            ]
-        )
-        lines.extend(_markdown_table(comparison_rows, COMPARISON_TABLE_COLUMNS))
-        lines.extend(_column_legend(COMPARISON_TABLE_COLUMNS))
-        skrub_wins = sum(1 for r in comparison_rows if r["winner"] == "skrub-full")
-        lines.append("")
-        lines.append(
-            f"Skrub-full win rate: **{skrub_wins}/{len(comparison_rows)}** tasks "
-            f"({100 * skrub_wins / len(comparison_rows):.1f}%)."
-        )
+        models = sorted({row.get("model", "unknown") for row in comparison_rows})
+        for model in models:
+            model_rows = [row for row in comparison_rows if row.get("model") == model]
+            lines.extend(
+                [
+                    "",
+                    f"## Vanilla vs skrub-full ({model})",
+                    "",
+                    "_**(sub)** = holdout score from the submission agent's `final_solution.py` run. "
+                    "**(best)** = holdout score of the upstream script the submission agent received "
+                    "(best structural/ensemble solution before export). "
+                    "`primary_score` in per-run tables is the best score across all stages, not shown here._",
+                    "",
+                ]
+            )
+            lines.extend(_markdown_table(model_rows, COMPARISON_TABLE_COLUMNS))
+            lines.extend(_column_legend(COMPARISON_TABLE_COLUMNS))
+            lines.extend(_win_rate_lines(model_rows, winner_key="winner_best", label="Upstream (best)"))
+            lines.extend(_win_rate_lines(model_rows, winner_key="winner_sub", label="Submission (sub)"))
 
     if summary_rows:
-        lines.extend(
-            [
-                "",
-                "## Per (task, system) summary",
-                "",
-            ]
-        )
-        lines.extend(_markdown_table(summary_rows, SUMMARY_TABLE_COLUMNS))
-        lines.extend(_column_legend(SUMMARY_TABLE_COLUMNS))
+        models = sorted({row.get("model", "unknown") for row in summary_rows})
+        for model in models:
+            model_rows = [row for row in summary_rows if row.get("model") == model]
+            lines.extend(
+                [
+                    "",
+                    f"## Per (task, system) summary ({model})",
+                    "",
+                ]
+            )
+            lines.extend(_markdown_table(model_rows, SUMMARY_TABLE_COLUMNS))
+            lines.extend(_column_legend(SUMMARY_TABLE_COLUMNS))
+
+            stage_summary = _stage_exec_summary_rows(summary_rows, model=model)
+            if stage_summary:
+                lines.extend(
+                    [
+                        "",
+                        f"### Stage script execution — mean per (task, system) ({model})",
+                        "",
+                        "_Per-stage times sum Python script `execution_time` from `final_state.json` (excludes LLM latency). Wall total includes LLM + scripts._",
+                        "",
+                    ]
+                )
+                lines.extend(
+                    _markdown_table(stage_summary, STAGE_EXEC_SUMMARY_COLUMNS, decimals=1)
+                )
+                lines.extend(_column_legend(STAGE_EXEC_SUMMARY_COLUMNS))
+
+            improved_extras = _improved_task_extras_rows(summary_rows, model=model)
+            if improved_extras:
+                lines.extend(
+                    [
+                        "",
+                        f"### Skrub-full extras ({model})",
+                        "",
+                    ]
+                )
+                lines.extend(
+                    _markdown_table(improved_extras, IMPROVED_TASK_EXTRAS_COLUMNS)
+                )
+                lines.extend(_column_legend(IMPROVED_TASK_EXTRAS_COLUMNS))
 
     if run_rows:
-        lines.extend(
-            [
-                "",
-                "## Per-run results",
-                "",
+        models = sorted({_model_from_row(row) for row in run_rows})
+        for model in models:
+            model_rows = [
+                row for row in _all_runs_display_rows(run_rows) if row.get("model") == model
             ]
-        )
-        lines.extend(
-            _markdown_table(
-                _all_runs_display_rows(run_rows),
-                ALL_RUNS_TABLE_COLUMNS,
-                decimals=4,
+            lines.extend(
+                [
+                    "",
+                    f"## Per-run results ({model})",
+                    "",
+                ]
             )
-        )
-        lines.extend(_column_legend(ALL_RUNS_TABLE_COLUMNS))
+            lines.extend(
+                _markdown_table(
+                    model_rows,
+                    ALL_RUNS_TABLE_COLUMNS,
+                    decimals=4,
+                )
+            )
+            lines.extend(_column_legend(ALL_RUNS_TABLE_COLUMNS))
+
+            stage_rows = [
+                {
+                    "task": row.get("task"),
+                    "system": row.get("system"),
+                    "run": row.get("run"),
+                    "exec_seconds_init": row.get("exec_seconds_init"),
+                    "exec_seconds_refine": row.get("exec_seconds_refine"),
+                    "exec_seconds_tune": row.get("exec_seconds_tune"),
+                    "exec_seconds_ensemble": row.get("exec_seconds_ensemble"),
+                    "exec_seconds_submission": row.get("exec_seconds_submission"),
+                    "exec_seconds": row.get("exec_seconds"),
+                    "wall_seconds": row.get("wall_seconds"),
+                }
+                for row in model_rows
+            ]
+            lines.extend(
+                [
+                    "",
+                    f"### Stage script execution — per run ({model})",
+                    "",
+                ]
+            )
+            lines.extend(
+                _markdown_table(stage_rows, STAGE_EXEC_TABLE_COLUMNS, decimals=1)
+            )
+            lines.extend(_column_legend(STAGE_EXEC_TABLE_COLUMNS))
 
     lines.append("")
     path.write_text("\n".join(lines), encoding="utf-8")

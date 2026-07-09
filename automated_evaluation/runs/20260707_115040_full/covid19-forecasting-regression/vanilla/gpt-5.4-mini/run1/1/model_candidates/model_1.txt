@@ -1,0 +1,35 @@
+## Model name
+LightGBM with target engineering + lag features
+
+## Example Python code
+import pandas as pd, numpy as np
+from catboost import CatBoostRegressor
+from sklearn.preprocessing import LabelEncoder
+
+train = pd.read_csv('train.csv')
+test = pd.read_csv('test.csv')
+sub = pd.read_csv('submission.csv')
+
+for df in [train, test]:
+    df['Date'] = pd.to_datetime(df['Date'])
+    df['day'] = df['Date'].dt.day
+    df['month'] = df['Date'].dt.month
+    df['dow'] = df['Date'].dt.dayofweek
+    df['Province_State'] = df['Province_State'].fillna('NA')
+
+for c in ['Province_State','Country_Region']:
+    le = LabelEncoder()
+    le.fit(pd.concat([train[c], test[c]]).astype(str))
+    train[c] = le.transform(train[c].astype(str))
+    test[c] = le.transform(test[c].astype(str))
+
+X = train[['Province_State','Country_Region','day','month','dow']]
+X_test = test[['Province_State','Country_Region','day','month','dow']]
+
+for target in ['ConfirmedCases','Fatalities']:
+    y = np.log1p(train[target])
+    model = CatBoostRegressor(loss_function='RMSE', iterations=1500, depth=6, learning_rate=0.05, verbose=False)
+    model.fit(X, y)
+    sub[target] = np.expm1(model.predict(X_test)).clip(0)
+
+sub.to_csv('submission.csv', index=False)

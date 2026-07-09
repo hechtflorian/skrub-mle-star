@@ -1,0 +1,20 @@
+## Model name
+CatBoostClassifier
+
+## Example Python code
+import pandas as pd
+from catboost import CatBoostClassifier
+from sklearn.model_selection import train_test_split
+
+train = pd.read_csv('train.csv')
+test = pd.read_csv('test.csv')
+y = train['NObeyesdad']
+X = train.drop(columns=['NObeyesdad'])
+cat_cols = X.select_dtypes(include='object').columns.tolist()
+
+X_tr, X_val, y_tr, y_val = train_test_split(X, y, test_size=0.2, stratify=y, random_state=42)
+model = CatBoostClassifier(loss_function='MultiClass', iterations=2000, depth=8, learning_rate=0.05, verbose=200)
+model.fit(X_tr, y_tr, cat_features=cat_cols, eval_set=(X_val, y_val), use_best_model=True)
+pred = model.predict(test).ravel()
+sub = pd.DataFrame({'id': test['id'], 'NObeyesdad': pred})
+sub.to_csv('submission.csv', index=False)

@@ -1,0 +1,26 @@
+## Model name
+CatBoost Regressor
+
+## Example Python code
+import pandas as pd
+from catboost import CatBoostRegressor
+
+df = pd.read_csv('train.csv')
+test = pd.read_csv('test.csv')
+
+for c in ['Open Date']:
+    df[c] = pd.to_datetime(df[c])
+    test[c] = pd.to_datetime(test[c])
+    for f in ['year', 'month', 'day']:
+        df[f'{c}_{f}'] = getattr(df[c].dt, f)
+        test[f'{c}_{f}'] = getattr(test[c].dt, f)
+
+y = df.pop('revenue')
+cat_cols = ['City', 'City Group', 'Type']
+X = df.drop(columns=['Id'])
+X_test = test.drop(columns=['Id'])
+
+model = CatBoostRegressor(iterations=3000, learning_rate=0.03, depth=6, loss_function='RMSE', verbose=0, random_seed=42)
+model.fit(X, y, cat_features=cat_cols)
+pred = model.predict(X_test)
+pd.DataFrame({'Id': test['Id'], 'Prediction': pred}).to_csv('submission.csv', index=False)

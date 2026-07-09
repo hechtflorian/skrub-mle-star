@@ -1,0 +1,39 @@
+## Model name
+LightGBMRegressor
+
+## Example Python code
+import pandas as pd
+import numpy as np
+import lightgbm as lgb
+from sklearn.model_selection import KFold
+
+train = pd.read_csv('train.csv')
+test = pd.read_csv('test.csv')
+
+X = pd.get_dummies(train.drop(columns=['Rings']))
+y = np.log1p(train['Rings'])
+X_test = pd.get_dummies(test)
+X, X_test = X.align(X_test, join='left', axis=1, fill_value=0)
+
+kf = KFold(n_splits=5, shuffle=True, random_state=42)
+pred = np.zeros(len(X_test))
+
+for tr_idx, va_idx in kf.split(X):
+    model = lgb.LGBMRegressor(
+        n_estimators=5000,
+        learning_rate=0.02,
+        num_leaves=31,
+        subsample=0.8,
+        colsample_bytree=0.8,
+        random_state=42
+    )
+    model.fit(
+        X.iloc[tr_idx], y.iloc[tr_idx],
+        eval_set=[(X.iloc[va_idx], y.iloc[va_idx])],
+        eval_metric='rmse',
+        callbacks=[lgb.early_stopping(200, verbose=False)]
+    )
+    pred += model.predict(X_test, num_iteration=model.best_iteration_) / kf.n_splits
+
+submission = pd.DataFrame({'id': test['id'], 'Rings': np.expm1(pred).clip(0)})
+submission.to_csv('submission.csv', index=False)

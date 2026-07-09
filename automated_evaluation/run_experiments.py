@@ -20,6 +20,7 @@ from pathlib import Path
 from evaluate import (
     MANIFEST_PATH,
     REPO_ROOT,
+    _read_agent_config,
     _utc_stamp,
     build_run_parser,
     execute_evaluation_matrix,
@@ -28,6 +29,33 @@ from evaluate import (
     summarize_run_outcomes,
     task_status_payload,
 )
+
+
+def _best_val_score(final_state_path: Path) -> float | None:
+    if not final_state_path.is_file():
+        return None
+    try:
+        state = json.loads(final_state_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return None
+
+    def collect_scores(obj: object) -> list[float]:
+        scores: list[float] = []
+        if isinstance(obj, dict):
+            if "score" in obj:
+                try:
+                    scores.append(float(obj["score"]))
+                except (TypeError, ValueError):
+                    pass
+            for val in obj.values():
+                scores.extend(collect_scores(val))
+        elif isinstance(obj, list):
+            for item in obj:
+                scores.extend(collect_scores(item))
+        return scores
+
+    scores = collect_scores(state)
+    return max(scores) if scores else None
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -81,6 +109,10 @@ def main() -> None:
         "model_label": config.model_label,
         "uv_sync_before_run": config.uv_sync_before_run,
         "sync_tasks_to_vanilla": config.sync_tasks_to_vanilla,
+        "agent_configs": {
+            "improved": _read_agent_config(config.improved_agent_dir),
+            "vanilla": _read_agent_config(config.vanilla_agent_dir),
+        },
         "task_status": task_status,
     }
     (config.runs_root / "experiment_meta.json").write_text(
@@ -96,6 +128,23 @@ def main() -> None:
         f"  Success: {outcomes['ok']} · Failed: {outcomes['failed']} · "
         f"Skipped: {outcomes['skipped']} · Planned: {outcomes['planned']}"
     )
+    if not config.dry_run:
+        score_lines: list[str] = []
+        for row in run_log:
+            archive = row.get("archive_path")
+            if not archive:
+                continue
+            score = _best_val_score(REPO_ROOT / archive / "final_state.json")
+            if score is None:
+                continue
+            score_lines.append(
+                f"    {row.get('task_name', '?')} / "
+                f"{row.get('archive_label', row.get('system', '?'))} / "
+                f"{row.get('repeat', '?')}: {score:.6g}"
+            )
+        if score_lines:
+            print("  Best validation scores:")
+            print("\n".join(score_lines))
     print(f"  Run matrix: {config.runs_root / 'run_matrix.json'}")
     if not config.dry_run:
         print(

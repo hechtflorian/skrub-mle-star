@@ -1,0 +1,30 @@
+## Model name
+LightGBM LGBMClassifier
+
+## Example Python code
+import lightgbm as lgb
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import roc_auc_score
+
+X = train_df.drop(columns=['booking_status'])
+y = train_df['booking_status']
+X_tr, X_va, y_tr, y_va = train_test_split(X, y, test_size=0.2, random_state=42, stratify=y)
+
+cat_cols = X.select_dtypes(include='object').columns.tolist()
+for c in cat_cols:
+    X_tr[c] = X_tr[c].astype('category')
+    X_va[c] = X_va[c].astype('category')
+    test_df[c] = test_df[c].astype('category')
+
+model = lgb.LGBMClassifier(
+    n_estimators=5000, learning_rate=0.02,
+    num_leaves=63, subsample=0.8, colsample_bytree=0.8,
+    class_weight='balanced', random_state=42
+)
+model.fit(X_tr, y_tr, eval_set=[(X_va, y_va)], eval_metric='auc', callbacks=[lgb.early_stopping(200)])
+
+va_pred = model.predict_proba(X_va)[:, 1]
+print('AUC:', roc_auc_score(y_va, va_pred))
+test_pred = model.predict_proba(test_df)[:, 1]
+submission = test_df[['id']].copy()
+submission['booking_status'] = test_pred

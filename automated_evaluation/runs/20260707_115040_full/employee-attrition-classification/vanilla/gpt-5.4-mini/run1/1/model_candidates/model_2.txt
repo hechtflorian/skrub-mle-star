@@ -1,0 +1,22 @@
+## Model name
+LightGBM LGBMClassifier
+
+## Example Python code
+import pandas as pd
+from lightgbm import LGBMClassifier
+from sklearn.model_selection import train_test_split
+
+train = pd.read_csv('train.csv')
+test = pd.read_csv('test.csv')
+y = train['Attrition']
+X = train.drop(columns=['Attrition'])
+all_df = pd.concat([X, test], axis=0)
+all_df = pd.get_dummies(all_df, dummy_na=True)
+X_enc = all_df.iloc[:len(X)]
+T_enc = all_df.iloc[len(X):]
+
+Xtr, Xva, ytr, yva = train_test_split(X_enc, y, test_size=0.2, random_state=42, stratify=y)
+model = LGBMClassifier(n_estimators=1000, learning_rate=0.03, num_leaves=31)
+model.fit(Xtr, ytr, eval_set=[(Xva, yva)], eval_metric='auc')
+p = model.predict_proba(T_enc)[:, 1]
+pd.DataFrame({'EmployeeNumber': test['EmployeeNumber'], 'Attrition': p}).to_csv('submission.csv', index=False)

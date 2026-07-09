@@ -1,14 +1,12 @@
 #!/usr/bin/env python3
-"""Aggregate MLE-STAR run analyses into one comparison CSV / table.
+"""Legacy helper: aggregate run analyses into a CSV / table.
 
-Walks a root directory (e.g. submissions/) for run bundles containing
-final_state.json, analyzes each with analyze_run.py, and emits one row per
-run. Path parts relative to the root become the task / variant / run labels,
-matching the submissions/<task>/<variant...>/<run> convention.
+Prefer `python automated_evaluation/evaluate.py --summarize-only --runs-root ...`
+for batch reports. This script remains useful for quick CSV exports.
 
 Examples:
-    python test-scripts/aggregate_runs.py --root submissions
-    python test-scripts/aggregate_runs.py --root submissions --out runs.csv
+    python test-scripts/aggregate_runs.py --root automated_evaluation/runs/<stamp>
+    python test-scripts/aggregate_runs.py --root automated_evaluation/runs/<stamp> --out runs.csv
 """
 
 from __future__ import annotations
@@ -24,17 +22,18 @@ from analyze_run import analyze_run, to_row  # noqa: E402
 
 LABEL_COLS = ["task", "variant", "run"]
 SUMMARY_COLS = [
-    "score_submission",
-    "score_final_best",
+    "metric",
+    "primary_score",
+    "score_submission_source",
     "gain_refinement",
     "gain_tuning",
+    "gain_ensemble",
     "gain_total",
-    "tune_param_source",
-    "tune_winner_source",
-    "debug_refinement",
-    "debug_tuning",
-    "contract_violations",
-    "context_errors",
+    "refine_promoted_over_init",
+    "tune_ran",
+    "debug_total",
+    "skill_tool_calls",
+    "agent_calls_total",
     "wall_seconds",
     "dataops_adherence",
 ]
@@ -102,7 +101,7 @@ def print_group_summary(rows: list[dict]) -> None:
         return
     print("\nPer (task, variant) summary:")
     for (task, variant), g in sorted(groups.items()):
-        subs = [r["score_submission"] for r in g if r.get("score_submission") is not None]
+        subs = [r["primary_score"] for r in g if r.get("primary_score") is not None]
         walls = [r["wall_seconds"] for r in g if r.get("wall_seconds") is not None]
         mean_sub = statistics.mean(subs) if subs else None
         std_sub = statistics.stdev(subs) if len(subs) > 1 else None

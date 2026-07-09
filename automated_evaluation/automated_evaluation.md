@@ -127,6 +127,9 @@ python automated_evaluation/run_experiments.py \
   --tasks spaceship-titanic \
   --systems improved vanilla
 
+# All tasks x one version
+python automated_evaluation/run_experiments.py --systems improved
+
 # Full matrix: all tasks × improved + vanilla
 python automated_evaluation/run_experiments.py
 
@@ -192,20 +195,18 @@ Document your chosen policy in experiment notes. For strict cross-task isolation
 
 ### Config patched per run
 
-For each run, `shared_libraries/config.py` is temporarily patched with:
+For each run, `shared_libraries/config.py` is temporarily patched with task-specific fields only:
 
 - `task_name`, `task_type`, `lower`, `seed`
-- `use_data_leakage_checker=True`
-- `table_report_enabled` / `tuning_enabled` per system (improved vs vanilla)
 
-Original config is restored after each run.
+All other agent settings (`use_data_leakage_checker`, `table_report_enabled`, `tuning_enabled`, loop counts, `num_solutions`, etc.) are read from each agent checkout's `config.py` and are not overridden by the orchestrator. Original config is restored after each run.
 
 ### Systems under comparison
 
 | Internal key | Archive folder | Worktree / branch | Description |
 |--------------|----------------|-------------------|-------------|
-| `improved` | `skrub-full` | `mle-star_improved/` · `main` | TableReport + tuning + skrub skills enabled |
-| `vanilla` | `vanilla` | `mle-star_vanilla/` · `vanilla-baseline` | Baseline: sklearn-only prompts; no TableReport / tuning / skills |
+| `improved` | `skrub-full` | `mle-star_improved/` · `main` | Skrub skills + agent defaults in improved `config.py` |
+| `vanilla` | `vanilla` | `mle-star_vanilla/` · `vanilla-baseline` | Baseline prompts + agent defaults in vanilla `config.py` |
 
 ---
 
@@ -226,7 +227,7 @@ Per-run archive contents:
 | `final_state.json` | Final agent pipeline state (required for analysis) |
 | `adk_run_*.log` | ADK execution log (second `[user]:` prompt at end ⇒ agent finished) |
 | `table_report.json` | Tabular data profile (improved only) |
-| `meta.json` | Run metadata: task, metric, seed, config flags, timestamps |
+| `meta.json` | Run metadata: task, metric, seed, `agent_config_from_file`, timestamps; after run also `agent_config` from `final_state.json` |
 | `analysis.json` | Per-run metrics from `test-scripts/analyze_run.py` |
 | `1/`, `ensemble/` | Workspace stages |
 

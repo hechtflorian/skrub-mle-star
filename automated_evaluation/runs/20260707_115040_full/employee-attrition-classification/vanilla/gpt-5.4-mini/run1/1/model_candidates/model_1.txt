@@ -1,0 +1,20 @@
+## Model name
+CatBoostClassifier
+
+## Example Python code
+import pandas as pd
+from catboost import CatBoostClassifier, Pool
+
+train = pd.read_csv('train.csv')
+test = pd.read_csv('test.csv')
+y = train['Attrition']
+X = train.drop(columns=['Attrition'])
+cat_cols = X.select_dtypes(include='object').columns.tolist()
+for c in cat_cols:
+    X[c] = X[c].astype(str).fillna('NA')
+    test[c] = test[c].astype(str).fillna('NA')
+
+model = CatBoostClassifier(iterations=500, depth=6, learning_rate=0.05, loss_function='Logloss', eval_metric='AUC', verbose=False)
+model.fit(Pool(X, y, cat_features=cat_cols))
+p = model.predict_proba(test)[:, 1]
+pd.DataFrame({'EmployeeNumber': test['EmployeeNumber'], 'Attrition': p}).to_csv('submission.csv', index=False)

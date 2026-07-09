@@ -1,0 +1,30 @@
+## Model name
+LightGBMRegressor
+
+## Example Python code
+import pandas as pd
+from lightgbm import LGBMRegressor
+
+for df in [train_df, test_df]:
+    df['Date'] = pd.to_datetime(df['Date'])
+    df['day'] = df['Date'].dt.day
+    df['month'] = df['Date'].dt.month
+    df['dow'] = df['Date'].dt.dayofweek
+    df['doy'] = df['Date'].dt.dayofyear
+    df['region'] = df['Country_Region'].fillna('') + '_' + df['Province_State'].fillna('')
+    df['region_code'] = df['region'].astype('category').cat.codes
+
+feat = ['day', 'month', 'dow', 'doy', 'region_code']
+X_train, X_test = train_df[feat], test_df[feat]
+
+params = dict(n_estimators=500, learning_rate=0.05, num_leaves=63, random_state=42)
+case_model = LGBMRegressor(**params)
+fatal_model = LGBMRegressor(**params)
+case_model.fit(X_train, train_df['ConfirmedCases'])
+fatal_model.fit(X_train, train_df['Fatalities'])
+
+submission = pd.DataFrame({
+    'ForecastId': test_df['ForecastId'],
+    'ConfirmedCases': case_model.predict(X_test).clip(0),
+    'Fatalities': fatal_model.predict(X_test).clip(0),
+})

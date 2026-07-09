@@ -12,19 +12,19 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-# DataOps anchors we expect in skill-integrated pipelines.
-DATAOPS_CHECKS: list[tuple[str, str]] = [
-    ("skrub.var or skrub.X/y", r"skrub\.(var|X|y)\("),
+# Core skrub DataOps patterns required in produced pipeline scripts (evaluate DataOps adherence).
+CORE_DATAOPS_CHECKS: list[tuple[str, str]] = [
+    ("skrub.var", r"skrub\.var\("),
     ("mark_as_X / mark_as_y", r"\.skb\.(mark_as_X|mark_as_y)\("),
     ("skb.apply", r"\.skb\.apply\("),
     ("skb.apply_func", r"\.skb\.apply_func\("),
     ("make_learner", r"\.skb\.make_learner\("),
-    ("predict env dict", r'\.predict\(\{"data"'),
-    ("TableVectorizer (when encoding)", r"TableVectorizer\("),
-    ("choose_* (tune search)", r"choose_(int|float|from|bool)\("),
-    ("make_randomized_search (tune)", r"make_randomized_search\("),
-    ("TUNING_BEST_PARAMS (tune search)", r"TUNING_BEST_PARAMS"),
+    ("predict", r'\.predict\(\{"data"'),
 ]
+
+_SKILL_TOOL_LINE = re.compile(
+    r":skill\]\s*(?:list_skills|load_skill(?:_resource)?)\("
+)
 
 STAGE_AGENT_PREFIXES: dict[str, tuple[str, ...]] = {
     "initialization": (
@@ -84,6 +84,20 @@ SCRIPT_CANDIDATES = [
     "ensemble/final_solution.py",
 ]
 
+ENSEMBLE_SCRIPT_CANDIDATES = [
+    "ensemble/ensemble0.py",
+    "ensemble/final_solution.py",
+]
+
+PER_SOLUTION_SCRIPT_SUFFIXES = [
+    "train0.py",
+    "train1.py",
+    "train1_tuned.py",
+    "train_tune_search.py",
+    "train_tune_baked.py",
+    "ablation_0.py",
+]
+
 
 @dataclass
 class StageTiming:
@@ -98,6 +112,7 @@ class RunAnalysis:
     log_path: Path | None = None
     workspace_dir: Path | None = None
     task_id: str = "1"
+    num_solutions: int = 1
     lower_is_better: bool = True   # set
     model: str = ""
     scores: dict[str, float | None] = field(default_factory=dict)
@@ -215,8 +230,78 @@ def _exec_meta(state: dict, key: str) -> tuple[float | None, float | None, int |
 
 
 def _analyze_dataops(path: Path, code: str) -> dict[str, bool]:
-    rel = str(path.name)
-    return {label: bool(re.search(pat, code)) for label, pat in DATAOPS_CHECKS}
+    return {label: bool(re.search(pat, code)) for label, pat in CORE_DATAOPS_CHECKS}
+
+
+def _parse_metric(text: str) -> str:
+    match = re.search(r"(?m)^#\s*Metric\s*\n+\s*([^\n#]+)", text or "")
+    return match.group(1).strip() if match else ""
+
+
+def _metric_for_run(run_path: Path, state: dict[str, Any]) -> str:
+    meta_path = run_path / "meta.json"
+    if meta_path.is_file():
+        try:
+            metric = json.loads(meta_path.read_text(encoding="utf-8")).get("metric")
+            if metric:
+                return str(metric)
+        except (OSError, json.JSONDecodeError):
+            pass
+    return _parse_metric(str(state.get("task_description", "")))
+
+
+def _collect_python_scripts(workspace: Path, num_solutions: int) -> list[Path]:
+    scripts: list[Path] = []
+    for sid in range(1, num_solutions + 1):
+        solution_dir = workspace / str(sid)
+        if solution_dir.is_dir():
+            scripts.extend(sorted(solution_dir.glob("*.py")))
+    ensemble_dir = workspace / "ensemble"
+    if ensemble_dir.is_dir():
+        scripts.extend(sorted(ensemble_dir.glob("*.py")))
+    return scripts
+
+
+def _submission_source_score(state: dict[str, Any], *, lower: bool) -> float | None:
+    """Holdout score of the upstream script chosen for submission export."""
+    try:
+        num_solutions = max(1, int(state.get("num_solutions") or 1))
+        outer_loop_round = int(state.get("outer_loop_round") or 1)
+        ensemble_loop_round = int(state.get("ensemble_loop_round") or 1)
+    except (TypeError, ValueError):
+        return None
+
+    best_score: float | None = None
+    for task_id in range(1, num_solutions + 1):
+        exec_result = state.get(f"train_code_exec_result_{outer_loop_round}_{task_id}", {})
+        if not isinstance(exec_result, dict) or "score" not in exec_result:
+            continue
+        try:
+            curr_score = float(exec_result["score"])
+        except (TypeError, ValueError):
+            continue
+        if (
+            best_score is None
+            or (lower and curr_score < best_score)
+            or (not lower and curr_score > best_score)
+        ):
+            best_score = curr_score
+
+    for ensemble_iter in range(ensemble_loop_round + 1):
+        exec_result = state.get(f"ensemble_code_exec_result_{ensemble_iter}", {})
+        if not isinstance(exec_result, dict) or "score" not in exec_result:
+            continue
+        try:
+            curr_score = float(exec_result["score"])
+        except (TypeError, ValueError):
+            continue
+        if (
+            best_score is None
+            or (lower and curr_score < best_score)
+            or (not lower and curr_score > best_score)
+        ):
+            best_score = curr_score
+    return best_score
 
 
 def _parse_log_wall_clock(log_path: Path) -> tuple[str | None, str | None, float | None]:
@@ -238,19 +323,33 @@ def _parse_log_wall_clock(log_path: Path) -> tuple[str | None, str | None, float
     return start_s, end_s, duration
 
 
-def _parse_log_agents(log_path: Path) -> tuple[dict[str, int], dict[str, int], dict[str, int]]:
+def _parse_log_agents(
+    log_path: Path,
+) -> tuple[dict[str, int], dict[str, int], dict[str, int], int, int]:
     text = log_path.read_text(encoding="utf-8", errors="replace")
-    pat = re.compile(r"\[([^\]:]+)(?::[^\]]+)?\]:")
+    agent_line = re.compile(r"^\[([^\]]+)\]")
     agent_counts: dict[str, int] = defaultdict(int)
     stage_counts: dict[str, int] = defaultdict(int)
     debug_counts: dict[str, int] = defaultdict(int)
+    skill_tool_calls = 0
+    agent_calls_total = 0   # TODO: might me inaccurate
 
-    for m in pat.finditer(text):
-        agent = m.group(1)
+    for raw_line in text.splitlines():
+        line = raw_line.strip()
+        match = agent_line.match(line)
+        if not match:
+            continue
+        label = match.group(1)
+        if label.startswith("user"):
+            continue
+        agent_calls_total += 1
+        if _SKILL_TOOL_LINE.search(line):
+            skill_tool_calls += 1
+        agent = label.split(":", 1)[0]
         agent_counts[agent] += 1
         stage = _stage_for_agent(agent)
         stage_counts[stage] += 1
-        if "bug_summary" in agent or "debug_agent" in agent:
+        if "bug_summary" in label or "debug_agent" in label or "debug" in agent:
             dbg_stage = stage if stage not in ("debug_unscoped", "other") else "other"
             if "ensemble" in agent:
                 dbg_stage = "ensemble"
@@ -262,7 +361,97 @@ def _parse_log_agents(log_path: Path) -> tuple[dict[str, int], dict[str, int], d
                 dbg_stage = "initialization"
             debug_counts[dbg_stage] += 1
 
-    return dict(agent_counts), dict(stage_counts), dict(debug_counts)
+    return (
+        dict(agent_counts),
+        dict(stage_counts),
+        dict(debug_counts),
+        skill_tool_calls,
+        agent_calls_total,
+    )
+
+
+def _num_solutions_from_state(state: dict[str, Any]) -> int:
+    try:
+        return max(1, int(state.get("num_solutions") or 1))
+    except (TypeError, ValueError):
+        return 1
+
+
+def _script_candidates(num_solutions: int) -> list[str]:
+    paths = list(ENSEMBLE_SCRIPT_CANDIDATES)
+    for sid in range(1, num_solutions + 1):
+        prefix = f"{sid}/"
+        paths.extend(f"{prefix}{suffix}" for suffix in PER_SOLUTION_SCRIPT_SUFFIXES)
+    return paths
+
+
+def _improve_scores_for_tid(state: dict[str, Any], tid: str) -> dict[str, float]:
+    improve_scores: dict[str, float] = {}
+    improve_pat = re.compile(
+        rf"^train_code_improve_exec_result_(\d+)_(\d+)_{re.escape(tid)}$"
+    )
+    for key in state:
+        match = improve_pat.match(key)
+        if not match:
+            continue
+        score = _score_from_result(state, key)
+        if score is not None:
+            improve_scores[f"iter{match.group(1)}_step{match.group(2)}"] = score
+    return improve_scores
+
+
+def _solution_snapshot(state: dict[str, Any], tid: str) -> dict[str, Any]:
+    return {
+        "init_baseline": _score_from_result(state, f"train_code_exec_result_0_{tid}"),
+        "refine_promoted": _score_from_result(state, f"train_code_exec_result_1_{tid}"),
+        "tune_search": _score_from_result(
+            state, f"train_code_tune_search_exec_result_{tid}"
+        ),
+        "tune_bake": _score_from_result(state, f"train_code_tune_exec_result_{tid}"),
+        "improve_scores": _improve_scores_for_tid(state, tid),
+        "tune_param_source": state.get(f"tune_param_source_{tid}"),
+        "tune_winner_source": state.get(f"tune_winner_source_{tid}"),
+        "tune_stage_status": state.get(f"tune_stage_status_{tid}"),
+        "tune_skip_reason": state.get(f"tune_skip_reason_{tid}"),
+        "tune_best_params": state.get(f"tune_best_params_{tid}"),
+        "tune_plan_focus": (state.get(f"tune_plan_{tid}") or {}).get("focus_block"),
+        "table_report_present": bool(state.get(f"ablation_table_report_profile_{tid}")),
+        "table_report_chars": len(
+            state.get(f"ablation_table_report_profile_{tid}", "") or ""
+        ),
+    }
+
+
+def _populate_solution_scores(
+    analysis: RunAnalysis, state: dict[str, Any], tid: str
+) -> None:
+    for stage, keys in STAGE_SCORE_KEYS.items():
+        for pattern in keys:
+            key = pattern.format(task=tid)
+            score = _score_from_result(state, key)
+            if score is None:
+                continue
+            if tid == analysis.task_id:
+                analysis.scores[f"{stage}:{key}"] = score
+            else:
+                analysis.scores[f"solution_{tid}:{stage}:{key}"] = score
+
+    snapshot = _solution_snapshot(state, tid)
+    analysis.extras.setdefault("solution_scores", {})[tid] = snapshot
+    analysis.extras.setdefault("refinement_improve_scores_by_solution", {})[
+        tid
+    ] = snapshot["improve_scores"]
+
+    if tid == analysis.task_id:
+        analysis.extras["refinement_improve_scores"] = snapshot["improve_scores"]
+        analysis.extras["tune_param_source"] = snapshot["tune_param_source"]
+        analysis.extras["tune_winner_source"] = snapshot["tune_winner_source"]
+        analysis.extras["tune_stage_status"] = snapshot["tune_stage_status"]
+        analysis.extras["tune_skip_reason"] = snapshot["tune_skip_reason"]
+        analysis.extras["tune_best_params"] = snapshot["tune_best_params"]
+        analysis.extras["tune_plan_focus"] = snapshot["tune_plan_focus"]
+        analysis.extras["table_report_present"] = snapshot["table_report_present"]
+        analysis.extras["table_report_chars"] = snapshot["table_report_chars"]
 
 
 def analyze_run(run_path: Path, task_id: str | None = None) -> RunAnalysis:
@@ -274,17 +463,18 @@ def analyze_run(run_path: Path, task_id: str | None = None) -> RunAnalysis:
         return analysis
 
     state = json.loads(final_state_path.read_text(encoding="utf-8"))
-    analysis.task_id = task_id or str(state.get("num_solutions", 1) and "1")
+    analysis.num_solutions = _num_solutions_from_state(state)
+    analysis.extras["num_solutions"] = analysis.num_solutions
+    analysis.task_id = task_id or "1"
     analysis.lower_is_better = bool(state.get("lower", True))
     analysis.model = str(state.get("agent_model", "unknown"))
+    analysis.extras["metric"] = _metric_for_run(run_path, state)
+    analysis.extras["score_submission_source"] = _submission_source_score(
+        state, lower=analysis.lower_is_better
+    )
 
-    tid = analysis.task_id
-    for stage, keys in STAGE_SCORE_KEYS.items():
-        for pattern in keys:
-            key = pattern.format(task=tid)
-            score = _score_from_result(state, key)
-            if score is not None:
-                analysis.scores[f"{stage}:{key}"] = score
+    for sid in range(1, analysis.num_solutions + 1):
+        _populate_solution_scores(analysis, state, str(sid))
 
     # Collect all exec results for timing + score inventory.
     all_scores: list[tuple[str, float]] = []
@@ -307,36 +497,32 @@ def analyze_run(run_path: Path, task_id: str | None = None) -> RunAnalysis:
         {"key": k, "score": s} for k, s in sorted(all_scores, key=lambda x: x[1])
     ]
 
-    # Canonical stage summary scores.
+    # Canonical stage summary scores (best across parallel solutions where applicable).
+    solution_scores = analysis.extras.get("solution_scores") or {}
+    lower = analysis.lower_is_better
     analysis.scores["refinement:best_train"] = _best_of(
         [
-            _score_from_result(state, f"train_code_exec_result_0_{tid}"),
-            _score_from_result(state, f"train_code_exec_result_1_{tid}"),
+            score
+            for snap in solution_scores.values()
+            for score in (
+                snap.get("init_baseline"),
+                snap.get("refine_promoted"),
+            )
+            if score is not None
         ],
-        analysis.lower_is_better,
+        lower,
     )
-    analysis.scores["tuning:search"] = _score_from_result(
-        state, f"train_code_tune_search_exec_result_{tid}"
+    analysis.scores["tuning:search"] = _best_of(
+        [snap.get("tune_search") for snap in solution_scores.values()],
+        lower,
     )
-    analysis.scores["tuning:bake"] = _score_from_result(
-        state, f"train_code_tune_exec_result_{tid}"
+    analysis.scores["tuning:bake"] = _best_of(
+        [snap.get("tune_bake") for snap in solution_scores.values()],
+        lower,
     )
     analysis.scores["submission:holdout"] = _score_from_result(
         state, "submission_code_exec_result"
     )
-
-    # All refinement inner-loop improve attempts (iter, step are dynamic).
-    improve_scores: dict[str, float] = {}
-    improve_pat = re.compile(
-        rf"^train_code_improve_exec_result_(\d+)_(\d+)_{re.escape(tid)}$"
-    )
-    for key in state:
-        m = improve_pat.match(key)
-        if m:
-            s = _score_from_result(state, key)
-            if s is not None:
-                improve_scores[f"iter{m.group(1)}_step{m.group(2)}"] = s
-    analysis.extras["refinement_improve_scores"] = improve_scores
 
     # All ensemble attempts.
     ensemble_scores: dict[str, float] = {}
@@ -348,21 +534,6 @@ def analyze_run(run_path: Path, task_id: str | None = None) -> RunAnalysis:
                 ensemble_scores[f"ensemble{m.group(1)}"] = s
     analysis.extras["ensemble_scores"] = ensemble_scores
 
-    analysis.extras["tune_param_source"] = state.get(f"tune_param_source_{tid}")
-    analysis.extras["tune_winner_source"] = state.get(f"tune_winner_source_{tid}")
-    analysis.extras["tune_stage_status"] = state.get(f"tune_stage_status_{tid}")
-    analysis.extras["tune_skip_reason"] = state.get(f"tune_skip_reason_{tid}")
-    analysis.extras["tune_best_params"] = state.get(f"tune_best_params_{tid}")
-    analysis.extras["tune_plan_focus"] = (state.get(f"tune_plan_{tid}") or {}).get(
-        "focus_block"
-    )
-    analysis.extras["table_report_present"] = bool(
-        state.get(f"ablation_table_report_profile_{tid}")
-    )
-    analysis.extras["table_report_chars"] = len(
-        state.get(f"ablation_table_report_profile_{tid}", "") or ""
-    )
-
     for key, val in state.items():
         if "bug_summary" in key and isinstance(val, str) and val.strip():
             stage = "other"
@@ -373,10 +544,11 @@ def analyze_run(run_path: Path, task_id: str | None = None) -> RunAnalysis:
             analysis.bug_summary_nonempty[stage] = analysis.bug_summary_nonempty.get(stage, 0) + 1
 
     if workspace:
-        for rel in SCRIPT_CANDIDATES:
-            p = workspace / rel
-            if p.is_file():
-                analysis.dataops_by_file[rel] = _analyze_dataops(p, p.read_text(encoding="utf-8"))
+        for script_path in _collect_python_scripts(workspace, analysis.num_solutions):
+            rel = str(script_path.relative_to(workspace))
+            analysis.dataops_by_file[rel] = _analyze_dataops(
+                script_path, script_path.read_text(encoding="utf-8")
+            )
 
     if log_path:
         (
@@ -388,7 +560,11 @@ def analyze_run(run_path: Path, task_id: str | None = None) -> RunAnalysis:
             analysis.log_agent_counts,
             analysis.log_stage_counts,
             analysis.log_debug_counts,
+            skill_tool_calls,
+            agent_calls_total,
         ) = _parse_log_agents(log_path)
+        analysis.extras["skill_tool_calls"] = skill_tool_calls
+        analysis.extras["agent_calls_total"] = agent_calls_total
         log_text = log_path.read_text(encoding="utf-8", errors="replace")
         analysis.extras["contract_violations"] = len(
             re.findall(r"contract violation", log_text, flags=re.IGNORECASE)
@@ -406,9 +582,9 @@ def analyze_run(run_path: Path, task_id: str | None = None) -> RunAnalysis:
 
 def to_row(analysis: RunAnalysis) -> dict[str, Any]:
     """Flatten one run analysis into a single comparison-ready row."""
-    tid = analysis.task_id
     lower = analysis.lower_is_better
     ex = analysis.extras
+    solution_scores: dict[str, dict[str, Any]] = ex.get("solution_scores") or {}
 
     sentinel_seen = False
 
@@ -422,23 +598,26 @@ def to_row(analysis: RunAnalysis) -> dict[str, Any]:
             return None
         return score
 
-    init0 = _clean(analysis.scores.get(f"initialization:train_code_exec_result_0_{tid}"))
-    refine_promoted = _clean(
-        analysis.scores.get(f"refinement:train_code_exec_result_1_{tid}")
+    init0 = _best_of(
+        [_clean(snap.get("init_baseline")) for snap in solution_scores.values()],
+        lower,
     )
-    improve_scores = [
-        s for s in map(_clean, (ex.get("refinement_improve_scores") or {}).values())
-        if s is not None
-    ]
+    refine_promoted = _best_of(
+        [_clean(snap.get("refine_promoted")) for snap in solution_scores.values()],
+        lower,
+    )
     ensemble_scores = [
         s for s in map(_clean, (ex.get("ensemble_scores") or {}).values())
         if s is not None
     ]
     tune_bake = _clean(analysis.scores.get("tuning:bake"))
+    ensemble_best = _best_of(ensemble_scores, lower)
     submission = _clean(analysis.scores.get("submission:holdout"))
+    submission_source = _clean(ex.get("score_submission_source"))
     final_best = _best_of(
         [refine_promoted, tune_bake, *ensemble_scores, submission], lower
     )
+    pre_ensemble = tune_bake if tune_bake is not None else refine_promoted
 
     def gain(before: float | None, after: float | None) -> float | None:
         """Signed improvement (positive = better), metric-direction aware."""
@@ -448,39 +627,68 @@ def to_row(analysis: RunAnalysis) -> dict[str, Any]:
 
     exec_total = sum(t.exec_seconds for t in analysis.stage_timing.values())
     dataops_fracs = [
-        sum(checks.values()) / len(checks)
+        sum(checks.values()) / len(CORE_DATAOPS_CHECKS)
         for checks in analysis.dataops_by_file.values()
         if checks
     ]
+    tune_status = ex.get("tune_stage_status")
+    tune_ran = tune_bake is not None or (
+        isinstance(tune_status, str) and not tune_status.startswith("skipped")
+    )
+    refine_gain = gain(init0, refine_promoted)
     return {
         "run_path": str(analysis.run_path),
         "model": analysis.model,
+        "metric": ex.get("metric") or "",
+        "num_solutions": analysis.num_solutions,
         "lower_is_better": lower,
         "score_init": init0,
         "score_refine_promoted": refine_promoted,
-        "score_refine_improve_best": _best_of(improve_scores, lower),
         "score_tune_search": _clean(analysis.scores.get("tuning:search")),
         "score_tune_bake": tune_bake,
-        "score_ensemble_best": _best_of(ensemble_scores, lower),
+        "score_ensemble_best": ensemble_best,
         "score_submission": submission,
+        "score_submission_source": submission_source,
         "score_final_best": final_best,
-        "gain_refinement": gain(init0, refine_promoted),
+        "primary_score": final_best,
+        "refine_promoted_over_init": (
+            refine_gain is not None and refine_gain > 0
+        ),
+        "gain_refinement": refine_gain,
         "gain_tuning": gain(refine_promoted, tune_bake),
+        "gain_ensemble": gain(pre_ensemble, ensemble_best),
         "gain_total": gain(init0, final_best),
+        "tune_ran": tune_ran,
         "tune_param_source": ex.get("tune_param_source"),
         "tune_winner_source": ex.get("tune_winner_source"),
         "tune_stage_status": ex.get("tune_stage_status"),
         "tune_skip_reason": ex.get("tune_skip_reason"),
-        "tune_plan_focus": ex.get("tune_plan_focus"),
-        "table_report_chars": ex.get("table_report_chars"),
+        "debug_total": sum(analysis.log_debug_counts.values()),
         "debug_refinement": analysis.log_debug_counts.get("refinement", 0),
         "debug_tuning": analysis.log_debug_counts.get("tuning", 0),
         "debug_ensemble": analysis.log_debug_counts.get("ensemble", 0),
+        "agent_calls_total": ex.get("agent_calls_total"),
+        "skill_tool_calls": ex.get("skill_tool_calls"),
         "contract_violations": ex.get("contract_violations"),
         "context_errors": ex.get("context_errors"),
         "had_sentinel_failure": sentinel_seen,
         "wall_seconds": ex.get("log_wall_seconds"),
         "exec_seconds": round(exec_total, 1),
+        "exec_seconds_init": round(
+            analysis.stage_timing.get("initialization", StageTiming()).exec_seconds, 1
+        ),
+        "exec_seconds_refine": round(
+            analysis.stage_timing.get("refinement", StageTiming()).exec_seconds, 1
+        ),
+        "exec_seconds_tune": round(
+            analysis.stage_timing.get("tuning", StageTiming()).exec_seconds, 1
+        ),
+        "exec_seconds_ensemble": round(
+            analysis.stage_timing.get("ensemble", StageTiming()).exec_seconds, 1
+        ),
+        "exec_seconds_submission": round(
+            analysis.stage_timing.get("submission", StageTiming()).exec_seconds, 1
+        ),
         "dataops_adherence": (
             round(sum(dataops_fracs) / len(dataops_fracs), 3)
             if dataops_fracs
@@ -514,28 +722,74 @@ def _print_report(analysis: RunAnalysis) -> None:
     print(f"log:          {analysis.log_path or 'NOT FOUND'}")
     print(f"workspace:    {analysis.workspace_dir or 'NOT FOUND'}")
     print(f"model:        {analysis.model}")
-    print(f"metric:       RMSE (lower is better={analysis.lower_is_better})")
+    print(f"num_solutions:{analysis.num_solutions}")
+    metric_name = analysis.extras.get("metric") or "unknown"
+    print(
+        f"metric:       {metric_name} "
+        f"(lower is better={analysis.lower_is_better})"
+    )
 
     if analysis.extras.get("error"):
         print(f"\nERROR: {analysis.extras['error']}")
         return
 
     lower = analysis.lower_is_better
+    solution_scores: dict[str, dict[str, Any]] = analysis.extras.get("solution_scores") or {}
+
     print("\n--- Stage scores (holdout metric from exec results) ---")
-    init0 = analysis.scores.get(f"initialization:train_code_exec_result_0_{analysis.task_id}")
-    ref1 = analysis.scores.get(f"refinement:train_code_exec_result_1_{analysis.task_id}")
+    if analysis.num_solutions > 1:
+        for sid, snap in sorted(solution_scores.items(), key=lambda item: int(item[0])):
+            print(f"  Solution {sid}:")
+            print(
+                f"    Init baseline (train0):       "
+                f"{_fmt_score(snap.get('init_baseline'), lower)}"
+            )
+            for label, score in sorted((snap.get("improve_scores") or {}).items()):
+                print(f"    Refinement improve {label}: {_fmt_score(score, lower)}")
+            print(
+                f"    Refinement promoted (train1): "
+                f"{_fmt_score(snap.get('refine_promoted'), lower)}"
+            )
+            print(
+                f"    Tuning search script:         "
+                f"{_fmt_score(snap.get('tune_search'), lower)}"
+            )
+            print(
+                f"    Tuning baked script:          "
+                f"{_fmt_score(snap.get('tune_bake'), lower)}"
+            )
+
+    init0 = _best_of(
+        [snap.get("init_baseline") for snap in solution_scores.values()],
+        lower,
+    )
+    ref1 = _best_of(
+        [snap.get("refine_promoted") for snap in solution_scores.values()],
+        lower,
+    )
     tune_s = analysis.scores.get("tuning:search")
     tune_b = analysis.scores.get("tuning:bake")
     sub = analysis.scores.get("submission:holdout")
-    improve_scores = analysis.extras.get("refinement_improve_scores") or {}
+    improve_scores = {
+        f"s{sid}:{label}": score
+        for sid, snap in solution_scores.items()
+        for label, score in (snap.get("improve_scores") or {}).items()
+    }
     ensemble_scores = analysis.extras.get("ensemble_scores") or {}
 
-    print(f"  Init baseline (train0):       {_fmt_score(init0, lower)}")
-    for label, s in sorted(improve_scores.items()):
-        print(f"  Refinement improve {label}: {_fmt_score(s, lower)}")
-    print(f"  Refinement promoted (train1): {_fmt_score(ref1, lower)}")
-    print(f"  Tuning search script:         {_fmt_score(tune_s, lower)}")
-    print(f"  Tuning baked script:          {_fmt_score(tune_b, lower)}")
+    if analysis.num_solutions == 1:
+        snap = solution_scores.get(analysis.task_id, {})
+        print(f"  Init baseline (train0):       {_fmt_score(snap.get('init_baseline'), lower)}")
+        for label, s in sorted((snap.get("improve_scores") or {}).items()):
+            print(f"  Refinement improve {label}: {_fmt_score(s, lower)}")
+        print(f"  Refinement promoted (train1): {_fmt_score(snap.get('refine_promoted'), lower)}")
+        print(f"  Tuning search script:         {_fmt_score(snap.get('tune_search'), lower)}")
+        print(f"  Tuning baked script:          {_fmt_score(snap.get('tune_bake'), lower)}")
+    else:
+        print(f"  Best init baseline (train0):  {_fmt_score(init0, lower)}")
+        print(f"  Best refinement promoted:     {_fmt_score(ref1, lower)}")
+        print(f"  Best tuning search script:    {_fmt_score(tune_s, lower)}")
+        print(f"  Best tuning baked script:     {_fmt_score(tune_b, lower)}")
     for label, s in sorted(ensemble_scores.items()):
         print(f"  Ensemble {label}:            {_fmt_score(s, lower)}")
     print(f"  Submission script holdout:    {_fmt_score(sub, lower)}  <-- final artifact metric line")

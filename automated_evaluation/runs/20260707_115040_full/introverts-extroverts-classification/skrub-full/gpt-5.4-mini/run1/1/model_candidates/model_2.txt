@@ -1,0 +1,30 @@
+## Model name
+LightGBM LGBMClassifier
+
+## Example Python code
+import pandas as pd
+from lightgbm import LGBMClassifier
+from sklearn.model_selection import train_test_split
+
+train = pd.read_csv('train.csv')
+test = pd.read_csv('test.csv')
+
+target = 'Personality'
+X = pd.get_dummies(train.drop(columns=[target, 'id']))
+y = (train[target] == 'Extrovert').astype(int)
+X_test = pd.get_dummies(test.drop(columns=['id']))
+X_test = X_test.reindex(columns=X.columns, fill_value=0)
+
+model = LGBMClassifier(
+    n_estimators=1000,
+    learning_rate=0.03,
+    num_leaves=31,
+    random_state=42,
+    verbose=-1
+)
+model.fit(X, y)
+
+pred = model.predict(X_test)
+labels = ['Introvert' if p == 0 else 'Extrovert' for p in pred]
+submission = pd.DataFrame({'id': test['id'], 'Personality': labels})
+submission.to_csv('submission.csv', index=False)

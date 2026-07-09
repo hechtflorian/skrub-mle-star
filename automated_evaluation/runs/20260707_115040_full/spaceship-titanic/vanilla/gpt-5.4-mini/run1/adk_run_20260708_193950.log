@@ -1,0 +1,2082 @@
+# run_experiments.py agent run
+# task=spaceship-titanic system=vanilla seed=42
+# cwd=/home/flo/uni/mle-star-skrub/mle-star_vanilla/agents/machine-learning-engineering
+# cmd=uv run adk run machine_learning_engineering
+
+Log setup complete: /tmp/agents_log/agent.20260708_214009.log
+To access latest log: tail -F /tmp/agents_log/agent.latest.log
+/home/flo/uni/mle-star-skrub/mle-star_vanilla/agents/machine-learning-engineering/.venv/lib/python3.14/site-packages/google/adk/cli/cli.py:189: UserWarning: [EXPERIMENTAL] InMemoryCredentialService: This feature is experimental and may change or be removed in future versions without notice. It may introduce breaking changes at any time.
+  credential_service = InMemoryCredentialService()
+/home/flo/uni/mle-star-skrub/mle-star_vanilla/agents/machine-learning-engineering/.venv/lib/python3.14/site-packages/google/adk/auth/credential_service/in_memory_credential_service.py:33: UserWarning: [EXPERIMENTAL] BaseCredentialService: This feature is experimental and may change or be removed in future versions without notice. It may introduce breaking changes at any time.
+  super().__init__()
+Running agent mle_frontdoor_agent, type exit to exit.
+[user]: [92m21:40:17 - LiteLLM:INFO[0m: utils.py:3748 - 
+LiteLLM completion() model= gpt-5.4-mini; provider = openai
+/home/flo/uni/mle-star-skrub/mle-star_vanilla/agents/machine-learning-engineering/.venv/lib/python3.14/site-packages/pydantic/main.py:464: UserWarning: Pydantic serializer warnings:
+  PydanticSerializationUnexpectedValue(Expected 10 fields but got 6: Expected `Message` - serialized value may not be as expected [field_name='message', input_value=Message(content=None, rol...: None}, annotations=[]), input_type=Message])
+  PydanticSerializationUnexpectedValue(Expected `StreamingChoices` - serialized value may not be as expected [field_name='choices', input_value=Choices(finish_reason='to...ider_specific_fields={}), input_type=Choices])
+  return self.__pydantic_serializer__.to_python(
+/home/flo/uni/mle-star-skrub/mle-star_vanilla/agents/machine-learning-engineering/.venv/lib/python3.14/site-packages/google/adk/flows/llm_flows/base_llm_flow.py:449: UserWarning: [EXPERIMENTAL] feature FeatureName.PROGRESSIVE_SSE_STREAMING is enabled.
+  async for event in agen:
+[92m21:40:18 - LiteLLM:INFO[0m: utils.py:3748 - 
+LiteLLM completion() model= gpt-5.4-mini; provider = openai
+/home/flo/uni/mle-star-skrub/mle-star_vanilla/agents/machine-learning-engineering/.venv/lib/python3.14/site-packages/pydantic/main.py:464: UserWarning: Pydantic serializer warnings:
+  PydanticSerializationUnexpectedValue(Expected 10 fields but got 6: Expected `Message` - serialized value may not be as expected [field_name='message', input_value=Message(content='Tabular ...: None}, annotations=[]), input_type=Message])
+  PydanticSerializationUnexpectedValue(Expected `StreamingChoices` - serialized value may not be as expected [field_name='choices', input_value=Choices(finish_reason='st...ider_specific_fields={}), input_type=Choices])
+  return self.__pydantic_serializer__.to_python(
+[task_summarization_agent]: Tabular binary classification task on the Spaceship Titanic dataset. Predict the boolean target `Transported` for each passenger using features like `HomePlanet`, `CryoSleep`, `Cabin`, `Destination`, `Age`, `VIP`, and spending fields. Evaluate using `accuracy_score`. Output a submission CSV with columns: `PassengerId, Transported`.
+[92m21:40:20 - LiteLLM:INFO[0m: utils.py:3748 - 
+LiteLLM completion() model= gpt-5.4-mini; provider = openai
+[92m21:40:26 - LiteLLM:INFO[0m: utils.py:3748 - 
+LiteLLM completion() model= gpt-5.4-mini; provider = openai
+[92m21:40:28 - LiteLLM:INFO[0m: utils.py:3748 - 
+LiteLLM completion() model= gpt-5.4-mini; provider = openai
+/home/flo/uni/mle-star-skrub/mle-star_vanilla/agents/machine-learning-engineering/.venv/lib/python3.14/site-packages/pydantic/main.py:464: UserWarning: Pydantic serializer warnings:
+  PydanticSerializationUnexpectedValue(Expected 10 fields but got 6: Expected `Message` - serialized value may not be as expected [field_name='message', input_value=Message(content='[\n  {\n...: None}, annotations=[]), input_type=Message])
+  PydanticSerializationUnexpectedValue(Expected `StreamingChoices` - serialized value may not be as expected [field_name='choices', input_value=Choices(finish_reason='st...ider_specific_fields={}), input_type=Choices])
+  return self.__pydantic_serializer__.to_python(
+[model_retriever_agent_1]: [
+  {
+    "model_name": "CatBoostClassifier",
+    "example_code": "import pandas as pd\nfrom catboost import CatBoostClassifier\nfrom sklearn.model_selection import train_test_split\n\ntrain = pd.read_csv('train.csv')\ntest = pd.read_csv('test.csv')\ny = train['Transported'].astype(int)\nX = train.drop(columns=['Transported'])\ncat_cols = X.select_dtypes(include='object').columns.tolist()\nfor c in ['CryoSleep','VIP']:\n    if c in X.columns: X[c] = X[c].astype('object')\n    if c in test.columns: test[c] = test[c].astype('object')\ncat_cols = X.select_dtypes(include='object').columns.tolist()\nX = X.fillna('NA'); test = test.fillna('NA')\nmodel = CatBoostClassifier(loss_function='Logloss', iterations=2000, depth=6, learning_rate=0.03, verbose=0)\nmodel.fit(X, y, cat_features=cat_cols)\npred = model.predict(test)\nsub = pd.DataFrame({'PassengerId': test['PassengerId'], 'Transported': pred.astype(bool)})\nsub.to_csv('submission.csv', index=False)"
+  },
+  {
+    "model_name": "LightGBM with simple feature engineering",
+    "example_code": "import pandas as pd\nimport numpy as np\nfrom lightgbm import LGBMClassifier\nfrom sklearn.model_selection import train_test_split\n\ntrain = pd.read_csv('train.csv')\ntest = pd.read_csv('test.csv')\n\ndef fe(df):\n    df = df.copy()\n    cabin = df['Cabin'].fillna('X/X/X').str.split('/', expand=True)\n    df['Deck'] = cabin[0]; df['Num'] = pd.to_numeric(cabin[1], errors='coerce')\n    df['Side'] = cabin[2]\n    df['GroupSize'] = df.groupby('Group')['PassengerId'].transform('count') if 'Group' in df.columns else 1\n    return df\n\nfor d in [train, test]:\n    d[['HomePlanet','CryoSleep','Cabin','Destination','VIP']] = d[['HomePlanet','CryoSleep','Cabin','Destination','VIP']].astype('object')\n    d['Group'] = d['PassengerId'].str.split('_').str[0]\n    d = d\ntrain = fe(train); test = fe(test)\ny = train['Transported'].astype(int)\nX = train.drop(columns=['Transported'])\nX = X.fillna(-1); test = test.fillna(-1)\ncat = X.select_dtypes(include='object').columns.tolist()\nfor c in cat:\n    X[c] = X[c].astype('category')\n    test[c] = test[c].astype('category')\nmodel = LGBMClassifier(n_estimators=1200, learning_rate=0.03, num_leaves=31)\nmodel.fit(X, y)\npred = model.predict(test)\nsub = pd.DataFrame({'PassengerId': test['PassengerId'], 'Transported': pred.astype(bool)})\nsub.to_csv('submission.csv', index=False)"
+  }
+]
+[92m21:40:32 - LiteLLM:INFO[0m: utils.py:3748 - 
+LiteLLM completion() model= gpt-5.4-mini; provider = openai
+/home/flo/uni/mle-star-skrub/mle-star_vanilla/agents/machine-learning-engineering/.venv/lib/python3.14/site-packages/pydantic/main.py:464: UserWarning: Pydantic serializer warnings:
+  PydanticSerializationUnexpectedValue(Expected 10 fields but got 6: Expected `Message` - serialized value may not be as expected [field_name='message', input_value=Message(content='```pytho...: None}, annotations=[]), input_type=Message])
+  PydanticSerializationUnexpectedValue(Expected `StreamingChoices` - serialized value may not be as expected [field_name='choices', input_value=Choices(finish_reason='st...ider_specific_fields={}), input_type=Choices])
+  return self.__pydantic_serializer__.to_python(
+[model_eval_agent_1_1]: ```python
+import os
+import random
+import numpy as np
+import pandas as pd
+from catboost import CatBoostClassifier
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import accuracy_score
+import torch
+
+SEED = 42
+random.seed(SEED)
+np.random.seed(SEED)
+torch.manual_seed(SEED)
+
+INPUT_DIR = "./input"
+train_path = os.path.join(INPUT_DIR, "train.csv")
+test_path = os.path.join(INPUT_DIR, "test.csv")
+
+train = pd.read_csv(train_path)
+test = pd.read_csv(test_path)
+
+def feature_engineering(df):
+    df = df.copy()
+
+    # Basic split features from Cabin
+    cabin_split = df["Cabin"].fillna("NA/NA/NA").astype(str).str.split("/", expand=True)
+    df["Deck"] = cabin_split[0]
+    df["CabinNum"] = pd.to_numeric(cabin_split[1], errors="coerce")
+    df["Side"] = cabin_split[2]
+
+    # Passenger group features
+    df["Group"] = df["PassengerId"].astype(str).str.split("_").str[0]
+    df["GroupSize"] = df.groupby("Group")["PassengerId"].transform("count")
+
+    # Name-related features
+    df["Surname"] = df["Name"].fillna("NA").astype(str).str.split().str[-1]
+    df["HasSurname"] = (df["Surname"] != "NA").astype(int)
+
+    # Family/group indicators
+    df["SameSurnameGroupSize"] = df.groupby("Surname")["PassengerId"].transform("count")
+
+    # Spending features
+    spending_cols = ["RoomService", "FoodCourt", "ShoppingMall", "Spa", "VRDeck"]
+    df["TotalSpending"] = df[spending_cols].sum(axis=1)
+    df["NoSpending"] = (df["TotalSpending"] == 0).astype(int)
+
+    # Missingness indicators for numeric columns
+    for col in ["Age", "RoomService", "FoodCourt", "ShoppingMall", "Spa", "VRDeck", "CabinNum"]:
+        df[col + "_isna"] = df[col].isna().astype(int)
+
+    # Convert boolean columns to object for CatBoost
+    for c in ["CryoSleep", "VIP"]:
+        if c in df.columns:
+            df[c] = df[c].astype("object")
+
+    return df
+
+train_fe = feature_engineering(train)
+test_fe = feature_engineering(test)
+
+y = train_fe["Transported"].astype(int)
+X = train_fe.drop(columns=["Transported"])
+
+# Use the same columns/order in test
+X_test = test_fe[X.columns].copy()
+
+# Fill missing values
+X = X.fillna("NA")
+X_test = X_test.fillna("NA")
+
+cat_cols = X.select_dtypes(include=["object"]).columns.tolist()
+
+# Hold-out validation split
+X_train, X_val, y_train, y_val = train_test_split(
+    X, y, test_size=0.2, random_state=SEED, stratify=y
+)
+
+model = CatBoostClassifier(
+    loss_function="Logloss",
+    iterations=2000,
+    depth=6,
+    learning_rate=0.03,
+    random_seed=SEED,
+    verbose=0,
+    eval_metric="Accuracy"
+)
+
+model.fit(X_train, y_train, cat_features=cat_cols, eval_set=(X_val, y_val), use_best_model=True)
+
+val_pred = model.predict(X_val)
+val_acc = accuracy_score(y_val, val_pred)
+print(f"Final Validation Performance: {val_acc:.6f}")
+
+# Train on full data and predict test set
+final_model = CatBoostClassifier(
+    loss_function="Logloss",
+    iterations=2000,
+    depth=6,
+    learning_rate=0.03,
+    random_seed=SEED,
+    verbose=0,
+    eval_metric="Accuracy"
+)
+final_model.fit(X, y, cat_features=cat_cols)
+
+test_pred = final_model.predict(X_test).astype(bool)
+
+submission = pd.DataFrame({
+    "PassengerId": test["PassengerId"],
+    "Transported": test_pred
+})
+submission.to_csv("submission.csv", index=False)
+```
+[92m21:40:54 - LiteLLM:INFO[0m: utils.py:3748 - 
+LiteLLM completion() model= gpt-5.4-mini; provider = openai
+/home/flo/uni/mle-star-skrub/mle-star_vanilla/agents/machine-learning-engineering/.venv/lib/python3.14/site-packages/pydantic/main.py:464: UserWarning: Pydantic serializer warnings:
+  PydanticSerializationUnexpectedValue(Expected 10 fields but got 6: Expected `Message` - serialized value may not be as expected [field_name='message', input_value=Message(content='In `init...: None}, annotations=[]), input_type=Message])
+  PydanticSerializationUnexpectedValue(Expected `StreamingChoices` - serialized value may not be as expected [field_name='choices', input_value=Choices(finish_reason='st...ider_specific_fields={}), input_type=Choices])
+  return self.__pydantic_serializer__.to_python(
+[model_eval_bug_summary_agent_1_1]: In `init_code_1.py.py`, CatBoost crashes during `model.fit(...)` because a column marked as categorical contains numeric float values.
+
+### Root cause
+- A categorical feature has value `0.0` in `X_train`.
+- CatBoost requires categorical features to be **integers or strings only**.
+- The offending issue is in the data preparation before fitting, where at least one categorical column is still numeric/float after `fillna("NA")` and feature engineering.
+
+### Where it happens
+- Error occurs at:
+  - `model.fit(X_train, y_train, cat_features=cat_cols, eval_set=(X_val, y_val), use_best_model=True)`
+
+### Why it happens
+- `cat_cols` is computed from `X.select_dtypes(include=["object"])`.
+- But some intended categorical columns are not object dtype anymore, and at least one categorical column contains float values like `0.0`.
+- CatBoost then rejects that column as a categorical feature.
+
+### Short bug summary
+The code passes a float-valued column as a categorical feature to CatBoost, causing `Invalid type for cat_feature ... 0.0`.
+[92m21:40:56 - LiteLLM:INFO[0m: utils.py:3748 - 
+LiteLLM completion() model= gpt-5.4-mini; provider = openai
+/home/flo/uni/mle-star-skrub/mle-star_vanilla/agents/machine-learning-engineering/.venv/lib/python3.14/site-packages/pydantic/main.py:464: UserWarning: Pydantic serializer warnings:
+  PydanticSerializationUnexpectedValue(Expected 10 fields but got 6: Expected `Message` - serialized value may not be as expected [field_name='message', input_value=Message(content='```pytho...: None}, annotations=[]), input_type=Message])
+  PydanticSerializationUnexpectedValue(Expected `StreamingChoices` - serialized value may not be as expected [field_name='choices', input_value=Choices(finish_reason='st...ider_specific_fields={}), input_type=Choices])
+  return self.__pydantic_serializer__.to_python(
+[model_eval_debug_agent_1_1]: ```python
+import os
+import random
+import numpy as np
+import pandas as pd
+from catboost import CatBoostClassifier
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import accuracy_score
+import torch
+
+SEED = 42
+random.seed(SEED)
+np.random.seed(SEED)
+torch.manual_seed(SEED)
+
+INPUT_DIR = "./input"
+train_path = os.path.join(INPUT_DIR, "train.csv")
+test_path = os.path.join(INPUT_DIR, "test.csv")
+
+train = pd.read_csv(train_path)
+test = pd.read_csv(test_path)
+
+def feature_engineering(df):
+    df = df.copy()
+
+    # Cabin split
+    cabin_split = df["Cabin"].fillna("NA/NA/NA").astype(str).str.split("/", expand=True)
+    df["Deck"] = cabin_split[0].astype(str)
+    df["CabinNum"] = pd.to_numeric(cabin_split[1], errors="coerce")
+    df["Side"] = cabin_split[2].astype(str)
+
+    # Passenger group features
+    df["Group"] = df["PassengerId"].astype(str).str.split("_").str[0].astype(str)
+    df["GroupSize"] = df.groupby("Group")["PassengerId"].transform("count").astype(int)
+
+    # Name-related features
+    df["Surname"] = df["Name"].fillna("NA").astype(str).str.split().str[-1].astype(str)
+    df["HasSurname"] = (df["Surname"] != "NA").astype(int)
+    df["SameSurnameGroupSize"] = df.groupby("Surname")["PassengerId"].transform("count").astype(int)
+
+    # Spending features
+    spending_cols = ["RoomService", "FoodCourt", "ShoppingMall", "Spa", "VRDeck"]
+    for col in spending_cols:
+        df[col] = pd.to_numeric(df[col], errors="coerce")
+    df["TotalSpending"] = df[spending_cols].sum(axis=1)
+    df["NoSpending"] = (df["TotalSpending"] == 0).astype(int)
+
+    # Missingness indicators
+    for col in ["Age", "RoomService", "FoodCourt", "ShoppingMall", "Spa", "VRDeck", "CabinNum"]:
+        if col in df.columns:
+            df[col + "_isna"] = df[col].isna().astype(int)
+
+    # Force intended categorical columns to string/object dtype
+    categorical_like = ["HomePlanet", "CryoSleep", "Destination", "VIP", "Deck", "Side", "Group", "Surname"]
+    for c in categorical_like:
+        if c in df.columns:
+            df[c] = df[c].astype("string").fillna("NA").astype(str)
+
+    # Keep booleans as strings to avoid CatBoost categorical type issues
+    for c in ["CryoSleep", "VIP"]:
+        if c in df.columns:
+            df[c] = df[c].astype("string").fillna("NA").astype(str)
+
+    return df
+
+train_fe = feature_engineering(train)
+test_fe = feature_engineering(test)
+
+y = train_fe["Transported"].astype(int)
+X = train_fe.drop(columns=["Transported"])
+
+# Align test to train columns
+X_test = test_fe.reindex(columns=X.columns, fill_value=np.nan).copy()
+
+# Identify categorical columns explicitly and ensure they are string-like
+cat_cols = [
+    c for c in X.columns
+    if X[c].dtype == "object" or str(X[c].dtype).startswith("string")
+]
+
+# Convert categorical columns in both train/test to string with a single missing token
+for c in cat_cols:
+    X[c] = X[c].astype("string").fillna("NA").astype(str)
+    X_test[c] = X_test[c].astype("string").fillna("NA").astype(str)
+
+# Fill numeric missing values
+num_cols = [c for c in X.columns if c not in cat_cols]
+for c in num_cols:
+    X[c] = pd.to_numeric(X[c], errors="coerce")
+    X_test[c] = pd.to_numeric(X_test[c], errors="coerce")
+    med = X[c].median()
+    if pd.isna(med):
+        med = 0
+    X[c] = X[c].fillna(med)
+    X_test[c] = X_test[c].fillna(med)
+
+# Hold-out validation split
+X_train, X_val, y_train, y_val = train_test_split(
+    X, y, test_size=0.2, random_state=SEED, stratify=y
+)
+
+model = CatBoostClassifier(
+    loss_function="Logloss",
+    iterations=2000,
+    depth=6,
+    learning_rate=0.03,
+    random_seed=SEED,
+    verbose=0,
+    eval_metric="Accuracy"
+)
+
+model.fit(
+    X_train,
+    y_train,
+    cat_features=cat_cols,
+    eval_set=(X_val, y_val),
+    use_best_model=True
+)
+
+val_pred = model.predict(X_val)
+val_acc = accuracy_score(y_val, val_pred)
+print(f"Final Validation Performance: {val_acc:.6f}")
+
+# Train on full data and predict test set
+final_model = CatBoostClassifier(
+    loss_function="Logloss",
+    iterations=model.get_best_iteration() if model.get_best_iteration() is not None else 2000,
+    depth=6,
+    learning_rate=0.03,
+    random_seed=SEED,
+    verbose=0,
+    eval_metric="Accuracy"
+)
+
+final_model.fit(X, y, cat_features=cat_cols)
+
+test_pred = final_model.predict(X_test).astype(bool)
+
+submission = pd.DataFrame({
+    "PassengerId": test["PassengerId"],
+    "Transported": test_pred
+})
+
+submission.to_csv("submission.csv", index=False)
+```
+[92m21:43:44 - LiteLLM:INFO[0m: utils.py:3748 - 
+LiteLLM completion() model= gpt-5.4-mini; provider = openai
+/home/flo/uni/mle-star-skrub/mle-star_vanilla/agents/machine-learning-engineering/.venv/lib/python3.14/site-packages/pydantic/main.py:464: UserWarning: Pydantic serializer warnings:
+  PydanticSerializationUnexpectedValue(Expected 10 fields but got 6: Expected `Message` - serialized value may not be as expected [field_name='message', input_value=Message(content='```pytho...: None}, annotations=[]), input_type=Message])
+  PydanticSerializationUnexpectedValue(Expected `StreamingChoices` - serialized value may not be as expected [field_name='choices', input_value=Choices(finish_reason='st...ider_specific_fields={}), input_type=Choices])
+  return self.__pydantic_serializer__.to_python(
+[model_eval_agent_1_2]: ```python
+import os
+import random
+import numpy as np
+import pandas as pd
+import torch
+from lightgbm import LGBMClassifier
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import accuracy_score
+
+SEED = 42
+random.seed(SEED)
+np.random.seed(SEED)
+torch.manual_seed(SEED)
+
+INPUT_DIR = "./input"
+train_path = os.path.join(INPUT_DIR, "train.csv")
+test_path = os.path.join(INPUT_DIR, "test.csv")
+
+train = pd.read_csv(train_path)
+test = pd.read_csv(test_path)
+
+def feature_engineering(df):
+    df = df.copy()
+
+    cabin = df["Cabin"].fillna("X/X/X").astype(str).str.split("/", expand=True)
+    df["Deck"] = cabin[0].astype(str)
+    df["Num"] = pd.to_numeric(cabin[1], errors="coerce")
+    df["Side"] = cabin[2].astype(str)
+
+    df["Group"] = df["PassengerId"].astype(str).str.split("_").str[0].astype(str)
+    df["GroupSize"] = df.groupby("Group")["PassengerId"].transform("count").astype(int)
+
+    df["Surname"] = df["Name"].fillna("NA").astype(str).str.split().str[-1].astype(str)
+    df["SurnameSize"] = df.groupby("Surname")["PassengerId"].transform("count").astype(int)
+
+    spending_cols = ["RoomService", "FoodCourt", "ShoppingMall", "Spa", "VRDeck"]
+    for col in spending_cols:
+        df[col] = pd.to_numeric(df[col], errors="coerce")
+
+    df["TotalSpending"] = df[spending_cols].sum(axis=1)
+    df["NoSpending"] = (df["TotalSpending"] == 0).astype(int)
+    df["SpentAny"] = (df["TotalSpending"] > 0).astype(int)
+
+    df["Age"] = pd.to_numeric(df["Age"], errors="coerce")
+    df["AgeBin"] = pd.cut(df["Age"], bins=[-1, 5, 12, 18, 25, 35, 50, 65, 200], labels=False)
+
+    for col in ["Age", "RoomService", "FoodCourt", "ShoppingMall", "Spa", "VRDeck", "Num"]:
+        if col in df.columns:
+            df[col + "_isna"] = df[col].isna().astype(int)
+
+    categorical_cols = ["HomePlanet", "CryoSleep", "Destination", "VIP", "Deck", "Side", "Group", "Surname"]
+    for c in categorical_cols:
+        df[c] = df[c].astype("string").fillna("NA").astype(str)
+
+    return df
+
+train_fe = feature_engineering(train)
+test_fe = feature_engineering(test)
+
+y = train_fe["Transported"].astype(int)
+X = train_fe.drop(columns=["Transported"])
+X_test = test_fe.reindex(columns=X.columns, fill_value=np.nan).copy()
+
+cat_cols = [c for c in X.columns if X[c].dtype == "object" or str(X[c].dtype).startswith("string")]
+for c in cat_cols:
+    X[c] = X[c].astype("string").fillna("NA").astype(str)
+    X_test[c] = X_test[c].astype("string").fillna("NA").astype(str)
+
+num_cols = [c for c in X.columns if c not in cat_cols]
+for c in num_cols:
+    X[c] = pd.to_numeric(X[c], errors="coerce")
+    X_test[c] = pd.to_numeric(X_test[c], errors="coerce")
+    med = X[c].median()
+    if pd.isna(med):
+        med = 0
+    X[c] = X[c].fillna(med)
+    X_test[c] = X_test[c].fillna(med)
+
+X_train, X_val, y_train, y_val = train_test_split(
+    X, y, test_size=0.2, random_state=SEED, stratify=y
+)
+
+model = LGBMClassifier(
+    n_estimators=1200,
+    learning_rate=0.03,
+    num_leaves=31,
+    subsample=0.9,
+    colsample_bytree=0.9,
+    random_state=SEED
+)
+
+model.fit(X_train, y_train, categorical_feature=cat_cols)
+
+val_pred = model.predict(X_val)
+val_acc = accuracy_score(y_val, val_pred)
+print(f"Final Validation Performance: {val_acc:.6f}")
+
+final_model = LGBMClassifier(
+    n_estimators=1200,
+    learning_rate=0.03,
+    num_leaves=31,
+    subsample=0.9,
+    colsample_bytree=0.9,
+    random_state=SEED
+)
+
+final_model.fit(X, y, categorical_feature=cat_cols)
+
+test_pred = final_model.predict(X_test).astype(bool)
+
+submission = pd.DataFrame({
+    "PassengerId": test["PassengerId"],
+    "Transported": test_pred
+})
+submission.to_csv("submission.csv", index=False)
+```
+[92m21:43:57 - LiteLLM:INFO[0m: utils.py:3748 - 
+LiteLLM completion() model= gpt-5.4-mini; provider = openai
+/home/flo/uni/mle-star-skrub/mle-star_vanilla/agents/machine-learning-engineering/.venv/lib/python3.14/site-packages/pydantic/main.py:464: UserWarning: Pydantic serializer warnings:
+  PydanticSerializationUnexpectedValue(Expected 10 fields but got 6: Expected `Message` - serialized value may not be as expected [field_name='message', input_value=Message(content='LightGBM...: None}, annotations=[]), input_type=Message])
+  PydanticSerializationUnexpectedValue(Expected `StreamingChoices` - serialized value may not be as expected [field_name='choices', input_value=Choices(finish_reason='st...ider_specific_fields={}), input_type=Choices])
+  return self.__pydantic_serializer__.to_python(
+[model_eval_bug_summary_agent_1_2]: LightGBM is being fit on a pandas DataFrame that still contains non-numeric `object` columns.
+
+At the error point in `init_code_2.py.py`, the model call is:
+
+```python
+model.fit(X_train, y_train, categorical_feature=cat_cols)
+```
+
+The failure happens because these columns are still `object` dtype when passed to LightGBM:
+
+- `PassengerId`
+- `HomePlanet`
+- `CryoSleep`
+- `Cabin`
+- `Destination`
+- `VIP`
+- `Name`
+- `Deck`
+- `Side`
+- `Group`
+- `Surname`
+
+LightGBM requires pandas features to be `int`, `float`, or `bool` unless categorical columns are properly encoded as `category` dtype.
+[92m21:43:59 - LiteLLM:INFO[0m: utils.py:3748 - 
+LiteLLM completion() model= gpt-5.4-mini; provider = openai
+/home/flo/uni/mle-star-skrub/mle-star_vanilla/agents/machine-learning-engineering/.venv/lib/python3.14/site-packages/pydantic/main.py:464: UserWarning: Pydantic serializer warnings:
+  PydanticSerializationUnexpectedValue(Expected 10 fields but got 6: Expected `Message` - serialized value may not be as expected [field_name='message', input_value=Message(content='```pytho...: None}, annotations=[]), input_type=Message])
+  PydanticSerializationUnexpectedValue(Expected `StreamingChoices` - serialized value may not be as expected [field_name='choices', input_value=Choices(finish_reason='st...ider_specific_fields={}), input_type=Choices])
+  return self.__pydantic_serializer__.to_python(
+[model_eval_debug_agent_1_2]: ```python
+import os
+import random
+import numpy as np
+import pandas as pd
+import torch
+from lightgbm import LGBMClassifier
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import accuracy_score
+
+SEED = 42
+random.seed(SEED)
+np.random.seed(SEED)
+torch.manual_seed(SEED)
+
+INPUT_DIR = "./input"
+train_path = os.path.join(INPUT_DIR, "train.csv")
+test_path = os.path.join(INPUT_DIR, "test.csv")
+
+train = pd.read_csv(train_path)
+test = pd.read_csv(test_path)
+
+def feature_engineering(df):
+    df = df.copy()
+
+    # Cabin parsing
+    cabin = df["Cabin"].fillna("X/X/X").astype(str).str.split("/", expand=True)
+    df["Deck"] = cabin[0].astype(str)
+    df["Num"] = pd.to_numeric(cabin[1], errors="coerce")
+    df["Side"] = cabin[2].astype(str)
+
+    # Group info from PassengerId
+    df["Group"] = df["PassengerId"].astype(str).str.split("_").str[0].astype(str)
+    df["GroupSize"] = df.groupby("Group")["PassengerId"].transform("count").astype(int)
+
+    # Surname info from Name
+    df["Surname"] = df["Name"].fillna("NA").astype(str).str.split().str[-1].astype(str)
+    df["SurnameSize"] = df.groupby("Surname")["PassengerId"].transform("count").astype(int)
+
+    spending_cols = ["RoomService", "FoodCourt", "ShoppingMall", "Spa", "VRDeck"]
+    for col in spending_cols:
+        df[col] = pd.to_numeric(df[col], errors="coerce")
+
+    df["TotalSpending"] = df[spending_cols].sum(axis=1)
+    df["NoSpending"] = (df["TotalSpending"] == 0).astype(int)
+    df["SpentAny"] = (df["TotalSpending"] > 0).astype(int)
+
+    df["Age"] = pd.to_numeric(df["Age"], errors="coerce")
+    df["AgeBin"] = pd.cut(df["Age"], bins=[-1, 5, 12, 18, 25, 35, 50, 65, 200], labels=False)
+
+    for col in ["Age", "RoomService", "FoodCourt", "ShoppingMall", "Spa", "VRDeck", "Num"]:
+        if col in df.columns:
+            df[col + "_isna"] = df[col].isna().astype(int)
+
+    # Convert bool-like / categorical columns to string for later category casting
+    categorical_cols = ["HomePlanet", "CryoSleep", "Destination", "VIP", "Deck", "Side", "Group", "Surname"]
+    for c in categorical_cols:
+        df[c] = df[c].astype("string").fillna("NA")
+
+    return df
+
+train_fe = feature_engineering(train)
+test_fe = feature_engineering(test)
+
+y = train_fe["Transported"].astype(int)
+X = train_fe.drop(columns=["Transported"]).copy()
+
+# Ensure test has same columns as train features
+X_test = test_fe.reindex(columns=X.columns, fill_value=np.nan).copy()
+
+# Drop raw free-text and identifiers that are not directly useful as numeric features
+# Keep engineered versions (Group, Surname) as categorical features
+drop_cols = ["PassengerId", "Cabin", "Name"]
+for col in drop_cols:
+    if col in X.columns:
+        X = X.drop(columns=[col])
+    if col in X_test.columns:
+        X_test = X_test.drop(columns=[col])
+
+# Detect categorical columns and convert them to pandas 'category' dtype for LightGBM
+cat_cols = [c for c in X.columns if X[c].dtype == "object" or str(X[c].dtype).startswith("string") or str(X[c].dtype) == "bool"]
+for c in cat_cols:
+    X[c] = X[c].astype("category")
+    X_test[c] = X_test[c].astype("category")
+
+# Numeric columns: coerce to numeric and fill missing values with train medians
+num_cols = [c for c in X.columns if c not in cat_cols]
+for c in num_cols:
+    X[c] = pd.to_numeric(X[c], errors="coerce")
+    X_test[c] = pd.to_numeric(X_test[c], errors="coerce")
+    med = X[c].median()
+    if pd.isna(med):
+        med = 0
+    X[c] = X[c].fillna(med)
+    X_test[c] = X_test[c].fillna(med)
+
+# Align categories between train and test for categorical columns
+for c in cat_cols:
+    all_cats = pd.Index(pd.concat([X[c].astype("string"), X_test[c].astype("string")], axis=0).fillna("NA").unique())
+    X[c] = pd.Categorical(X[c].astype("string").fillna("NA"), categories=all_cats)
+    X_test[c] = pd.Categorical(X_test[c].astype("string").fillna("NA"), categories=all_cats)
+
+X_train, X_val, y_train, y_val = train_test_split(
+    X, y, test_size=0.2, random_state=SEED, stratify=y
+)
+
+model = LGBMClassifier(
+    n_estimators=1200,
+    learning_rate=0.03,
+    num_leaves=31,
+    subsample=0.9,
+    colsample_bytree=0.9,
+    random_state=SEED
+)
+
+model.fit(X_train, y_train, categorical_feature=cat_cols)
+
+val_pred = model.predict(X_val)
+val_acc = accuracy_score(y_val, val_pred)
+print(f"Final Validation Performance: {val_acc:.6f}")
+
+final_model = LGBMClassifier(
+    n_estimators=1200,
+    learning_rate=0.03,
+    num_leaves=31,
+    subsample=0.9,
+    colsample_bytree=0.9,
+    random_state=SEED
+)
+
+final_model.fit(X, y, categorical_feature=cat_cols)
+
+test_pred = final_model.predict(X_test).astype(bool)
+
+submission = pd.DataFrame({
+    "PassengerId": test["PassengerId"],
+    "Transported": test_pred
+})
+submission.to_csv("submission.csv", index=False)
+```
+[92m21:44:17 - LiteLLM:INFO[0m: utils.py:3748 - 
+LiteLLM completion() model= gpt-5.4-mini; provider = openai
+/home/flo/uni/mle-star-skrub/mle-star_vanilla/agents/machine-learning-engineering/.venv/lib/python3.14/site-packages/pydantic/main.py:464: UserWarning: Pydantic serializer warnings:
+  PydanticSerializationUnexpectedValue(Expected 10 fields but got 6: Expected `Message` - serialized value may not be as expected [field_name='message', input_value=Message(content='```pytho...: None}, annotations=[]), input_type=Message])
+  PydanticSerializationUnexpectedValue(Expected `StreamingChoices` - serialized value may not be as expected [field_name='choices', input_value=Choices(finish_reason='st...ider_specific_fields={}), input_type=Choices])
+  return self.__pydantic_serializer__.to_python(
+[merger_agent_1_1]: ```python
+import os
+import random
+import numpy as np
+import pandas as pd
+import torch
+
+from catboost import CatBoostClassifier
+from lightgbm import LGBMClassifier
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import accuracy_score
+
+SEED = 42
+random.seed(SEED)
+np.random.seed(SEED)
+torch.manual_seed(SEED)
+
+INPUT_DIR = "./input"
+train_path = os.path.join(INPUT_DIR, "train.csv")
+test_path = os.path.join(INPUT_DIR, "test.csv")
+
+train = pd.read_csv(train_path)
+test = pd.read_csv(test_path)
+
+
+def feature_engineering(df):
+    df = df.copy()
+
+    # Cabin parsing
+    cabin = df["Cabin"].fillna("X/X/X").astype(str).str.split("/", expand=True)
+    df["Deck"] = cabin[0].astype(str)
+    df["Num"] = pd.to_numeric(cabin[1], errors="coerce")
+    df["Side"] = cabin[2].astype(str)
+
+    # Base-solution cabin numeric feature too
+    df["CabinNum"] = df["Num"]
+
+    # Group info from PassengerId
+    df["Group"] = df["PassengerId"].astype(str).str.split("_").str[0].astype(str)
+    df["GroupSize"] = df.groupby("Group")["PassengerId"].transform("count").astype(int)
+
+    # Surname info from Name
+    df["Surname"] = df["Name"].fillna("NA").astype(str).str.split().str[-1].astype(str)
+    df["SurnameSize"] = df.groupby("Surname")["PassengerId"].transform("count").astype(int)
+    df["HasSurname"] = (df["Surname"] != "NA").astype(int)
+    df["SameSurnameGroupSize"] = df.groupby("Surname")["PassengerId"].transform("count").astype(int)
+
+    # Spending features
+    spending_cols = ["RoomService", "FoodCourt", "ShoppingMall", "Spa", "VRDeck"]
+    for col in spending_cols:
+        df[col] = pd.to_numeric(df[col], errors="coerce")
+
+    df["TotalSpending"] = df[spending_cols].sum(axis=1)
+    df["NoSpending"] = (df["TotalSpending"] == 0).astype(int)
+    df["SpentAny"] = (df["TotalSpending"] > 0).astype(int)
+
+    # Age features
+    df["Age"] = pd.to_numeric(df["Age"], errors="coerce")
+    df["AgeBin"] = pd.cut(df["Age"], bins=[-1, 5, 12, 18, 25, 35, 50, 65, 200], labels=False)
+
+    # Missingness indicators
+    for col in ["Age", "RoomService", "FoodCourt", "ShoppingMall", "Spa", "VRDeck", "Num", "CabinNum"]:
+        if col in df.columns:
+            df[col + "_isna"] = df[col].isna().astype(int)
+
+    # Convert categorical columns to string
+    categorical_cols = ["HomePlanet", "CryoSleep", "Destination", "VIP", "Deck", "Side", "Group", "Surname"]
+    for c in categorical_cols:
+        if c in df.columns:
+            df[c] = df[c].astype("string").fillna("NA")
+
+    return df
+
+
+train_fe = feature_engineering(train)
+test_fe = feature_engineering(test)
+
+y = train_fe["Transported"].astype(int)
+X = train_fe.drop(columns=["Transported"]).copy()
+
+# Reindex test to train columns
+X_test = test_fe.reindex(columns=X.columns, fill_value=np.nan).copy()
+
+# Drop raw free-text and identifiers that are not directly useful
+drop_cols = ["PassengerId", "Cabin", "Name"]
+for col in drop_cols:
+    if col in X.columns:
+        X = X.drop(columns=[col])
+    if col in X_test.columns:
+        X_test = X_test.drop(columns=[col])
+
+# Detect categorical columns
+cat_cols = [
+    c for c in X.columns
+    if X[c].dtype == "object" or str(X[c].dtype).startswith("string") or str(X[c].dtype) == "bool"
+]
+
+# Make sure categorical columns are aligned and string-like for CatBoost, category for LightGBM
+for c in cat_cols:
+    X[c] = X[c].astype("string").fillna("NA").astype(str)
+    X_test[c] = X_test[c].astype("string").fillna("NA").astype(str)
+
+# Numeric columns
+num_cols = [c for c in X.columns if c not in cat_cols]
+for c in num_cols:
+    X[c] = pd.to_numeric(X[c], errors="coerce")
+    X_test[c] = pd.to_numeric(X_test[c], errors="coerce")
+    med = X[c].median()
+    if pd.isna(med):
+        med = 0
+    X[c] = X[c].fillna(med)
+    X_test[c] = X_test[c].fillna(med)
+
+# Prepare LightGBM categorical columns as category dtype with aligned categories
+X_lgb = X.copy()
+X_test_lgb = X_test.copy()
+for c in cat_cols:
+    all_cats = pd.Index(
+        pd.concat([X_lgb[c].astype("string"), X_test_lgb[c].astype("string")], axis=0)
+        .fillna("NA")
+        .unique()
+    )
+    X_lgb[c] = pd.Categorical(X_lgb[c].astype("string").fillna("NA"), categories=all_cats)
+    X_test_lgb[c] = pd.Categorical(X_test_lgb[c].astype("string").fillna("NA"), categories=all_cats)
+
+# Hold-out split
+X_train_cb, X_val_cb, y_train, y_val = train_test_split(
+    X, y, test_size=0.2, random_state=SEED, stratify=y
+)
+X_train_lgb, X_val_lgb, _, _ = train_test_split(
+    X_lgb, y, test_size=0.2, random_state=SEED, stratify=y
+)
+
+# CatBoost model
+cb_model = CatBoostClassifier(
+    loss_function="Logloss",
+    iterations=2000,
+    depth=6,
+    learning_rate=0.03,
+    random_seed=SEED,
+    verbose=0,
+    eval_metric="Accuracy"
+)
+cb_model.fit(
+    X_train_cb,
+    y_train,
+    cat_features=cat_cols,
+    eval_set=(X_val_cb, y_val),
+    use_best_model=True
+)
+cb_val_pred = cb_model.predict(X_val_cb).astype(int)
+
+# LightGBM model
+lgb_model = LGBMClassifier(
+    n_estimators=1200,
+    learning_rate=0.03,
+    num_leaves=31,
+    subsample=0.9,
+    colsample_bytree=0.9,
+    random_state=SEED
+)
+lgb_model.fit(X_train_lgb, y_train, categorical_feature=cat_cols)
+lgb_val_pred = lgb_model.predict(X_val_lgb).astype(int)
+
+# Simple ensemble on validation
+cb_val_proba = cb_model.predict_proba(X_val_cb)[:, 1]
+lgb_val_proba = lgb_model.predict_proba(X_val_lgb)[:, 1]
+ens_val_pred = ((0.5 * cb_val_proba + 0.5 * lgb_val_proba) >= 0.5).astype(int)
+
+cb_acc = accuracy_score(y_val, cb_val_pred)
+lgb_acc = accuracy_score(y_val, lgb_val_pred)
+ens_acc = accuracy_score(y_val, ens_val_pred)
+
+print(f"Final Validation Performance: {ens_acc:.6f}")
+
+# Train final models on full data
+final_cb = CatBoostClassifier(
+    loss_function="Logloss",
+    iterations=cb_model.get_best_iteration() if cb_model.get_best_iteration() is not None else 2000,
+    depth=6,
+    learning_rate=0.03,
+    random_seed=SEED,
+    verbose=0,
+    eval_metric="Accuracy"
+)
+final_cb.fit(X, y, cat_features=cat_cols)
+
+final_lgb = LGBMClassifier(
+    n_estimators=1200,
+    learning_rate=0.03,
+    num_leaves=31,
+    subsample=0.9,
+    colsample_bytree=0.9,
+    random_state=SEED
+)
+final_lgb.fit(X_lgb, y, categorical_feature=cat_cols)
+
+# Predict test with ensemble
+cb_test_proba = final_cb.predict_proba(X_test)[:, 1]
+lgb_test_proba = final_lgb.predict_proba(X_test_lgb)[:, 1]
+test_pred = ((0.5 * cb_test_proba + 0.5 * lgb_test_proba) >= 0.5).astype(bool)
+
+submission = pd.DataFrame({
+    "PassengerId": test["PassengerId"],
+    "Transported": test_pred
+})
+submission.to_csv("submission.csv", index=False)
+```
+[92m21:46:47 - LiteLLM:INFO[0m: utils.py:3748 - 
+LiteLLM completion() model= gpt-5.4-mini; provider = openai
+/home/flo/uni/mle-star-skrub/mle-star_vanilla/agents/machine-learning-engineering/.venv/lib/python3.14/site-packages/pydantic/main.py:464: UserWarning: Pydantic serializer warnings:
+  PydanticSerializationUnexpectedValue(Expected 10 fields but got 6: Expected `Message` - serialized value may not be as expected [field_name='message', input_value=Message(content='import o...: None}, annotations=[]), input_type=Message])
+  PydanticSerializationUnexpectedValue(Expected `StreamingChoices` - serialized value may not be as expected [field_name='choices', input_value=Choices(finish_reason='st...ider_specific_fields={}), input_type=Choices])
+  return self.__pydantic_serializer__.to_python(
+[ablation_agent_1]: import os
+import random
+import numpy as np
+import pandas as pd
+from catboost import CatBoostClassifier
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import accuracy_score
+import torch
+
+SEED = 42
+random.seed(SEED)
+np.random.seed(SEED)
+torch.manual_seed(SEED)
+
+INPUT_DIR = "./input"
+train_path = os.path.join(INPUT_DIR, "train.csv")
+
+train = pd.read_csv(train_path)
+
+def feature_engineering(df):
+    df = df.copy()
+
+    cabin_split = df["Cabin"].fillna("NA/NA/NA").astype(str).str.split("/", expand=True)
+    df["Deck"] = cabin_split[0].astype(str)
+    df["CabinNum"] = pd.to_numeric(cabin_split[1], errors="coerce")
+    df["Side"] = cabin_split[2].astype(str)
+
+    df["Group"] = df["PassengerId"].astype(str).str.split("_").str[0].astype(str)
+    df["GroupSize"] = df.groupby("Group")["PassengerId"].transform("count").astype(int)
+
+    df["Surname"] = df["Name"].fillna("NA").astype(str).str.split().str[-1].astype(str)
+    df["HasSurname"] = (df["Surname"] != "NA").astype(int)
+    df["SameSurnameGroupSize"] = df.groupby("Surname")["PassengerId"].transform("count").astype(int)
+
+    spending_cols = ["RoomService", "FoodCourt", "ShoppingMall", "Spa", "VRDeck"]
+    for col in spending_cols:
+        df[col] = pd.to_numeric(df[col], errors="coerce")
+    df["TotalSpending"] = df[spending_cols].sum(axis=1)
+    df["NoSpending"] = (df["TotalSpending"] == 0).astype(int)
+
+    for col in ["Age", "RoomService", "FoodCourt", "ShoppingMall", "Spa", "VRDeck", "CabinNum"]:
+        if col in df.columns:
+            df[col + "_isna"] = df[col].isna().astype(int)
+
+    categorical_like = ["HomePlanet", "CryoSleep", "Destination", "VIP", "Deck", "Side", "Group", "Surname"]
+    for c in categorical_like:
+        if c in df.columns:
+            df[c] = df[c].astype("string").fillna("NA").astype(str)
+
+    for c in ["CryoSleep", "VIP"]:
+        if c in df.columns:
+            df[c] = df[c].astype("string").fillna("NA").astype(str)
+
+    return df
+
+def prepare_data(df, use_feature_engineering=True, drop_engineered=None):
+    if use_feature_engineering:
+        df = feature_engineering(df)
+    else:
+        df = df.copy()
+
+    y = df["Transported"].astype(int)
+    X = df.drop(columns=["Transported"])
+
+    if drop_engineered:
+        X = X.drop(columns=[c for c in drop_engineered if c in X.columns])
+
+    cat_cols = [c for c in X.columns if X[c].dtype == "object" or str(X[c].dtype).startswith("string")]
+
+    for c in cat_cols:
+        X[c] = X[c].astype("string").fillna("NA").astype(str)
+
+    num_cols = [c for c in X.columns if c not in cat_cols]
+    for c in num_cols:
+        X[c] = pd.to_numeric(X[c], errors="coerce")
+        med = X[c].median()
+        if pd.isna(med):
+            med = 0
+        X[c] = X[c].fillna(med)
+
+    return X, y, cat_cols
+
+def run_experiment(name, use_feature_engineering=True, drop_engineered=None):
+    X, y, cat_cols = prepare_data(train.copy(), use_feature_engineering=use_feature_engineering, drop_engineered=drop_engineered)
+
+    X_train, X_val, y_train, y_val = train_test_split(
+        X, y, test_size=0.2, random_state=SEED, stratify=y
+    )
+
+    model = CatBoostClassifier(
+        loss_function="Logloss",
+        iterations=1000,
+        depth=6,
+        learning_rate=0.03,
+        random_seed=SEED,
+        verbose=0,
+        eval_metric="Accuracy"
+    )
+
+    model.fit(
+        X_train,
+        y_train,
+        cat_features=cat_cols,
+        eval_set=(X_val, y_val),
+        use_best_model=True
+    )
+
+    val_pred = model.predict(X_val)
+    val_acc = accuracy_score(y_val, val_pred)
+    print(f"{name}: Validation Accuracy = {val_acc:.6f}")
+    return val_acc
+
+baseline = run_experiment("Baseline")
+
+ablation_no_feat_eng = run_experiment(
+    "Ablation 1 - No feature engineering",
+    use_feature_engineering=False
+)
+
+ablation_no_spending = run_experiment(
+    "Ablation 2 - Remove spending features",
+    use_feature_engineering=True,
+    drop_engineered=["TotalSpending", "NoSpending", "RoomService_isna", "FoodCourt_isna", "ShoppingMall_isna", "Spa_isna", "VRDeck_isna"]
+)
+
+ablation_no_group_name = run_experiment(
+    "Ablation 3 - Remove group/name features",
+    use_feature_engineering=True,
+    drop_engineered=["Group", "GroupSize", "Surname", "HasSurname", "SameSurnameGroupSize"]
+)
+
+results = {
+    "Baseline": baseline,
+    "No feature engineering": ablation_no_feat_eng,
+    "No spending features": ablation_no_spending,
+    "No group/name features": ablation_no_group_name,
+}
+
+best_ablation = min(results, key=lambda k: results[k])
+worst_drop = baseline - min(ablation_no_feat_eng, ablation_no_spending, ablation_no_group_name)
+
+print("\nSummary:")
+for k, v in results.items():
+    print(f"{k}: {v:.6f}")
+
+print(f"\nMost important component (largest accuracy drop vs baseline): "
+      f"{max(['No feature engineering', 'No spending features', 'No group/name features'], key=lambda k: baseline - results[k])}")
+print(f"Largest observed drop: {worst_drop:.6f}")
+[92m21:49:21 - LiteLLM:INFO[0m: utils.py:3748 - 
+LiteLLM completion() model= gpt-5.4-mini; provider = openai
+/home/flo/uni/mle-star-skrub/mle-star_vanilla/agents/machine-learning-engineering/.venv/lib/python3.14/site-packages/pydantic/main.py:464: UserWarning: Pydantic serializer warnings:
+  PydanticSerializationUnexpectedValue(Expected 10 fields but got 6: Expected `Message` - serialized value may not be as expected [field_name='message', input_value=Message(content='Here’s...: None}, annotations=[]), input_type=Message])
+  PydanticSerializationUnexpectedValue(Expected `StreamingChoices` - serialized value may not be as expected [field_name='choices', input_value=Choices(finish_reason='st...ider_specific_fields={}), input_type=Choices])
+  return self.__pydantic_serializer__.to_python(
+[ablation_summary_agent_1]: Here’s a concise summary of the ablation study results:
+
+### Validation Accuracy Results
+- **Baseline:** 0.813686
+- **No feature engineering:** 0.803910
+- **Remove spending features:** 0.807361
+- **Remove group/name features:** 0.816561
+
+### Main Findings
+- The **baseline model** performs best among the settings that preserve the full engineered feature set.
+- Removing **all feature engineering** causes the **largest drop in performance**:
+  - Accuracy decreases by **0.009776** compared with the baseline.
+- Removing only the **spending-related features** also hurts performance, but less severely:
+  - Drop of **0.006325** vs. baseline.
+- Removing **group/name features** does **not** hurt performance here; it slightly improves accuracy:
+  - Accuracy increases by **0.002875** over the baseline.
+
+### Conclusion
+- The **most important component** in this feature engineering pipeline is **feature engineering overall**, especially the engineered features beyond the raw inputs.
+- Among the tested groups, **spending features appear more useful than group/name features**.
+- The **largest observed accuracy drop** was **0.009776**, from removing all feature engineering.
+[92m21:49:23 - LiteLLM:INFO[0m: utils.py:3748 - 
+LiteLLM completion() model= gpt-5.4-mini; provider = openai
+/home/flo/uni/mle-star-skrub/mle-star_vanilla/agents/machine-learning-engineering/.venv/lib/python3.14/site-packages/pydantic/main.py:464: UserWarning: Pydantic serializer warnings:
+  PydanticSerializationUnexpectedValue(Expected 10 fields but got 6: Expected `Message` - serialized value may not be as expected [field_name='message', input_value=Message(content='[\n  {\n...: None}, annotations=[]), input_type=Message])
+  PydanticSerializationUnexpectedValue(Expected `StreamingChoices` - serialized value may not be as expected [field_name='choices', input_value=Choices(finish_reason='st...ider_specific_fields={}), input_type=Choices])
+  return self.__pydantic_serializer__.to_python(
+[init_plan_agent_1]: [
+  {
+    "plan": "The ablation results suggest that the spending features are genuinely helpful, while the group/name features may be adding noise. A good next step is to simplify the feature engineering by keeping the spending-related features and raw cabin/group signals, but dropping or reworking the surname-based features. I would also add a small number of higher-signal interactions such as per-person spending (TotalSpending / GroupSize) and binary indicators for any nonzero spending, since these are cheap to compute and may capture stronger signal than the current name-derived features. Finally, keep the CatBoost setup the same to isolate feature changes and avoid expensive hyperparameter search.",
+    "code_block": "def feature_engineering(df):\n    df = df.copy()\n\n    # Cabin split\n    cabin_split = df[\"Cabin\"].fillna(\"NA/NA/NA\").astype(str).str.split(\"/\", expand=True)\n    df[\"Deck\"] = cabin_split[0].astype(str)\n    df[\"CabinNum\"] = pd.to_numeric(cabin_split[1], errors=\"coerce\")\n    df[\"Side\"] = cabin_split[2].astype(str)\n\n    # Passenger group features\n    df[\"Group\"] = df[\"PassengerId\"].astype(str).str.split(\"_\").str[0].astype(str)\n    df[\"GroupSize\"] = df.groupby(\"Group\")[\"PassengerId\"].transform(\"count\").astype(int)\n\n    # Name-related features\n    df[\"Surname\"] = df[\"Name\"].fillna(\"NA\").astype(str).str.split().str[-1].astype(str)\n    df[\"HasSurname\"] = (df[\"Surname\"] != \"NA\").astype(int)\n    df[\"SameSurnameGroupSize\"] = df.groupby(\"Surname\")[\"PassengerId\"].transform(\"count\").astype(int)\n\n    # Spending features\n    spending_cols = [\"RoomService\", \"FoodCourt\", \"ShoppingMall\", \"Spa\", \"VRDeck\"]\n    for col in spending_cols:\n        df[col] = pd.to_numeric(df[col], errors=\"coerce\")\n    df[\"TotalSpending\"] = df[spending_cols].sum(axis=1)\n    df[\"NoSpending\"] = (df[\"TotalSpending\"] == 0).astype(int)\n\n    # Missingness indicators\n    for col in [\"Age\", \"RoomService\", \"FoodCourt\", \"ShoppingMall\", \"Spa\", \"VRDeck\", \"CabinNum\"]:\n        if col in df.columns:\n            df[col + \"_isna\"] = df[col].isna().astype(int)\n\n    # Force intended categorical columns to string/object dtype\n    categorical_like = [\"HomePlanet\", \"CryoSleep\", \"Destination\", \"VIP\", \"Deck\", \"Side\", \"Group\", \"Surname\"]\n    for c in categorical_like:\n        if c in df.columns:\n            df[c] = df[c].astype(\"string\").fillna(\"NA\").astype(str)\n\n    # Keep booleans as strings to avoid CatBoost categorical type issues\n    for c in [\"CryoSleep\", \"VIP\"]:\n        if c in df.columns:\n            df[c] = df[c].astype(\"string\").fillna(\"NA\").astype(str)\n\n    return df"
+  }
+]
+[92m21:49:27 - LiteLLM:INFO[0m: utils.py:3748 - 
+LiteLLM completion() model= gpt-5.4-mini; provider = openai
+/home/flo/uni/mle-star-skrub/mle-star_vanilla/agents/machine-learning-engineering/.venv/lib/python3.14/site-packages/pydantic/main.py:464: UserWarning: Pydantic serializer warnings:
+  PydanticSerializationUnexpectedValue(Expected 10 fields but got 6: Expected `Message` - serialized value may not be as expected [field_name='message', input_value=Message(content='```pytho...: None}, annotations=[]), input_type=Message])
+  PydanticSerializationUnexpectedValue(Expected `StreamingChoices` - serialized value may not be as expected [field_name='choices', input_value=Choices(finish_reason='st...ider_specific_fields={}), input_type=Choices])
+  return self.__pydantic_serializer__.to_python(
+[plan_implement_initial_agent_1]: ```python
+def feature_engineering(df):
+    df = df.copy()
+
+    # Cabin split
+    cabin_split = df["Cabin"].fillna("NA/NA/NA").astype(str).str.split("/", expand=True)
+    df["Deck"] = cabin_split[0].astype(str)
+    df["CabinNum"] = pd.to_numeric(cabin_split[1], errors="coerce")
+    df["Side"] = cabin_split[2].astype(str)
+
+    # Passenger group features
+    df["Group"] = df["PassengerId"].astype(str).str.split("_").str[0].astype(str)
+    df["GroupSize"] = df.groupby("Group")["PassengerId"].transform("count").astype(int)
+
+    # Spending features
+    spending_cols = ["RoomService", "FoodCourt", "ShoppingMall", "Spa", "VRDeck"]
+    for col in spending_cols:
+        df[col] = pd.to_numeric(df[col], errors="coerce")
+
+    df["TotalSpending"] = df[spending_cols].sum(axis=1)
+    df["NoSpending"] = (df["TotalSpending"] == 0).astype(int)
+
+    # Cheap high-signal interactions
+    df["AnySpending"] = (df[spending_cols].fillna(0).sum(axis=1) > 0).astype(int)
+    df["SpendingPerPerson"] = df["TotalSpending"] / df["GroupSize"].replace(0, np.nan)
+
+    # Optional per-category nonzero indicators
+    for col in spending_cols:
+        df[f"{col}_NonZero"] = (df[col].fillna(0) > 0).astype(int)
+
+    # Missingness indicators
+    for col in ["Age", "RoomService", "FoodCourt", "ShoppingMall", "Spa", "VRDeck", "CabinNum"]:
+        if col in df.columns:
+            df[col + "_isna"] = df[col].isna().astype(int)
+
+    # Keep raw cabin/group signals and core categoricals for CatBoost
+    categorical_like = ["HomePlanet", "CryoSleep", "Destination", "VIP", "Deck", "Side", "Group"]
+    for c in categorical_like:
+        if c in df.columns:
+            df[c] = df[c].astype("string").fillna("NA").astype(str)
+
+    # Keep booleans as strings to avoid CatBoost categorical type issues
+    for c in ["CryoSleep", "VIP"]:
+        if c in df.columns:
+            df[c] = df[c].astype("string").fillna("NA").astype(str)
+
+    return df
+```
+[92m21:52:09 - LiteLLM:INFO[0m: utils.py:3748 - 
+LiteLLM completion() model= gpt-5.4-mini; provider = openai
+/home/flo/uni/mle-star-skrub/mle-star_vanilla/agents/machine-learning-engineering/.venv/lib/python3.14/site-packages/pydantic/main.py:464: UserWarning: Pydantic serializer warnings:
+  PydanticSerializationUnexpectedValue(Expected 10 fields but got 6: Expected `Message` - serialized value may not be as expected [field_name='message', input_value=Message(content='A better...: None}, annotations=[]), input_type=Message])
+  PydanticSerializationUnexpectedValue(Expected `StreamingChoices` - serialized value may not be as expected [field_name='choices', input_value=Choices(finish_reason='st...ider_specific_fields={}), input_type=Choices])
+  return self.__pydantic_serializer__.to_python(
+[plan_refine_agent_1]: A better next step is to shift from hand-crafted name/group features to lightweight “structure” features that are less noisy and more robust: extract ticket-level family/group signals from `PassengerId` and `Cabin`, and add a small set of cross-features like `CabinKnown`, `HasTicketGroup`, `IsAlone`, and `CabinMissingPattern` rather than surname-based counts. I would also add discretized versions of key numerics, especially `Age` and `CabinNum` quantile bins, because CatBoost often benefits from coarse regime separation without expensive tuning. To reduce leakage-like noise from raw sums, compute spending features both in raw form and log1p form, plus a “luxury vs essentials” split such as `(Spa + VRDeck)` and `(RoomService + FoodCourt + ShoppingMall)` with nonzero flags. Keep the rest of the pipeline unchanged so the gain comes from higher-signal feature design, not extra compute or search.
+[92m21:52:11 - LiteLLM:INFO[0m: utils.py:3748 - 
+LiteLLM completion() model= gpt-5.4-mini; provider = openai
+/home/flo/uni/mle-star-skrub/mle-star_vanilla/agents/machine-learning-engineering/.venv/lib/python3.14/site-packages/pydantic/main.py:464: UserWarning: Pydantic serializer warnings:
+  PydanticSerializationUnexpectedValue(Expected 10 fields but got 6: Expected `Message` - serialized value may not be as expected [field_name='message', input_value=Message(content='```pytho...: None}, annotations=[]), input_type=Message])
+  PydanticSerializationUnexpectedValue(Expected `StreamingChoices` - serialized value may not be as expected [field_name='choices', input_value=Choices(finish_reason='st...ider_specific_fields={}), input_type=Choices])
+  return self.__pydantic_serializer__.to_python(
+[plan_implement_agent_1]: ```python
+def feature_engineering(df):
+    df = df.copy()
+
+    # Cabin split
+    cabin_split = df["Cabin"].fillna("NA/NA/NA").astype(str).str.split("/", expand=True)
+    df["Deck"] = cabin_split[0].astype(str)
+    df["CabinNum"] = pd.to_numeric(cabin_split[1], errors="coerce")
+    df["Side"] = cabin_split[2].astype(str)
+
+    # PassengerId / Ticket-style structure features
+    pid_str = df["PassengerId"].astype(str)
+    pid_split = pid_str.str.split("_", expand=True)
+    df["Group"] = pid_split[0].astype(str)
+    df["GroupSize"] = df.groupby("Group")["PassengerId"].transform("count").astype(int)
+    df["HasTicketGroup"] = (df["GroupSize"] > 1).astype(int)
+    df["IsAlone"] = (df["GroupSize"] == 1).astype(int)
+
+    # Cabin structure / missingness pattern features
+    df["CabinKnown"] = df["Cabin"].notna().astype(int)
+    df["CabinMissingPattern"] = np.where(
+        df["Cabin"].isna(), "AllMissing", np.where(df["CabinNum"].isna(), "PartialMissing", "Known")
+    )
+
+    # Name-related features kept light
+    df["Surname"] = df["Name"].fillna("NA").astype(str).str.split().str[-1].astype(str)
+    df["HasSurname"] = (df["Surname"] != "NA").astype(int)
+
+    # Spending features
+    spending_cols = ["RoomService", "FoodCourt", "ShoppingMall", "Spa", "VRDeck"]
+    for col in spending_cols:
+        df[col] = pd.to_numeric(df[col], errors="coerce")
+
+    df["TotalSpending"] = df[spending_cols].sum(axis=1)
+    df["TotalSpendingLog1p"] = np.log1p(df["TotalSpending"].clip(lower=0))
+
+    df["EssentialsSpending"] = df[["RoomService", "FoodCourt", "ShoppingMall"]].sum(axis=1)
+    df["LuxurySpending"] = df[["Spa", "VRDeck"]].sum(axis=1)
+    df["EssentialsSpendingLog1p"] = np.log1p(df["EssentialsSpending"].clip(lower=0))
+    df["LuxurySpendingLog1p"] = np.log1p(df["LuxurySpending"].clip(lower=0))
+
+    df["AnySpending"] = (df["TotalSpending"] > 0).astype(int)
+    df["NoSpending"] = (df["TotalSpending"] == 0).astype(int)
+    df["AnyEssentialsSpending"] = (df["EssentialsSpending"] > 0).astype(int)
+    df["AnyLuxurySpending"] = (df["LuxurySpending"] > 0).astype(int)
+
+    # Missingness indicators
+    for col in ["Age", "RoomService", "FoodCourt", "ShoppingMall", "Spa", "VRDeck", "CabinNum"]:
+        if col in df.columns:
+            df[col + "_isna"] = df[col].isna().astype(int)
+
+    # Discretized numeric features for coarse regime separation
+    if "Age" in df.columns:
+        df["Age"] = pd.to_numeric(df["Age"], errors="coerce")
+        if df["Age"].notna().sum() > 1:
+            try:
+                df["AgeBin"] = pd.qcut(df["Age"], q=5, duplicates="drop").astype(str)
+            except Exception:
+                df["AgeBin"] = pd.cut(df["Age"], bins=[-np.inf, 12, 18, 30, 45, 60, np.inf], include_lowest=True).astype(str)
+        else:
+            df["AgeBin"] = "NA"
+
+    if "CabinNum" in df.columns:
+        if df["CabinNum"].notna().sum() > 1:
+            try:
+                df["CabinNumBin"] = pd.qcut(df["CabinNum"], q=5, duplicates="drop").astype(str)
+            except Exception:
+                df["CabinNumBin"] = pd.cut(
+                    df["CabinNum"],
+                    bins=[-np.inf, 200, 400, 600, 800, np.inf],
+                    include_lowest=True
+                ).astype(str)
+        else:
+            df["CabinNumBin"] = "NA"
+
+    # Force intended categorical columns to string/object dtype
+    categorical_like = [
+        "HomePlanet", "CryoSleep", "Destination", "VIP", "Deck", "Side",
+        "Group", "Surname", "CabinMissingPattern", "AgeBin", "CabinNumBin"
+    ]
+    for c in categorical_like:
+        if c in df.columns:
+            df[c] = df[c].astype("string").fillna("NA").astype(str)
+
+    # Keep booleans as strings to avoid CatBoost categorical type issues
+    for c in ["CryoSleep", "VIP"]:
+        if c in df.columns:
+            df[c] = df[c].astype("string").fillna("NA").astype(str)
+
+    return df
+```
+[92m21:54:48 - LiteLLM:INFO[0m: utils.py:3748 - 
+LiteLLM completion() model= gpt-5.4-mini; provider = openai
+/home/flo/uni/mle-star-skrub/mle-star_vanilla/agents/machine-learning-engineering/.venv/lib/python3.14/site-packages/pydantic/main.py:464: UserWarning: Pydantic serializer warnings:
+  PydanticSerializationUnexpectedValue(Expected 10 fields but got 6: Expected `Message` - serialized value may not be as expected [field_name='message', input_value=Message(content='- Keep S...: None}, annotations=[]), input_type=Message])
+  PydanticSerializationUnexpectedValue(Expected `StreamingChoices` - serialized value may not be as expected [field_name='choices', input_value=Choices(finish_reason='st...ider_specific_fields={}), input_type=Choices])
+  return self.__pydantic_serializer__.to_python(
+[init_ensemble_plan_agent]: - Keep Solution 1 as the main backbone, and create 1–2 slightly different CatBoost variants by changing only the feature set, not the overall pipeline.
+
+- Use the provided alternative feature engineering as a second model:
+  - It adds useful structural signals: `HasTicketGroup`, `IsAlone`, `CabinKnown`, `CabinMissingPattern`, `Surname`, spending subgroups, and binning for `Age`/`CabinNum`.
+  - This is likely to capture different splits than Solution 1 because it emphasizes coarse regime separation rather than only raw totals.
+
+- Train both models independently on the same train/test split handling:
+  - Model A = original Solution 1 feature set.
+  - Model B = the richer engineered feature set from the context.
+  - Keep the same target, same CatBoost-style handling, same test alignment.
+
+- Prefer probability-level ensembling instead of hard vote:
+  - Get `predict_proba[:, 1]` from both models on the test set.
+  - Average the probabilities, then threshold at 0.5 for the final submission.
+  - This is the simplest and usually stronger than majority vote for two models.
+
+- If you want one extra robustness step with minimal code change, use out-of-fold validation to choose weights:
+  - Compute validation accuracy or logloss for each model on the same split.
+  - Set weights proportional to validation performance, for example:
+    - `wA = accA / (accA + accB)`
+    - `wB = accB / (accA + accB)`
+  - Final test probability = `wA * pA + wB * pB`.
+
+- If you want a very small extension, make one of the models a fold-average instead of a single split:
+  - Train the same feature set over 3–5 stratified folds.
+  - Average fold predictions for that model.
+  - Then ensemble that averaged output with the other model.
+  - This adds diversity and reduces variance without changing the logic much.
+
+- Best practical recommendation: weighted average of 2 CatBoost probability outputs, where the second model uses the richer engineered features from the alternate plan, and the weights are based on validation performance.
+[92m21:54:52 - LiteLLM:INFO[0m: utils.py:3748 - 
+LiteLLM completion() model= gpt-5.4-mini; provider = openai
+/home/flo/uni/mle-star-skrub/mle-star_vanilla/agents/machine-learning-engineering/.venv/lib/python3.14/site-packages/pydantic/main.py:464: UserWarning: Pydantic serializer warnings:
+  PydanticSerializationUnexpectedValue(Expected 10 fields but got 6: Expected `Message` - serialized value may not be as expected [field_name='message', input_value=Message(content='```pytho...: None}, annotations=[]), input_type=Message])
+  PydanticSerializationUnexpectedValue(Expected `StreamingChoices` - serialized value may not be as expected [field_name='choices', input_value=Choices(finish_reason='st...ider_specific_fields={}), input_type=Choices])
+  return self.__pydantic_serializer__.to_python(
+[ensemble_plan_implement_initial_agent]: ```python
+import os
+import random
+import numpy as np
+import pandas as pd
+from catboost import CatBoostClassifier
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import accuracy_score
+import torch
+
+SEED = 42
+random.seed(SEED)
+np.random.seed(SEED)
+torch.manual_seed(SEED)
+
+INPUT_DIR = "./input"
+train_path = os.path.join(INPUT_DIR, "train.csv")
+test_path = os.path.join(INPUT_DIR, "test.csv")
+
+train = pd.read_csv(train_path)
+test = pd.read_csv(test_path)
+
+
+def feature_engineering_solution1(df):
+    df = df.copy()
+
+    # Cabin split
+    cabin_split = df["Cabin"].fillna("NA/NA/NA").astype(str).str.split("/", expand=True)
+    df["Deck"] = cabin_split[0].astype(str)
+    df["CabinNum"] = pd.to_numeric(cabin_split[1], errors="coerce")
+    df["Side"] = cabin_split[2].astype(str)
+
+    # Passenger group features
+    df["Group"] = df["PassengerId"].astype(str).str.split("_").str[0].astype(str)
+    df["GroupSize"] = df.groupby("Group")["PassengerId"].transform("count").astype(int)
+
+    # Spending features
+    spending_cols = ["RoomService", "FoodCourt", "ShoppingMall", "Spa", "VRDeck"]
+    for col in spending_cols:
+        df[col] = pd.to_numeric(df[col], errors="coerce")
+
+    df["TotalSpending"] = df[spending_cols].sum(axis=1)
+    df["NoSpending"] = (df["TotalSpending"] == 0).astype(int)
+
+    # Cheap high-signal interactions
+    df["AnySpending"] = (df[spending_cols].fillna(0).sum(axis=1) > 0).astype(int)
+    df["SpendingPerPerson"] = df["TotalSpending"] / df["GroupSize"].replace(0, np.nan)
+
+    # Optional per-category nonzero indicators
+    for col in spending_cols:
+        df[f"{col}_NonZero"] = (df[col].fillna(0) > 0).astype(int)
+
+    # Missingness indicators
+    for col in ["Age", "RoomService", "FoodCourt", "ShoppingMall", "Spa", "VRDeck", "CabinNum"]:
+        if col in df.columns:
+            df[col + "_isna"] = df[col].isna().astype(int)
+
+    # Keep raw cabin/group signals and core categoricals for CatBoost
+    categorical_like = ["HomePlanet", "CryoSleep", "Destination", "VIP", "Deck", "Side", "Group"]
+    for c in categorical_like:
+        if c in df.columns:
+            df[c] = df[c].astype("string").fillna("NA").astype(str)
+
+    # Keep booleans as strings to avoid CatBoost categorical type issues
+    for c in ["CryoSleep", "VIP"]:
+        if c in df.columns:
+            df[c] = df[c].astype("string").fillna("NA").astype(str)
+
+    return df
+
+
+def feature_engineering_solution2(df):
+    df = df.copy()
+
+    # Cabin split
+    cabin_split = df["Cabin"].fillna("NA/NA/NA").astype(str).str.split("/", expand=True)
+    df["Deck"] = cabin_split[0].astype(str)
+    df["CabinNum"] = pd.to_numeric(cabin_split[1], errors="coerce")
+    df["Side"] = cabin_split[2].astype(str)
+    df["CabinKnown"] = (df["Cabin"].notna()).astype(int)
+    df["CabinMissingPattern"] = df["Cabin"].isna().astype(int)
+
+    # Passenger group / surname features
+    df["Group"] = df["PassengerId"].astype(str).str.split("_").str[0].astype(str)
+    df["Surname"] = df["Name"].astype(str).fillna("NA").str.split().str[-1].fillna("NA").astype(str)
+
+    # Group structure
+    df["HasTicketGroup"] = df["Group"].map(df["Group"].value_counts()).fillna(0).astype(int)
+    df["IsAlone"] = (df["Group"].map(df["Group"].value_counts()).fillna(0) == 1).astype(int)
+
+    # Spending features
+    spending_cols = ["RoomService", "FoodCourt", "ShoppingMall", "Spa", "VRDeck"]
+    for col in spending_cols:
+        df[col] = pd.to_numeric(df[col], errors="coerce")
+
+    df["TotalSpending"] = df[spending_cols].sum(axis=1)
+    df["LuxurySpending"] = df[["Spa", "VRDeck"]].sum(axis=1)
+    df["BasicSpending"] = df[["RoomService", "FoodCourt", "ShoppingMall"]].sum(axis=1)
+    df["AnySpending"] = (df[spending_cols].fillna(0).sum(axis=1) > 0).astype(int)
+    df["NoSpending"] = (df["TotalSpending"] == 0).astype(int)
+
+    # Spending subgroup indicators
+    for col in spending_cols:
+        df[f"{col}_NonZero"] = (df[col].fillna(0) > 0).astype(int)
+
+    df["SpendingPerPerson"] = df["TotalSpending"] / df["HasTicketGroup"].replace(0, np.nan)
+    df["LuxuryPerBasic"] = df["LuxurySpending"] / df["BasicSpending"].replace(0, np.nan)
+
+    # Age / CabinNum binning
+    if "Age" in df.columns:
+        df["AgeBin"] = pd.cut(
+            pd.to_numeric(df["Age"], errors="coerce"),
+            bins=[-1, 12, 18, 30, 50, 80, 200],
+            labels=["child", "teen", "young_adult", "adult", "mid_age", "senior"]
+        ).astype("string").fillna("NA").astype(str)
+        df["Age_isna"] = df["Age"].isna().astype(int)
+
+    df["CabinNumBin"] = pd.cut(
+        pd.to_numeric(df["CabinNum"], errors="coerce"),
+        bins=[-1, 100, 500, 1000, 2000, 5000, 999999],
+        labels=["b1", "b2", "b3", "b4", "b5", "b6"]
+    ).astype("string").fillna("NA").astype(str)
+
+    # Missingness indicators
+    for col in ["RoomService", "FoodCourt", "ShoppingMall", "Spa", "VRDeck", "CabinNum"]:
+        if col in df.columns:
+            df[col + "_isna"] = df[col].isna().astype(int)
+
+    # Categorical handling
+    categorical_like = [
+        "HomePlanet", "CryoSleep", "Destination", "VIP", "Deck", "Side", "Group",
+        "Surname", "AgeBin", "CabinNumBin"
+    ]
+    for c in categorical_like:
+        if c in df.columns:
+            df[c] = df[c].astype("string").fillna("NA").astype(str)
+
+    for c in ["CryoSleep", "VIP"]:
+        if c in df.columns:
+            df[c] = df[c].astype("string").fillna("NA").astype(str)
+
+    return df
+
+
+def prepare_xy(train_df, test_df, feature_fn):
+    train_fe = feature_fn(train_df)
+    test_fe = feature_fn(test_df)
+
+    y = train_fe["Transported"].astype(int)
+    X = train_fe.drop(columns=["Transported"])
+    X_test = test_fe.reindex(columns=X.columns, fill_value=np.nan).copy()
+
+    cat_cols = [
+        c for c in X.columns
+        if X[c].dtype == "object" or str(X[c].dtype).startswith("string")
+    ]
+
+    for c in cat_cols:
+        X[c] = X[c].astype("string").fillna("NA").astype(str)
+        X_test[c] = X_test[c].astype("string").fillna("NA").astype(str)
+
+    num_cols = [c for c in X.columns if c not in cat_cols]
+    for c in num_cols:
+        X[c] = pd.to_numeric(X[c], errors="coerce")
+        X_test[c] = pd.to_numeric(X_test[c], errors="coerce")
+        med = X[c].median()
+        if pd.isna(med):
+            med = 0
+        X[c] = X[c].fillna(med)
+        X_test[c] = X_test[c].fillna(med)
+
+    return X, y, X_test, cat_cols
+
+
+# Prepare both model datasets
+X1, y1, X1_test, cat_cols1 = prepare_xy(train, test, feature_engineering_solution1)
+X2, y2, X2_test, cat_cols2 = prepare_xy(train, test, feature_engineering_solution2)
+
+# Same validation split for both models
+idx = np.arange(len(train))
+idx_train, idx_val = train_test_split(idx, test_size=0.2, random_state=SEED, stratify=y1)
+
+X1_train, X1_val = X1.iloc[idx_train], X1.iloc[idx_val]
+X2_train, X2_val = X2.iloc[idx_train], X2.iloc[idx_val]
+y_train, y_val = y1.iloc[idx_train], y1.iloc[idx_val]
+
+model1 = CatBoostClassifier(
+    loss_function="Logloss",
+    iterations=2000,
+    depth=6,
+    learning_rate=0.03,
+    random_seed=SEED,
+    verbose=0,
+    eval_metric="Accuracy"
+)
+
+model1.fit(
+    X1_train,
+    y_train,
+    cat_features=cat_cols1,
+    eval_set=(X1_val, y_val),
+    use_best_model=True
+)
+
+val_pred1 = model1.predict(X1_val)
+val_acc1 = accuracy_score(y_val, val_pred1)
+
+model2 = CatBoostClassifier(
+    loss_function="Logloss",
+    iterations=2000,
+    depth=6,
+    learning_rate=0.03,
+    random_seed=SEED,
+    verbose=0,
+    eval_metric="Accuracy"
+)
+
+model2.fit(
+    X2_train,
+    y_train,
+    cat_features=cat_cols2,
+    eval_set=(X2_val, y_val),
+    use_best_model=True
+)
+
+val_pred2 = model2.predict(X2_val)
+val_acc2 = accuracy_score(y_val, val_pred2)
+
+# Validation performance of ensemble (for reporting)
+val_proba1 = model1.predict_proba(X1_val)[:, 1]
+val_proba2 = model2.predict_proba(X2_val)[:, 1]
+
+w1 = val_acc1 / (val_acc1 + val_acc2) if (val_acc1 + val_acc2) > 0 else 0.5
+w2 = val_acc2 / (val_acc1 + val_acc2) if (val_acc1 + val_acc2) > 0 else 0.5
+
+val_ensemble_pred = ((w1 * val_proba1 + w2 * val_proba2) >= 0.5).astype(int)
+final_validation_score = accuracy_score(y_val, val_ensemble_pred)
+print(f"Final Validation Performance: {final_validation_score:.6f}")
+
+# Train final models on full data
+final_model1 = CatBoostClassifier(
+    loss_function="Logloss",
+    iterations=model1.get_best_iteration() if model1.get_best_iteration() is not None else 2000,
+    depth=6,
+    learning_rate=0.03,
+    random_seed=SEED,
+    verbose=0,
+    eval_metric="Accuracy"
+)
+final_model1.fit(X1, y1, cat_features=cat_cols1)
+
+final_model2 = CatBoostClassifier(
+    loss_function="Logloss",
+    iterations=model2.get_best_iteration() if model2.get_best_iteration() is not None else 2000,
+    depth=6,
+    learning_rate=0.03,
+    random_seed=SEED,
+    verbose=0,
+    eval_metric="Accuracy"
+)
+final_model2.fit(X2, y2, cat_features=cat_cols2)
+
+test_proba1 = final_model1.predict_proba(X1_test)[:, 1]
+test_proba2 = final_model2.predict_proba(X2_test)[:, 1]
+
+test_ensemble_proba = w1 * test_proba1 + w2 * test_proba2
+test_pred = (test_ensemble_proba >= 0.5).astype(bool)
+
+submission = pd.DataFrame({
+    "PassengerId": test["PassengerId"],
+    "Transported": test_pred
+})
+
+submission.to_csv("submission.csv", index=False)
+```
+[92m22:00:12 - LiteLLM:INFO[0m: utils.py:3748 - 
+LiteLLM completion() model= gpt-5.4-mini; provider = openai
+/home/flo/uni/mle-star-skrub/mle-star_vanilla/agents/machine-learning-engineering/.venv/lib/python3.14/site-packages/pydantic/main.py:464: UserWarning: Pydantic serializer warnings:
+  PydanticSerializationUnexpectedValue(Expected 10 fields but got 6: Expected `Message` - serialized value may not be as expected [field_name='message', input_value=Message(content='- Keep t...: None}, annotations=[]), input_type=Message])
+  PydanticSerializationUnexpectedValue(Expected `StreamingChoices` - serialized value may not be as expected [field_name='choices', input_value=Choices(finish_reason='st...ider_specific_fields={}), input_type=Choices])
+  return self.__pydantic_serializer__.to_python(
+[ensemble_plan_refine_agent]: - Keep the two CatBoost models, but change the merge from a single global weighted average to a disagreement-aware blend.
+
+- Use the same validation split for both models, and collect out-of-fold-like signals only on that split:
+  - `p1 = model1.predict_proba(X1_val)[:, 1]`
+  - `p2 = model2.predict_proba(X2_val)[:, 1]`
+
+- Instead of one fixed weight for every passenger, make the final weight depend on confidence:
+  - If both models give similar probabilities, average them normally.
+  - If one model is near 0.5 and the other is confident, trust the confident one more.
+  - If the models strongly disagree, fall back to the model with better validation accuracy on that split.
+
+- A very easy implementation is a gated ensemble:
+  - Compute `d = abs(p1 - p2)`
+  - For small `d`, use `0.5 * p1 + 0.5 * p2`
+  - For medium `d`, use `0.65 * better_model + 0.35 * other_model`
+  - For large `d`, use `better_model` only
+  - Choose the thresholds from the validation split once, then reuse them for test.
+
+- To make this even more stable without changing the models, add a tiny calibration step on the validation split:
+  - Fit a simple one-dimensional calibration for each model output using the validation probabilities and labels, or just clip probabilities away from 0/1 before blending.
+  - This often helps when one model is overconfident.
+
+- Final test prediction:
+  - Get both test probability vectors.
+  - Apply the same confidence gate per row.
+  - Convert the final blended probability to class with threshold 0.5.
+
+- Why this is better than plain weighted averaging:
+  - The two feature sets are not equally useful for every passenger.
+  - Some rows are dominated by cabin/group structure, others by spending patterns.
+  - A gated merge lets each model “win” only where it is more reliable, which is usually stronger than one fixed global weight.
+[92m22:00:16 - LiteLLM:INFO[0m: utils.py:3748 - 
+LiteLLM completion() model= gpt-5.4-mini; provider = openai
+/home/flo/uni/mle-star-skrub/mle-star_vanilla/agents/machine-learning-engineering/.venv/lib/python3.14/site-packages/pydantic/main.py:464: UserWarning: Pydantic serializer warnings:
+  PydanticSerializationUnexpectedValue(Expected 10 fields but got 6: Expected `Message` - serialized value may not be as expected [field_name='message', input_value=Message(content='```pytho...: None}, annotations=[]), input_type=Message])
+  PydanticSerializationUnexpectedValue(Expected `StreamingChoices` - serialized value may not be as expected [field_name='choices', input_value=Choices(finish_reason='st...ider_specific_fields={}), input_type=Choices])
+  return self.__pydantic_serializer__.to_python(
+[ensemble_plan_implement_agent]: ```python
+import os
+import random
+import numpy as np
+import pandas as pd
+from catboost import CatBoostClassifier
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import accuracy_score
+from sklearn.isotonic import IsotonicRegression
+import torch
+
+SEED = 42
+random.seed(SEED)
+np.random.seed(SEED)
+torch.manual_seed(SEED)
+
+INPUT_DIR = "./input"
+train_path = os.path.join(INPUT_DIR, "train.csv")
+test_path = os.path.join(INPUT_DIR, "test.csv")
+
+train = pd.read_csv(train_path)
+test = pd.read_csv(test_path)
+
+
+def feature_engineering(df):
+    df = df.copy()
+
+    # Cabin split
+    cabin_split = df["Cabin"].fillna("NA/NA/NA").astype(str).str.split("/", expand=True)
+    df["Deck"] = cabin_split[0].astype(str)
+    df["CabinNum"] = pd.to_numeric(cabin_split[1], errors="coerce")
+    df["Side"] = cabin_split[2].astype(str)
+
+    # Passenger group features
+    df["Group"] = df["PassengerId"].astype(str).str.split("_").str[0].astype(str)
+    df["GroupSize"] = df.groupby("Group")["PassengerId"].transform("count").astype(int)
+
+    # Spending features
+    spending_cols = ["RoomService", "FoodCourt", "ShoppingMall", "Spa", "VRDeck"]
+    for col in spending_cols:
+        df[col] = pd.to_numeric(df[col], errors="coerce")
+
+    df["TotalSpending"] = df[spending_cols].sum(axis=1)
+    df["NoSpending"] = (df["TotalSpending"] == 0).astype(int)
+
+    # Cheap high-signal interactions
+    df["AnySpending"] = (df[spending_cols].fillna(0).sum(axis=1) > 0).astype(int)
+    df["SpendingPerPerson"] = df["TotalSpending"] / df["GroupSize"].replace(0, np.nan)
+
+    # Optional per-category nonzero indicators
+    for col in spending_cols:
+        df[f"{col}_NonZero"] = (df[col].fillna(0) > 0).astype(int)
+
+    # Missingness indicators
+    for col in ["Age", "RoomService", "FoodCourt", "ShoppingMall", "Spa", "VRDeck", "CabinNum"]:
+        if col in df.columns:
+            df[col + "_isna"] = df[col].isna().astype(int)
+
+    # Keep raw cabin/group signals and core categoricals for CatBoost
+    categorical_like = ["HomePlanet", "CryoSleep", "Destination", "VIP", "Deck", "Side", "Group"]
+    for c in categorical_like:
+        if c in df.columns:
+            df[c] = df[c].astype("string").fillna("NA").astype(str)
+
+    # Keep booleans as strings to avoid CatBoost categorical type issues
+    for c in ["CryoSleep", "VIP"]:
+        if c in df.columns:
+            df[c] = df[c].astype("string").fillna("NA").astype(str)
+
+    return df
+
+
+train_fe = feature_engineering(train)
+test_fe = feature_engineering(test)
+
+y = train_fe["Transported"].astype(int)
+X = train_fe.drop(columns=["Transported"])
+
+# Align test to train columns
+X_test = test_fe.reindex(columns=X.columns, fill_value=np.nan).copy()
+
+# Identify categorical columns explicitly and ensure they are string-like
+cat_cols = [
+    c for c in X.columns
+    if X[c].dtype == "object" or str(X[c].dtype).startswith("string")
+]
+
+# Convert categorical columns in both train/test to string with a single missing token
+for c in cat_cols:
+    X[c] = X[c].astype("string").fillna("NA").astype(str)
+    X_test[c] = X_test[c].astype("string").fillna("NA").astype(str)
+
+# Fill numeric missing values
+num_cols = [c for c in X.columns if c not in cat_cols]
+for c in num_cols:
+    X[c] = pd.to_numeric(X[c], errors="coerce")
+    X_test[c] = pd.to_numeric(X_test[c], errors="coerce")
+    med = X[c].median()
+    if pd.isna(med):
+        med = 0
+    X[c] = X[c].fillna(med)
+    X_test[c] = X_test[c].fillna(med)
+
+# Hold-out validation split
+X_train, X_val, y_train, y_val = train_test_split(
+    X, y, test_size=0.2, random_state=SEED, stratify=y
+)
+
+# Model 1: original CatBoost
+model1 = CatBoostClassifier(
+    loss_function="Logloss",
+    iterations=2000,
+    depth=6,
+    learning_rate=0.03,
+    random_seed=SEED,
+    verbose=0,
+    eval_metric="Accuracy"
+)
+
+model1.fit(
+    X_train,
+    y_train,
+    cat_features=cat_cols,
+    eval_set=(X_val, y_val),
+    use_best_model=True
+)
+
+# Model 2: same family, slightly different configuration to encourage complementarity
+model2 = CatBoostClassifier(
+    loss_function="Logloss",
+    iterations=2500,
+    depth=8,
+    learning_rate=0.025,
+    random_seed=SEED + 1,
+    verbose=0,
+    eval_metric="Accuracy",
+    l2_leaf_reg=4.0,
+    subsample=0.85,
+    rsm=0.85
+)
+
+model2.fit(
+    X_train,
+    y_train,
+    cat_features=cat_cols,
+    eval_set=(X_val, y_val),
+    use_best_model=True
+)
+
+# Validation probabilities
+p1_val = model1.predict_proba(X_val)[:, 1]
+p2_val = model2.predict_proba(X_val)[:, 1]
+
+# Tiny calibration step: clip + isotonic calibration on validation split
+eps = 1e-6
+p1_val = np.clip(p1_val, eps, 1 - eps)
+p2_val = np.clip(p2_val, eps, 1 - eps)
+
+cal1 = IsotonicRegression(out_of_bounds="clip")
+cal2 = IsotonicRegression(out_of_bounds="clip")
+cal1.fit(p1_val, y_val)
+cal2.fit(p2_val, y_val)
+
+p1_val_cal = np.clip(cal1.transform(p1_val), eps, 1 - eps)
+p2_val_cal = np.clip(cal2.transform(p2_val), eps, 1 - eps)
+
+pred1_val = (p1_val_cal >= 0.5).astype(int)
+pred2_val = (p2_val_cal >= 0.5).astype(int)
+
+acc1 = accuracy_score(y_val, pred1_val)
+acc2 = accuracy_score(y_val, pred2_val)
+
+better_is_model1 = acc1 >= acc2
+
+# Learn gate thresholds from validation split once
+d_val = np.abs(p1_val_cal - p2_val_cal)
+
+# Candidate thresholds over quantiles for a simple gated ensemble
+q1 = float(np.quantile(d_val, 0.33))
+q2 = float(np.quantile(d_val, 0.66))
+if q1 >= q2:
+    q1, q2 = 0.15, 0.35
+
+def gated_blend(p1, p2, better_model1=True, t1=q1, t2=q2):
+    d = np.abs(p1 - p2)
+    if better_model1:
+        better = p1
+        other = p2
+    else:
+        better = p2
+        other = p1
+
+    blended = np.empty_like(p1, dtype=float)
+
+    small = d <= t1
+    medium = (d > t1) & (d <= t2)
+    large = d > t2
+
+    blended[small] = 0.5 * p1[small] + 0.5 * p2[small]
+    blended[medium] = 0.65 * better[medium] + 0.35 * other[medium]
+    blended[large] = better[large]
+
+    return np.clip(blended, 1e-6, 1 - 1e-6)
+
+# Validation ensemble performance
+val_blend = gated_blend(p1_val_cal, p2_val_cal, better_model1=better_is_model1)
+val_pred = (val_blend >= 0.5).astype(int)
+val_acc = accuracy_score(y_val, val_pred)
+print(f"Final Validation Performance: {val_acc:.6f}")
+
+# Train on full data and predict test set
+final_model1 = CatBoostClassifier(
+    loss_function="Logloss",
+    iterations=model1.get_best_iteration() if model1.get_best_iteration() is not None else 2000,
+    depth=6,
+    learning_rate=0.03,
+    random_seed=SEED,
+    verbose=0,
+    eval_metric="Accuracy"
+)
+
+final_model2 = CatBoostClassifier(
+    loss_function="Logloss",
+    iterations=model2.get_best_iteration() if model2.get_best_iteration() is not None else 2500,
+    depth=8,
+    learning_rate=0.025,
+    random_seed=SEED + 1,
+    verbose=0,
+    eval_metric="Accuracy",
+    l2_leaf_reg=4.0,
+    subsample=0.85,
+    rsm=0.85
+)
+
+final_model1.fit(X, y, cat_features=cat_cols)
+final_model2.fit(X, y, cat_features=cat_cols)
+
+p1_test = final_model1.predict_proba(X_test)[:, 1]
+p2_test = final_model2.predict_proba(X_test)[:, 1]
+
+p1_test = np.clip(cal1.transform(np.clip(p1_test, eps, 1 - eps)), eps, 1 - eps)
+p2_test = np.clip(cal2.transform(np.clip(p2_test, eps, 1 - eps)), eps, 1 - eps)
+
+test_blend = gated_blend(p1_test, p2_test, better_model1=better_is_model1)
+test_pred = (test_blend >= 0.5).astype(bool)
+
+submission = pd.DataFrame({
+    "PassengerId": test["PassengerId"],
+    "Transported": test_pred
+})
+
+submission.to_csv("submission.csv", index=False)
+```
+[92m22:06:45 - LiteLLM:INFO[0m: utils.py:3748 - 
+LiteLLM completion() model= gpt-5.4-mini; provider = openai
+/home/flo/uni/mle-star-skrub/mle-star_vanilla/agents/machine-learning-engineering/.venv/lib/python3.14/site-packages/pydantic/main.py:464: UserWarning: Pydantic serializer warnings:
+  PydanticSerializationUnexpectedValue(Expected 10 fields but got 6: Expected `Message` - serialized value may not be as expected [field_name='message', input_value=Message(content='```pytho...: None}, annotations=[]), input_type=Message])
+  PydanticSerializationUnexpectedValue(Expected `StreamingChoices` - serialized value may not be as expected [field_name='choices', input_value=Choices(finish_reason='st...ider_specific_fields={}), input_type=Choices])
+  return self.__pydantic_serializer__.to_python(
+[submission_agent]: ```python
+import os
+import random
+import numpy as np
+import pandas as pd
+from catboost import CatBoostClassifier
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import accuracy_score
+from sklearn.isotonic import IsotonicRegression
+import torch
+
+SEED = 42
+random.seed(SEED)
+np.random.seed(SEED)
+torch.manual_seed(SEED)
+
+INPUT_DIR = "./input"
+OUTPUT_DIR = "./final"
+os.makedirs(OUTPUT_DIR, exist_ok=True)
+
+train_path = os.path.join(INPUT_DIR, "train.csv")
+test_path = os.path.join(INPUT_DIR, "test.csv")
+
+train = pd.read_csv(train_path)
+test = pd.read_csv(test_path)
+
+
+def feature_engineering(df):
+    df = df.copy()
+
+    # Cabin split
+    cabin_split = df["Cabin"].fillna("NA/NA/NA").astype(str).str.split("/", expand=True)
+    df["Deck"] = cabin_split[0].astype(str)
+    df["CabinNum"] = pd.to_numeric(cabin_split[1], errors="coerce")
+    df["Side"] = cabin_split[2].astype(str)
+
+    # Passenger group features
+    df["Group"] = df["PassengerId"].astype(str).str.split("_").str[0].astype(str)
+    df["GroupSize"] = df.groupby("Group")["PassengerId"].transform("count").astype(int)
+
+    # Spending features
+    spending_cols = ["RoomService", "FoodCourt", "ShoppingMall", "Spa", "VRDeck"]
+    for col in spending_cols:
+        df[col] = pd.to_numeric(df[col], errors="coerce")
+
+    df["TotalSpending"] = df[spending_cols].sum(axis=1)
+    df["NoSpending"] = (df["TotalSpending"] == 0).astype(int)
+
+    # Cheap high-signal interactions
+    df["AnySpending"] = (df[spending_cols].fillna(0).sum(axis=1) > 0).astype(int)
+    df["SpendingPerPerson"] = df["TotalSpending"] / df["GroupSize"].replace(0, np.nan)
+
+    # Optional per-category nonzero indicators
+    for col in spending_cols:
+        df[f"{col}_NonZero"] = (df[col].fillna(0) > 0).astype(int)
+
+    # Missingness indicators
+    for col in ["Age", "RoomService", "FoodCourt", "ShoppingMall", "Spa", "VRDeck", "CabinNum"]:
+        if col in df.columns:
+            df[col + "_isna"] = df[col].isna().astype(int)
+
+    # Keep raw cabin/group signals and core categoricals for CatBoost
+    categorical_like = ["HomePlanet", "CryoSleep", "Destination", "VIP", "Deck", "Side", "Group"]
+    for c in categorical_like:
+        if c in df.columns:
+            df[c] = df[c].astype("string").fillna("NA").astype(str)
+
+    # Keep booleans as strings to avoid CatBoost categorical type issues
+    for c in ["CryoSleep", "VIP"]:
+        if c in df.columns:
+            df[c] = df[c].astype("string").fillna("NA").astype(str)
+
+    return df
+
+
+train_fe = feature_engineering(train)
+test_fe = feature_engineering(test)
+
+y = train_fe["Transported"].astype(int)
+X = train_fe.drop(columns=["Transported"])
+
+# Align test to train columns
+X_test = test_fe.reindex(columns=X.columns, fill_value=np.nan).copy()
+
+# Identify categorical columns explicitly and ensure they are string-like
+cat_cols = [
+    c for c in X.columns
+    if X[c].dtype == "object" or str(X[c].dtype).startswith("string")
+]
+
+# Convert categorical columns in both train/test to string with a single missing token
+for c in cat_cols:
+    X[c] = X[c].astype("string").fillna("NA").astype(str)
+    X_test[c] = X_test[c].astype("string").fillna("NA").astype(str)
+
+# Fill numeric missing values
+num_cols = [c for c in X.columns if c not in cat_cols]
+for c in num_cols:
+    X[c] = pd.to_numeric(X[c], errors="coerce")
+    X_test[c] = pd.to_numeric(X_test[c], errors="coerce")
+    med = X[c].median()
+    if pd.isna(med):
+        med = 0
+    X[c] = X[c].fillna(med)
+    X_test[c] = X_test[c].fillna(med)
+
+# Hold-out validation split
+X_train, X_val, y_train, y_val = train_test_split(
+    X, y, test_size=0.2, random_state=SEED, stratify=y
+)
+
+# Model 1: original CatBoost
+model1 = CatBoostClassifier(
+    loss_function="Logloss",
+    iterations=2000,
+    depth=6,
+    learning_rate=0.03,
+    random_seed=SEED,
+    verbose=0,
+    eval_metric="Accuracy"
+)
+
+model1.fit(
+    X_train,
+    y_train,
+    cat_features=cat_cols,
+    eval_set=(X_val, y_val),
+    use_best_model=True
+)
+
+# Model 2: same family, slightly different configuration to encourage complementarity
+model2 = CatBoostClassifier(
+    loss_function="Logloss",
+    iterations=2500,
+    depth=8,
+    learning_rate=0.025,
+    random_seed=SEED + 1,
+    verbose=0,
+    eval_metric="Accuracy",
+    l2_leaf_reg=4.0,
+    subsample=0.85,
+    rsm=0.85
+)
+
+model2.fit(
+    X_train,
+    y_train,
+    cat_features=cat_cols,
+    eval_set=(X_val, y_val),
+    use_best_model=True
+)
+
+# Validation probabilities
+p1_val = model1.predict_proba(X_val)[:, 1]
+p2_val = model2.predict_proba(X_val)[:, 1]
+
+# Tiny calibration step: clip + isotonic calibration on validation split
+eps = 1e-6
+p1_val = np.clip(p1_val, eps, 1 - eps)
+p2_val = np.clip(p2_val, eps, 1 - eps)
+
+cal1 = IsotonicRegression(out_of_bounds="clip")
+cal2 = IsotonicRegression(out_of_bounds="clip")
+cal1.fit(p1_val, y_val)
+cal2.fit(p2_val, y_val)
+
+p1_val_cal = np.clip(cal1.transform(p1_val), eps, 1 - eps)
+p2_val_cal = np.clip(cal2.transform(p2_val), eps, 1 - eps)
+
+pred1_val = (p1_val_cal >= 0.5).astype(int)
+pred2_val = (p2_val_cal >= 0.5).astype(int)
+
+acc1 = accuracy_score(y_val, pred1_val)
+acc2 = accuracy_score(y_val, pred2_val)
+
+better_is_model1 = acc1 >= acc2
+
+# Learn gate thresholds from validation split once
+d_val = np.abs(p1_val_cal - p2_val_cal)
+
+# Candidate thresholds over quantiles for a simple gated ensemble
+q1 = float(np.quantile(d_val, 0.33))
+q2 = float(np.quantile(d_val, 0.66))
+if q1 >= q2:
+    q1, q2 = 0.15, 0.35
+
+def gated_blend(p1, p2, better_model1=True, t1=q1, t2=q2):
+    d = np.abs(p1 - p2)
+    if better_model1:
+        better = p1
+        other = p2
+    else:
+        better = p2
+        other = p1
+
+    blended = np.empty_like(p1, dtype=float)
+
+    small = d <= t1
+    medium = (d > t1) & (d <= t2)
+    large = d > t2
+
+    blended[small] = 0.5 * p1[small] + 0.5 * p2[small]
+    blended[medium] = 0.65 * better[medium] + 0.35 * other[medium]
+    blended[large] = better[large]
+
+    return np.clip(blended, 1e-6, 1 - 1e-6)
+
+# Validation ensemble performance
+val_blend = gated_blend(p1_val_cal, p2_val_cal, better_model1=better_is_model1)
+val_pred = (val_blend >= 0.5).astype(int)
+val_acc = accuracy_score(y_val, val_pred)
+print(f"Final Validation Performance: {val_acc:.6f}")
+
+# Train on full data and predict test set
+final_model1 = CatBoostClassifier(
+    loss_function="Logloss",
+    iterations=model1.get_best_iteration() if model1.get_best_iteration() is not None else 2000,
+    depth=6,
+    learning_rate=0.03,
+    random_seed=SEED,
+    verbose=0,
+    eval_metric="Accuracy"
+)
+
+final_model2 = CatBoostClassifier(
+    loss_function="Logloss",
+    iterations=model2.get_best_iteration() if model2.get_best_iteration() is not None else 2500,
+    depth=8,
+    learning_rate=0.025,
+    random_seed=SEED + 1,
+    verbose=0,
+    eval_metric="Accuracy",
+    l2_leaf_reg=4.0,
+    subsample=0.85,
+    rsm=0.85
+)
+
+final_model1.fit(X, y, cat_features=cat_cols)
+final_model2.fit(X, y, cat_features=cat_cols)
+
+p1_test = final_model1.predict_proba(X_test)[:, 1]
+p2_test = final_model2.predict_proba(X_test)[:, 1]
+
+p1_test = np.clip(cal1.transform(np.clip(p1_test, eps, 1 - eps)), eps, 1 - eps)
+p2_test = np.clip(cal2.transform(np.clip(p2_test, eps, 1 - eps)), eps, 1 - eps)
+
+test_blend = gated_blend(p1_test, p2_test, better_model1=better_is_model1)
+test_pred = (test_blend >= 0.5).astype(bool)
+
+submission = pd.DataFrame({
+    "PassengerId": test["PassengerId"],
+    "Transported": test_pred
+})
+
+submission.to_csv(os.path.join(OUTPUT_DIR, "submission.csv"), index=False)
+```
+[user]: 
+Aborted!

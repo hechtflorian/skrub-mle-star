@@ -1,0 +1,24 @@
+## Model name
+LGBMClassifier
+
+## Example Python code
+import pandas as pd
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import OrdinalEncoder
+from lightgbm import LGBMClassifier
+
+train = pd.read_csv('train.csv')
+test = pd.read_csv('test.csv')
+y = train['NObeyesdad']
+X = train.drop(columns=['NObeyesdad'])
+cat_cols = X.select_dtypes(include='object').columns.tolist()
+enc = OrdinalEncoder(handle_unknown='use_encoded_value', unknown_value=-1)
+X[cat_cols] = enc.fit_transform(X[cat_cols])
+test[cat_cols] = enc.transform(test[cat_cols])
+
+X_tr, X_val, y_tr, y_val = train_test_split(X, y, test_size=0.2, stratify=y, random_state=42)
+model = LGBMClassifier(objective='multiclass', n_estimators=3000, learning_rate=0.03, num_leaves=64)
+model.fit(X_tr, y_tr, eval_set=[(X_val, y_val)], eval_metric='multi_logloss')
+pred = model.predict(test)
+sub = pd.DataFrame({'id': test['id'], 'NObeyesdad': pred})
+sub.to_csv('submission.csv', index=False)

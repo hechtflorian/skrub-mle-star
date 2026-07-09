@@ -144,4 +144,3 @@ X2 = X1.skb.apply(ApplyToCols(skrub.StringEncoder(), cols=high_card))
 - Load `feature_engineering_skrub.md` for FE before or after encoding.
 - Load `choices_hparam_pattern.md` when tuning encoders (Pattern 2b).
 - Load `dataops_api_quickmap.md` for pipeline shape.
-- Load `common_failure_fixes.md` on encoding or scoring errors.
