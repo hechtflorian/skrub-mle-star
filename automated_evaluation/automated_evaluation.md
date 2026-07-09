@@ -81,6 +81,19 @@ Create `agents/machine-learning-engineering/.env` (see `.env.example`), at minim
 - `OPENAI_API_BASE` (if using an OpenAI-compatible endpoint, e.g. ChatAI)
 - `ROOT_AGENT_MODEL` (e.g. `openai/gpt-5.4-mini`)
 
+**Reload after editing `.env`.** Agent runs load each checkout's `.env` when `adk run` starts. The orchestrator's default `--model-label` (archive paths, `experiment_meta.json`) comes from **`ROOT_AGENT_MODEL` in your shell**, not from re-parsing `.env`. Before `run_experiments.py`, export it in the terminal you use for experiments:
+
+```bash
+cd agents/machine-learning-engineering
+set -a
+source .env
+set +a
+echo "$ROOT_AGENT_MODEL"   # verify
+cd ../..                   # mle-star_improved root
+```
+
+Repeat in the vanilla agent dir if you run `--systems vanilla` (or copy/symlink the same `.env`). New terminals need `source .env` again. Alternatively, pass `--model-label openai/your-model` on every run.
+
 ### 3. Vanilla baseline (required when `--systems vanilla`)
 
 The `vanilla-baseline` branch is maintained in the repo (standard (sklearn) prompts; no TableReport / tuning / skrub skills). After the worktree from step 0, set up the agent environment the same way as improved:
@@ -114,6 +127,8 @@ python automated_evaluation/generate_tasks_manifest.py --dry-run   # preview onl
 ```
 
 ### Step 1: Execute experiments
+
+If you changed `ROOT_AGENT_MODEL` in `.env`, `source .env` in this terminal first (see **§2 Reload after editing `.env`**).
 
 ```bash
 # Preview the run matrix without executing agents
@@ -181,7 +196,7 @@ Document your chosen policy in experiment notes. For strict cross-task isolation
 | `--repeats` | run | Repeat labels, e.g. `run1 run2` | `run1` |
 | `--repeat-count` | run | Generate `run1..runN` | — |
 | `--seed` | run, evaluate | Random seed (patched into agent config) | `42` |
-| `--model-label` | run, evaluate | Model name recorded in results | `ROOT_AGENT_MODEL` |
+| `--model-label` | run, evaluate | Model name recorded in results and archive paths | Shell `ROOT_AGENT_MODEL` at script start, or pass explicitly (see §2 — not read from agent `.env`) |
 | `--runs-root` | run, evaluate | Root directory for run archives | `runs/<UTC stamp>` |
 | `--improved-agent-dir` | run | Path to improved agent checkout | `agents/machine-learning-engineering` |
 | `--vanilla-agent-dir` | run | Path to vanilla agent checkout | `../mle-star_vanilla/agents/...` |
@@ -198,8 +213,11 @@ Document your chosen policy in experiment notes. For strict cross-task isolation
 For each run, `shared_libraries/config.py` is temporarily patched with task-specific fields only:
 
 - `task_name`, `task_type`, `lower`, `seed`
+- `seed` (default=42) is patched only if given as CLI arg
 
 All other agent settings (`use_data_leakage_checker`, `table_report_enabled`, `tuning_enabled`, loop counts, `num_solutions`, etc.) are read from each agent checkout's `config.py` and are not overridden by the orchestrator. Original config is restored after each run.
+
+=> each agents `config.py` is the **single source of truth**. Make sure they align for comparability. 
 
 ### Systems under comparison
 
