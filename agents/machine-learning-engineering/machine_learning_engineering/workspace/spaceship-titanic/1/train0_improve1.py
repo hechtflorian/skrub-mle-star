@@ -1,208 +1,193 @@
 
 import os
-import sys
-import subprocess
-import warnings
-warnings.filterwarnings("ignore")
-
-# Ensure catboost is available
-try:
-    from catboost import CatBoostClassifier, Pool
-except ModuleNotFoundError:
-    subprocess.check_call([sys.executable, "-m", "pip", "install", "catboost", "-q"])
-    from catboost import CatBoostClassifier, Pool
-
+import random
 import numpy as np
 import pandas as pd
+from catboost import CatBoostClassifier
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import accuracy_score
+import torch
 
-RANDOM_STATE = 42
-np.random.seed(RANDOM_STATE)
+SEED = 42
+random.seed(SEED)
+np.random.seed(SEED)
+torch.manual_seed(SEED)
 
 INPUT_DIR = "./input"
-TRAIN_PATH = os.path.join(INPUT_DIR, "train.csv")
-TEST_PATH = os.path.join(INPUT_DIR, "test.csv")
-SUBMISSION_PATH = "submission.csv"
+train_path = os.path.join(INPUT_DIR, "train.csv")
+test_path = os.path.join(INPUT_DIR, "test.csv")
 
-def safe_bool_to_int(x):
-    if pd.isna(x):
-        return np.nan
-    if isinstance(x, bool):
-        return int(x)
-    s = str(x).strip().lower()
-    if s in ("true", "1", "yes", "y", "t"):
-        return 1
-    if s in ("false", "0", "no", "n", "f"):
-        return 0
-    return np.nan
+train = pd.read_csv(train_path)
+test = pd.read_csv(test_path)
 
-def preprocess(df: pd.DataFrame) -> pd.DataFrame:
+
+def feature_engineering(df):
     df = df.copy()
 
-    # Cabin parsing
-    if "Cabin" in df.columns:
-        cabin = df["Cabin"].astype("string")
-        parts = cabin.str.split("/", expand=True)
-        df["CabinDeck"] = parts[0]
-        df["CabinNum"] = pd.to_numeric(parts[1], errors="coerce")
-        df["CabinSide"] = parts[2]
-    else:
-        df["CabinDeck"] = np.nan
-        df["CabinNum"] = np.nan
-        df["CabinSide"] = np.nan
+    # Cabin split
+    cabin_split = df["Cabin"].fillna("NA/NA/NA").astype(str).str.split("/", expand=True)
+    df["Deck"] = cabin_split[0].astype(str)
+    df["CabinNum"] = pd.to_numeric(cabin_split[1], errors="coerce")
+    df["Side"] = cabin_split[2].astype(str)
 
-    # Name parsing
-    if "Name" in df.columns:
-        name = df["Name"].astype("string")
-        df["Surname"] = name.str.split().str[-1]
-        df["NameLength"] = name.str.len()
-    else:
-        df["Surname"] = np.nan
-        df["NameLength"] = np.nan
+    # PassengerId / Ticket-style structure features
+    pid_str = df["PassengerId"].astype(str)
+    pid_split = pid_str.str.split("_", expand=True)
+    df["Group"] = pid_split[0].astype(str)
+    df["GroupSize"] = df.groupby("Group")["PassengerId"].transform("count").astype(int)
+    df["HasTicketGroup"] = (df["GroupSize"] > 1).astype(int)
+    df["IsAlone"] = (df["GroupSize"] == 1).astype(int)
 
-    # Boolean features
-    for col in ["CryoSleep", "VIP"]:
-        if col in df.columns:
-            df[col] = df[col].map(safe_bool_to_int)
+    # Cabin structure / missingness pattern features
+    df["CabinKnown"] = df["Cabin"].notna().astype(int)
+    df["CabinMissingPattern"] = np.where(
+        df["Cabin"].isna(), "AllMissing", np.where(df["CabinNum"].isna(), "PartialMissing", "Known")
+    )
+
+    # Name-related features kept light
+    df["Surname"] = df["Name"].fillna("NA").astype(str).str.split().str[-1].astype(str)
+    df["HasSurname"] = (df["Surname"] != "NA").astype(int)
 
     # Spending features
-    spent_cols = [c for c in ["RoomService", "FoodCourt", "ShoppingMall", "Spa", "VRDeck"] if c in df.columns]
-    for c in spent_cols:
-        df[c] = pd.to_numeric(df[c], errors="coerce")
+    spending_cols = ["RoomService", "FoodCourt", "ShoppingMall", "Spa", "VRDeck"]
+    for col in spending_cols:
+        df[col] = pd.to_numeric(df[col], errors="coerce")
 
-    if spent_cols:
-        df["TotalSpent"] = df[spent_cols].sum(axis=1)
-        df["NoSpending"] = (df["TotalSpent"] == 0).astype(float)
-        df["SpentVar"] = df[spent_cols].var(axis=1)
-    else:
-        df["TotalSpent"] = np.nan
-        df["NoSpending"] = np.nan
-        df["SpentVar"] = np.nan
+    df["TotalSpending"] = df[spending_cols].sum(axis=1)
+    df["TotalSpendingLog1p"] = np.log1p(df["TotalSpending"].clip(lower=0))
 
-    # Age features
+    df["EssentialsSpending"] = df[["RoomService", "FoodCourt", "ShoppingMall"]].sum(axis=1)
+    df["LuxurySpending"] = df[["Spa", "VRDeck"]].sum(axis=1)
+    df["EssentialsSpendingLog1p"] = np.log1p(df["EssentialsSpending"].clip(lower=0))
+    df["LuxurySpendingLog1p"] = np.log1p(df["LuxurySpending"].clip(lower=0))
+
+    df["AnySpending"] = (df["TotalSpending"] > 0).astype(int)
+    df["NoSpending"] = (df["TotalSpending"] == 0).astype(int)
+    df["AnyEssentialsSpending"] = (df["EssentialsSpending"] > 0).astype(int)
+    df["AnyLuxurySpending"] = (df["LuxurySpending"] > 0).astype(int)
+
+    # Missingness indicators
+    for col in ["Age", "RoomService", "FoodCourt", "ShoppingMall", "Spa", "VRDeck", "CabinNum"]:
+        if col in df.columns:
+            df[col + "_isna"] = df[col].isna().astype(int)
+
+    # Discretized numeric features for coarse regime separation
     if "Age" in df.columns:
         df["Age"] = pd.to_numeric(df["Age"], errors="coerce")
-        df["AgeGroup"] = pd.cut(
-            df["Age"],
-            bins=[-np.inf, 12, 18, 30, 45, 60, np.inf],
-            labels=["child", "teen", "young_adult", "adult", "mid_age", "senior"],
-        ).astype("object")
-        df["IsChild"] = (df["Age"] <= 12).astype(float)
-        df["IsSenior"] = (df["Age"] >= 60).astype(float)
-    else:
-        df["AgeGroup"] = np.nan
-        df["IsChild"] = np.nan
-        df["IsSenior"] = np.nan
+        if df["Age"].notna().sum() > 1:
+            try:
+                df["AgeBin"] = pd.qcut(df["Age"], q=5, duplicates="drop").astype(str)
+            except Exception:
+                df["AgeBin"] = pd.cut(df["Age"], bins=[-np.inf, 12, 18, 30, 45, 60, np.inf], include_lowest=True).astype(str)
+        else:
+            df["AgeBin"] = "NA"
 
-    # Drop raw text columns
-    df = df.drop(columns=["Cabin", "Name"], errors="ignore")
+    if "CabinNum" in df.columns:
+        if df["CabinNum"].notna().sum() > 1:
+            try:
+                df["CabinNumBin"] = pd.qcut(df["CabinNum"], q=5, duplicates="drop").astype(str)
+            except Exception:
+                df["CabinNumBin"] = pd.cut(
+                    df["CabinNum"],
+                    bins=[-np.inf, 200, 400, 600, 800, np.inf],
+                    include_lowest=True
+                ).astype(str)
+        else:
+            df["CabinNumBin"] = "NA"
 
-    # Ensure categorical-like columns remain object for CatBoost
-    for col in df.columns:
-        if df[col].dtype.name in ["object", "string", "category"]:
-            df[col] = df[col].astype("object")
+    # Force intended categorical columns to string/object dtype
+    categorical_like = [
+        "HomePlanet", "CryoSleep", "Destination", "VIP", "Deck", "Side",
+        "Group", "Surname", "CabinMissingPattern", "AgeBin", "CabinNumBin"
+    ]
+    for c in categorical_like:
+        if c in df.columns:
+            df[c] = df[c].astype("string").fillna("NA").astype(str)
+
+    # Keep booleans as strings to avoid CatBoost categorical type issues
+    for c in ["CryoSleep", "VIP"]:
+        if c in df.columns:
+            df[c] = df[c].astype("string").fillna("NA").astype(str)
 
     return df
 
-train_df = pd.read_csv(TRAIN_PATH)
-test_df = pd.read_csv(TEST_PATH)
 
-y = train_df["Transported"].map(safe_bool_to_int).astype(int)
-X = train_df.drop(columns=["Transported"])
-test_ids = test_df["PassengerId"].copy()
+train_fe = feature_engineering(train)
+test_fe = feature_engineering(test)
 
-X_proc = preprocess(X)
-test_proc = preprocess(test_df)
+y = train_fe["Transported"].astype(int)
+X = train_fe.drop(columns=["Transported"])
 
-# Align columns between train and test
-feature_cols = [c for c in X_proc.columns if c in test_proc.columns]
-X_proc = X_proc[feature_cols].copy()
-test_proc = test_proc[feature_cols].copy()
+# Align test to train columns
+X_test = test_fe.reindex(columns=X.columns, fill_value=np.nan).copy()
 
-# Identify categorical columns before imputation
-cat_cols = [c for c in X_proc.columns if X_proc[c].dtype == "object"]
+# Identify categorical columns explicitly and ensure they are string-like
+cat_cols = [
+    c for c in X.columns
+    if X[c].dtype == "object" or str(X[c].dtype).startswith("string")
+]
 
-# Fill missing values
-for c in feature_cols:
-    if c in cat_cols:
-        X_proc[c] = X_proc[c].fillna("missing").astype("object")
-        test_proc[c] = test_proc[c].fillna("missing").astype("object")
-    else:
-        X_proc[c] = pd.to_numeric(X_proc[c], errors="coerce")
-        test_proc[c] = pd.to_numeric(test_proc[c], errors="coerce")
-        med = pd.concat([X_proc[c], test_proc[c]], axis=0).median()
-        if pd.isna(med):
-            med = 0.0
-        X_proc[c] = X_proc[c].fillna(med)
-        test_proc[c] = test_proc[c].fillna(med)
+# Convert categorical columns in both train/test to string with a single missing token
+for c in cat_cols:
+    X[c] = X[c].astype("string").fillna("NA").astype(str)
+    X_test[c] = X_test[c].astype("string").fillna("NA").astype(str)
 
-# Add simple interaction features that are commonly useful
-for df in (X_proc, test_proc):
-    if all(c in df.columns for c in ["Age", "TotalSpent"]):
-        df["Age_x_Spent"] = df["Age"] * df["TotalSpent"]
-    if all(c in df.columns for c in ["CryoSleep", "TotalSpent"]):
-        df["CryoSleep_x_Spent"] = df["CryoSleep"] * df["TotalSpent"]
+# Fill numeric missing values
+num_cols = [c for c in X.columns if c not in cat_cols]
+for c in num_cols:
+    X[c] = pd.to_numeric(X[c], errors="coerce")
+    X_test[c] = pd.to_numeric(X_test[c], errors="coerce")
+    med = X[c].median()
+    if pd.isna(med):
+        med = 0
+    X[c] = X[c].fillna(med)
+    X_test[c] = X_test[c].fillna(med)
 
-# Recalculate categorical columns after new features
-cat_cols = [c for c in X_proc.columns if X_proc[c].dtype == "object"]
-
-# Train/validation split
+# Hold-out validation split
 X_train, X_val, y_train, y_val = train_test_split(
-    X_proc, y, test_size=0.2, random_state=RANDOM_STATE, stratify=y
+    X, y, test_size=0.2, random_state=SEED, stratify=y
 )
 
-cat_cols = [c for c in X_train.columns if X_train[c].dtype == "object"]
-
-train_pool = Pool(X_train, y_train, cat_features=cat_cols)
-val_pool = Pool(X_val, y_val, cat_features=cat_cols)
-test_pool = Pool(test_proc, cat_features=cat_cols)
-
-# Model
 model = CatBoostClassifier(
     loss_function="Logloss",
-    eval_metric="Accuracy",
-    iterations=2500,
+    iterations=2000,
+    depth=6,
     learning_rate=0.03,
-    depth=8,
-    l2_leaf_reg=3.0,
-    random_seed=RANDOM_STATE,
-    verbose=200,
-    early_stopping_rounds=150,
-    allow_writing_files=False,
-    auto_class_weights="Balanced",
+    random_seed=SEED,
+    verbose=0,
+    eval_metric="Accuracy"
 )
 
-model.fit(train_pool, eval_set=val_pool, use_best_model=True)
+model.fit(
+    X_train,
+    y_train,
+    cat_features=cat_cols,
+    eval_set=(X_val, y_val),
+    use_best_model=True
+)
 
-# Validation performance
-val_pred_proba = model.predict_proba(X_val)[:, 1]
-val_pred = (val_pred_proba >= 0.5).astype(int)
-final_validation_score = accuracy_score(y_val, val_pred)
-print(f"Final Validation Performance: {final_validation_score}")
+val_pred = model.predict(X_val)
+val_acc = accuracy_score(y_val, val_pred)
+print(f"Final Validation Performance: {val_acc:.6f}")
 
-# Fit on full data for final submission
-full_pool = Pool(X_proc, y, cat_features=cat_cols)
+# Train on full data and predict test set
 final_model = CatBoostClassifier(
     loss_function="Logloss",
-    eval_metric="Accuracy",
-    iterations=int(model.get_best_iteration() or 2500),
+    iterations=model.get_best_iteration() if model.get_best_iteration() is not None else 2000,
+    depth=6,
     learning_rate=0.03,
-    depth=8,
-    l2_leaf_reg=3.0,
-    random_seed=RANDOM_STATE,
-    verbose=200,
-    allow_writing_files=False,
-    auto_class_weights="Balanced",
+    random_seed=SEED,
+    verbose=0,
+    eval_metric="Accuracy"
 )
-final_model.fit(full_pool)
 
-test_pred_proba = final_model.predict_proba(test_proc)[:, 1]
-test_pred = test_pred_proba >= 0.5
+final_model.fit(X, y, cat_features=cat_cols)
+
+test_pred = final_model.predict(X_test).astype(bool)
 
 submission = pd.DataFrame({
-    "PassengerId": test_ids,
-    "Transported": test_pred.astype(bool)
+    "PassengerId": test["PassengerId"],
+    "Transported": test_pred
 })
 
-submission.to_csv(SUBMISSION_PATH, index=False)
+submission.to_csv("submission.csv", index=False)

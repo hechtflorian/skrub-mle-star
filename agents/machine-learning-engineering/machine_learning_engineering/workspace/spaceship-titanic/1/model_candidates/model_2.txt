@@ -1,31 +1,37 @@
 ## Model name
-LightGBMClassifier
+LightGBM with simple feature engineering
 
 ## Example Python code
 import pandas as pd
+import numpy as np
 from lightgbm import LGBMClassifier
+from sklearn.model_selection import train_test_split
 
 train = pd.read_csv('train.csv')
 test = pd.read_csv('test.csv')
 
-for df in [train, test]:
-    df[['Deck','Num','Side']] = df['Cabin'].fillna('X/0/X').str.split('/', expand=True)
-    df['Group'] = df['PassengerId'].astype(str).str.split('_').str[0]
-    df['FamilySize'] = df['Group'].map(df['Group'].value_counts())
-    df['NameLen'] = df['Name'].fillna('').str.len()
-    df.drop(['Cabin','Name'], axis=1, inplace=True)
+def fe(df):
+    df = df.copy()
+    cabin = df['Cabin'].fillna('X/X/X').str.split('/', expand=True)
+    df['Deck'] = cabin[0]; df['Num'] = pd.to_numeric(cabin[1], errors='coerce')
+    df['Side'] = cabin[2]
+    df['GroupSize'] = df.groupby('Group')['PassengerId'].transform('count') if 'Group' in df.columns else 1
+    return df
 
-full = pd.concat([train.drop('Transported', axis=1), test], axis=0)
-full = pd.get_dummies(full, dummy_na=True)
-X = full.iloc[:len(train)]
-test_X = full.iloc[len(train):]
+for d in [train, test]:
+    d[['HomePlanet','CryoSleep','Cabin','Destination','VIP']] = d[['HomePlanet','CryoSleep','Cabin','Destination','VIP']].astype('object')
+    d['Group'] = d['PassengerId'].str.split('_').str[0]
+    d = d
+train = fe(train); test = fe(test)
 y = train['Transported'].astype(int)
-
-X = X.fillna(-1)
-test_X = test_X.fillna(-1)
-
-model = LGBMClassifier(n_estimators=1200, learning_rate=0.03, num_leaves=31, subsample=0.8, colsample_bytree=0.8)
+X = train.drop(columns=['Transported'])
+X = X.fillna(-1); test = test.fillna(-1)
+cat = X.select_dtypes(include='object').columns.tolist()
+for c in cat:
+    X[c] = X[c].astype('category')
+    test[c] = test[c].astype('category')
+model = LGBMClassifier(n_estimators=1200, learning_rate=0.03, num_leaves=31)
 model.fit(X, y)
-preds = model.predict(test_X)
-submission = pd.DataFrame({'PassengerId': test['PassengerId'], 'Transported': preds.astype(bool)})
-submission.to_csv('submission.csv', index=False)
+pred = model.predict(test)
+sub = pd.DataFrame({'PassengerId': test['PassengerId'], 'Transported': pred.astype(bool)})
+sub.to_csv('submission.csv', index=False)

@@ -30,13 +30,13 @@ class DefaultConfig:
     max_retry: int = (
         10  # The maximum number of times to retry a failed operation. (DEFAULT: 10)
     )
-    max_debug_round: int = 3  # The maximum number of iterations or rounds allowed for the debugging step. (DEFAULT: 5)
+    max_debug_round: int = 5  # The maximum number of iterations or rounds allowed for the debugging step. (DEFAULT: 5)
     max_rollback_round: int = 2  # The maximum number of times the system can rollback to a previous state, in case of errors or poor performance. (DEFAULT: 2)
     inner_loop_round: int = 1  # The number of iterations or rounds to be executed within an inner loop of the system. (DEFAULT: 1)
     outer_loop_round: int = 1  # The number of iterations or rounds to be executed within the outer loop, which might encompass multiple inner loops. (DEFAULT: 1)
     ensemble_loop_round: int = 1  # The number of rounds or iterations dedicated to ensembling, combining multiple models or solutions. (DEFAULT: 1)
     num_top_plans: int = 2  # The number of highest-scoring plans or strategies to select or retain. (DEFAULT: 2)
-    use_data_leakage_checker: bool = True  # Enable (`True`) or disable (`False`) a check for data leakage in the machine learning pipeline. (DEFAULT: False)
+    use_data_leakage_checker: bool = False  # Enable (`True`) or disable (`False`) a check for data leakage in the machine learning pipeline. (DEFAULT: False)
     use_data_usage_checker: bool = False  # Enable (`True`) or disable (`False`) a check for how data is being used, potentially for compliance or best practices. (DEFAULT: False)
 
 

@@ -1,24 +1,18 @@
 
 import os
-import warnings
-warnings.filterwarnings("ignore")
-
+import random
 import numpy as np
 import pandas as pd
-
-from sklearn.model_selection import StratifiedKFold, cross_val_score
+import torch
+from lightgbm import LGBMClassifier
+from sklearn.model_selection import train_test_split
 from sklearn.metrics import accuracy_score
-from sklearn.compose import ColumnTransformer
-from sklearn.pipeline import Pipeline
-from sklearn.impute import SimpleImputer
-from sklearn.preprocessing import OneHotEncoder
-from sklearn.ensemble import RandomForestClassifier
-from sklearn.linear_model import LogisticRegression
-from sklearn.ensemble import GradientBoostingClassifier
 
-# -------------------------
-# Load data
-# -------------------------
+SEED = 42
+random.seed(SEED)
+np.random.seed(SEED)
+torch.manual_seed(SEED)
+
 INPUT_DIR = "./input"
 train_path = os.path.join(INPUT_DIR, "train.csv")
 test_path = os.path.join(INPUT_DIR, "test.csv")
@@ -26,167 +20,120 @@ test_path = os.path.join(INPUT_DIR, "test.csv")
 train = pd.read_csv(train_path)
 test = pd.read_csv(test_path)
 
-y = train["Transported"].astype(int)
-X = train.drop(columns=["Transported"])
-test_ids = test["PassengerId"].copy()
-
-# -------------------------
-# Feature engineering
-# -------------------------
-def preprocess(df):
+def feature_engineering(df):
     df = df.copy()
 
-    # Cabin split
-    if "Cabin" in df.columns:
-        cabin = df["Cabin"].astype(str).str.split("/", expand=True)
-        df["CabinDeck"] = cabin[0]
-        df["CabinNum"] = pd.to_numeric(cabin[1], errors="coerce")
-        df["CabinSide"] = cabin[2]
-        df.drop(columns=["Cabin"], inplace=True)
+    # Cabin parsing
+    cabin = df["Cabin"].fillna("X/X/X").astype(str).str.split("/", expand=True)
+    df["Deck"] = cabin[0].astype(str)
+    df["Num"] = pd.to_numeric(cabin[1], errors="coerce")
+    df["Side"] = cabin[2].astype(str)
 
-    # Name-based family features
-    if "Name" in df.columns:
-        df["Surname"] = df["Name"].astype(str).str.split().str[-1]
-        df["NameLength"] = df["Name"].astype(str).str.len()
-        df.drop(columns=["Name"], inplace=True)
+    # Group info from PassengerId
+    df["Group"] = df["PassengerId"].astype(str).str.split("_").str[0].astype(str)
+    df["GroupSize"] = df.groupby("Group")["PassengerId"].transform("count").astype(int)
 
-    # Spending features
-    spend_cols = ["RoomService", "FoodCourt", "ShoppingMall", "Spa", "VRDeck"]
-    existing_spend_cols = [c for c in spend_cols if c in df.columns]
-    if existing_spend_cols:
-        df["TotalSpend"] = df[existing_spend_cols].sum(axis=1)
-        df["HasSpending"] = (df["TotalSpend"] > 0).astype(int)
-        df["NoSpending"] = (df["TotalSpend"] == 0).astype(int)
+    # Surname info from Name
+    df["Surname"] = df["Name"].fillna("NA").astype(str).str.split().str[-1].astype(str)
+    df["SurnameSize"] = df.groupby("Surname")["PassengerId"].transform("count").astype(int)
 
-    # Age bins
-    if "Age" in df.columns:
-        df["AgeBin"] = pd.cut(
-            df["Age"],
-            bins=[-np.inf, 12, 18, 25, 35, 50, 65, np.inf],
-            labels=False
-        )
+    spending_cols = ["RoomService", "FoodCourt", "ShoppingMall", "Spa", "VRDeck"]
+    for col in spending_cols:
+        df[col] = pd.to_numeric(df[col], errors="coerce")
 
-    # Passenger group from PassengerId
-    if "PassengerId" in df.columns:
-        pid = df["PassengerId"].astype(str).str.split("_", expand=True)
-        df["GroupId"] = pid[0]
-        df["GroupMember"] = pd.to_numeric(pid[1], errors="coerce")
+    df["TotalSpending"] = df[spending_cols].sum(axis=1)
+    df["NoSpending"] = (df["TotalSpending"] == 0).astype(int)
+    df["SpentAny"] = (df["TotalSpending"] > 0).astype(int)
 
-    # Boolean normalization
-    for col in df.columns:
-        if df[col].dtype == object:
-            uniq = set(df[col].dropna().astype(str).unique())
-            if uniq.issubset({"True", "False"}):
-                df[col] = df[col].map({"True": 1, "False": 0})
+    df["Age"] = pd.to_numeric(df["Age"], errors="coerce")
+    df["AgeBin"] = pd.cut(df["Age"], bins=[-1, 5, 12, 18, 25, 35, 50, 65, 200], labels=False)
+
+    for col in ["Age", "RoomService", "FoodCourt", "ShoppingMall", "Spa", "VRDeck", "Num"]:
+        if col in df.columns:
+            df[col + "_isna"] = df[col].isna().astype(int)
+
+    # Convert bool-like / categorical columns to string for later category casting
+    categorical_cols = ["HomePlanet", "CryoSleep", "Destination", "VIP", "Deck", "Side", "Group", "Surname"]
+    for c in categorical_cols:
+        df[c] = df[c].astype("string").fillna("NA")
 
     return df
 
-X = preprocess(X)
-test = preprocess(test)
+train_fe = feature_engineering(train)
+test_fe = feature_engineering(test)
 
-# Ensure identical columns
-for c in X.columns:
-    if c not in test.columns:
-        test[c] = np.nan
-for c in test.columns:
-    if c not in X.columns and c != "Transported":
-        X[c] = np.nan
+y = train_fe["Transported"].astype(int)
+X = train_fe.drop(columns=["Transported"]).copy()
 
-X = X[test.columns]
+# Ensure test has same columns as train features
+X_test = test_fe.reindex(columns=X.columns, fill_value=np.nan).copy()
 
-# -------------------------
-# Build model
-# -------------------------
-categorical_cols = [c for c in X.columns if X[c].dtype == "object"]
-numeric_cols = [c for c in X.columns if c not in categorical_cols]
+# Drop raw free-text and identifiers that are not directly useful as numeric features
+# Keep engineered versions (Group, Surname) as categorical features
+drop_cols = ["PassengerId", "Cabin", "Name"]
+for col in drop_cols:
+    if col in X.columns:
+        X = X.drop(columns=[col])
+    if col in X_test.columns:
+        X_test = X_test.drop(columns=[col])
 
-numeric_transformer = Pipeline(steps=[
-    ("imputer", SimpleImputer(strategy="median"))
-])
+# Detect categorical columns and convert them to pandas 'category' dtype for LightGBM
+cat_cols = [c for c in X.columns if X[c].dtype == "object" or str(X[c].dtype).startswith("string") or str(X[c].dtype) == "bool"]
+for c in cat_cols:
+    X[c] = X[c].astype("category")
+    X_test[c] = X_test[c].astype("category")
 
-categorical_transformer = Pipeline(steps=[
-    ("imputer", SimpleImputer(strategy="most_frequent")),
-    ("onehot", OneHotEncoder(handle_unknown="ignore"))
-])
+# Numeric columns: coerce to numeric and fill missing values with train medians
+num_cols = [c for c in X.columns if c not in cat_cols]
+for c in num_cols:
+    X[c] = pd.to_numeric(X[c], errors="coerce")
+    X_test[c] = pd.to_numeric(X_test[c], errors="coerce")
+    med = X[c].median()
+    if pd.isna(med):
+        med = 0
+    X[c] = X[c].fillna(med)
+    X_test[c] = X_test[c].fillna(med)
 
-preprocessor = ColumnTransformer(
-    transformers=[
-        ("num", numeric_transformer, numeric_cols),
-        ("cat", categorical_transformer, categorical_cols),
-    ]
+# Align categories between train and test for categorical columns
+for c in cat_cols:
+    all_cats = pd.Index(pd.concat([X[c].astype("string"), X_test[c].astype("string")], axis=0).fillna("NA").unique())
+    X[c] = pd.Categorical(X[c].astype("string").fillna("NA"), categories=all_cats)
+    X_test[c] = pd.Categorical(X_test[c].astype("string").fillna("NA"), categories=all_cats)
+
+X_train, X_val, y_train, y_val = train_test_split(
+    X, y, test_size=0.2, random_state=SEED, stratify=y
 )
 
-models = []
+model = LGBMClassifier(
+    n_estimators=1200,
+    learning_rate=0.03,
+    num_leaves=31,
+    subsample=0.9,
+    colsample_bytree=0.9,
+    random_state=SEED
+)
 
-models.append((
-    "rf",
-    RandomForestClassifier(
-        n_estimators=400,
-        max_depth=None,
-        min_samples_split=4,
-        min_samples_leaf=2,
-        random_state=42,
-        n_jobs=-1
-    )
-))
+model.fit(X_train, y_train, categorical_feature=cat_cols)
 
-models.append((
-    "lr",
-    LogisticRegression(
-        max_iter=2000,
-        C=1.0,
-        solver="liblinear",
-        random_state=42
-    )
-))
+val_pred = model.predict(X_val)
+val_acc = accuracy_score(y_val, val_pred)
+print(f"Final Validation Performance: {val_acc:.6f}")
 
-models.append((
-    "gb",
-    GradientBoostingClassifier(random_state=42)
-))
+final_model = LGBMClassifier(
+    n_estimators=1200,
+    learning_rate=0.03,
+    num_leaves=31,
+    subsample=0.9,
+    colsample_bytree=0.9,
+    random_state=SEED
+)
 
-# -------------------------
-# Cross-validation and ensemble
-# -------------------------
-skf = StratifiedKFold(n_splits=5, shuffle=True, random_state=42)
-val_scores = []
-test_probas = []
+final_model.fit(X, y, categorical_feature=cat_cols)
 
-for name, clf in models:
-    pipe = Pipeline(steps=[
-        ("preprocessor", preprocessor),
-        ("model", clf)
-    ])
-    cv_score = cross_val_score(pipe, X, y, cv=skf, scoring="accuracy", n_jobs=-1).mean()
-    val_scores.append(cv_score)
+test_pred = final_model.predict(X_test).astype(bool)
 
-    pipe.fit(X, y)
-    if hasattr(pipe.named_steps["model"], "predict_proba"):
-        proba = pipe.predict_proba(test)[:, 1]
-    else:
-        proba = pipe.decision_function(test)
-        proba = (proba - proba.min()) / (proba.max() - proba.min() + 1e-9)
-    test_probas.append(proba)
-
-final_validation_score = float(np.mean(val_scores))
-print(f"Final Validation Performance: {final_validation_score}")
-
-# Weighted average by validation score
-weights = np.array(val_scores)
-weights = weights / weights.sum()
-ensemble_proba = np.zeros(len(test))
-for w, p in zip(weights, test_probas):
-    ensemble_proba += w * p
-
-preds = (ensemble_proba >= 0.5).astype(bool)
-
-# -------------------------
-# Submission
-# -------------------------
 submission = pd.DataFrame({
-    "PassengerId": test_ids,
-    "Transported": preds
+    "PassengerId": test["PassengerId"],
+    "Transported": test_pred
 })
-
 submission.to_csv("submission.csv", index=False)
-print(submission.head())
