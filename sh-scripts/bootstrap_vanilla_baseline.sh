@@ -5,9 +5,9 @@
 # common_util text=None guard. No ADK skills, TableReport, or tuning stage.
 # Prompts at ffa365c lightly encourage skrub DataOps in prose (no skill toolset).
 #
-# Usage (from mle-star_improved repo root):
-#   ./scripts/bootstrap_vanilla_baseline.sh
-#   ./scripts/bootstrap_vanilla_baseline.sh --dest ../mle-star_vanilla --revert-prompts
+# Usage (from skrub-mle-star repo root):
+#   ./sh-scripts/bootstrap_vanilla_baseline.sh
+#   ./sh-scripts/bootstrap_vanilla_baseline.sh --dest ../mle-star_vanilla --revert-prompts
 #
 # Recommended: git worktree mode (default) — branch vanilla-baseline @ ffa365c in a
 # sibling directory, same repo history, easy diff vs improve-refinement.
@@ -47,7 +47,8 @@ Modes:
 
 After bootstrap:
   cd <dest>/agents/machine-learning-engineering
-  cp ../../mle-star_improved/agents/machine-learning-engineering/.env .   # or symlink
+  cp ../../../skrub-mle-star/agents/machine-learning-engineering/.env .   # if clone is skrub-mle-star
+  # or from skrub-mle-star root: cp agents/machine-learning-engineering/.env ../mle-star_vanilla/agents/machine-learning-engineering/.env
   uv sync && uv run adk run machine_learning_engineering
 EOF
 }
@@ -77,7 +78,7 @@ done
 
 REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || true)"
 if [[ -z "$REPO_ROOT" ]]; then
-  echo "Error: run from inside the mle-star_improved git repository." >&2
+  echo "Error: run from inside the skrub-mle-star git repository." >&2
   exit 1
 fi
 cd "$REPO_ROOT"
@@ -240,7 +241,7 @@ write_marker() {
 
 \`\`\`bash
 cd agents/machine-learning-engineering
-# copy .env from mle-star_improved if needed
+# copy .env from skrub-mle-star if needed
 uv sync
 uv run adk run machine_learning_engineering
 \`\`\`
@@ -315,10 +316,10 @@ Done.
 
 Next steps:
   1. cd ${AGENTS_DIR}
-  2. Copy .env from mle-star_improved (same ROOT_AGENT_MODEL / OPENAI_API_*)
+  2. Copy .env from skrub-mle-star (same ROOT_AGENT_MODEL / OPENAI_API_*)
   3. uv sync
   4. Smoke: uv run adk run machine_learning_engineering
-  5. Archive runs into mle-star_improved/experiments/phase1/<task>/vanilla/...
+  5. Archive runs under skrub-mle-star/automated_evaluation/runs/<stamp>/...
 
 To compare code vs skrub-full:
   git diff vanilla-baseline..improve-refinement -- ${AGENTS_REL}/machine_learning_engineering

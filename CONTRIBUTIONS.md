@@ -5,8 +5,8 @@ What was built on top of upstream MLE-STAR ([Google ADK samples](https://github.
 ## Baselines for comparison
 
 - **Upstream** = the original Google ADK sample (our initial import).
-- **Vanilla** = branch `vanilla-baseline`, sibling worktree `[../mle-star_vanilla/](../mle-star_vanilla/)`. This is upstream **plus our OpenAI/ChatAI runtime-compatibility layer**, so those runtime changes are still **our** contribution even though they also live in vanilla.
-- **Improved** = branch `main` (this tree), everything in vanilla **plus** the skrub DataOps skill, TableReport profiling, the tuning stage, drift/robustness guards, and prompt hardening.
+- **Vanilla** = branch `vanilla-baseline`, sibling worktree `[../mle-star_vanilla/](../mle-star_vanilla/)` (next to the `skrub-mle-star/` checkout). This is upstream **plus our OpenAI/ChatAI runtime-compatibility layer**, so those runtime changes are still **our** contribution even though they also live in vanilla.
+- **Improved** = branch `main` in `skrub-mle-star/` (this tree), everything in vanilla **plus** the skrub DataOps skill, TableReport profiling, the tuning stage, drift/robustness guards, and prompt hardening.
 - Some sections might dublicate, if modifications are wired through multiple files. We group by MLE-STARs folder structure: `shared_libraries`, `sub_agents`. `skills`, etc.
 
 ```bash

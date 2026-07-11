@@ -82,26 +82,62 @@ We report the **private leaderboard score** of our Kaggle submissions (`./final/
 Tasks were intentionally selected by considering dataset-size (ressource efficiency), competition-finish (availability of private leaderboard for honest evaluation), and task diversity (different applications, data types, tabular regression vs classification). We also included two suitable tasks that were released after the supposed gpt-5.4 pretraining cutoff date in hopes of avoiding eventual pretraining leakage (introverts-extroverts, spaceship-titanic).
 
 
-| Task                                 | Metric      | Base LLM      | Skrub-full (private) | Vanilla (private) | Δ (skrub adv.) | Winner     |
-| ------------------------------------ | ----------- | ------------- | -------------------- | ----------------- | -------------- | ---------- |
-| abalone-regression                   | RMSLE ↓     | gpt-5.4-mini  | 0.41994              | **0.14764**       | −0.27230       | vanilla    |
-| gpt-5.4                              | 0.14721     | **0.14666**   | −0.00055             | tie †             |                |            |
-| bike-sharing-regression              | RMSLE ↓     | gpt-5.4-mini  | 1.34240              | **1.00468**       | −0.33772       | vanilla    |
-| gpt-5.4                              | 0.47622     | **0.40002**   | −0.07620             | vanilla           |                |            |
-| blueberry-yield-regression           | MAE ↓       | gpt-5.4-mini  | 348.724              | **336.013**       | −12.711        | vanilla    |
-| gpt-5.4                              | **333.258** | 334.516       | +1.258               | skrub-full        |                |            |
-| employee-attrition-classification    | roc_auc ↑   | gpt-5.4-mini  | 0.63622              | **0.85169**       | −0.21547       | vanilla    |
-| gpt-5.4                              | 0.85599     | **0.88189**   | −0.02590             | vanilla           |                |            |
-| introverts-extroverts-classification | acc ↑       | gpt-5.4-mini  | 0.96761              | **0.96802**       | −0.00041       | tie †      |
-| gpt-5.4                              | 0.96802     | **0.96862**   | −0.00061             | tie †             |                |            |
-| multi-class-pred-obesity-risk        | acc ↑       | gpt-5.4-mini  | 0.89514              | **0.90092**       | −0.00578       | vanilla    |
-| gpt-5.4                              | **0.90480** | 0.90200       | +0.00280             | skrub-full        |                |            |
-| reservation-cancel-classification    | roc_auc ↑   | gpt-5.4-mini  | 0.82988              | **0.90179**       | −0.07191       | vanilla    |
-| gpt-5.4                              | 0.89457     | **0.90254**   | −0.00797             | vanilla           |                |            |
-| restaurant-revenue-regression        | RMSE ↓      | gpt-5.4-mini  | **1,947,091**        | 2,579,579         | +632,488       | skrub-full |
-| gpt-5.4                              | 2,124,753   | **1,813,474** | −311,279             | vanilla           |                |            |
-| spaceship-titanic *                  | acc ↑       | gpt-5.4-mini  | 0.79401              | **0.81038**       | −0.01637       | vanilla    |
-| gpt-5.4                              | 0.80453     | **0.80570**   | −0.00117             | tie †             |                |            |
+<table>
+<thead>
+<tr>
+<th align="left">Task</th><th align="left">Metric</th><th align="left">Base LLM</th>
+<th align="right">Skrub-full (private)</th><th align="right">Vanilla (private)</th>
+<th align="right">Δ (skrub adv.)</th><th align="left">Winner</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td rowspan="2">abalone-regression</td><td rowspan="2">RMSLE ↓</td>
+<td>gpt-5.4-mini</td><td align="right">0.41994</td><td align="right"><strong>0.14764</strong></td><td align="right">−0.27230</td><td>vanilla</td>
+</tr>
+<tr><td>gpt-5.4</td><td align="right">0.14721</td><td align="right"><strong>0.14666</strong></td><td align="right">−0.00055</td><td>tie <sup>†</sup></td></tr>
+<tr>
+<td rowspan="2">bike-sharing-regression</td><td rowspan="2">RMSLE ↓</td>
+<td>gpt-5.4-mini</td><td align="right">1.34240</td><td align="right"><strong>1.00468</strong></td><td align="right">−0.33772</td><td>vanilla</td>
+</tr>
+<tr><td>gpt-5.4</td><td align="right">0.47622</td><td align="right"><strong>0.40002</strong></td><td align="right">−0.07620</td><td>vanilla</td></tr>
+<tr>
+<td rowspan="2">blueberry-yield-regression</td><td rowspan="2">MAE ↓</td>
+<td>gpt-5.4-mini</td><td align="right">348.724</td><td align="right"><strong>336.013</strong></td><td align="right">−12.711</td><td>vanilla</td>
+</tr>
+<tr><td>gpt-5.4</td><td align="right"><strong>333.258</strong></td><td align="right">334.516</td><td align="right">+1.258</td><td>skrub-full</td></tr>
+<tr>
+<td rowspan="2">employee-attrition-classification</td><td rowspan="2">roc_auc ↑</td>
+<td>gpt-5.4-mini</td><td align="right">0.63622</td><td align="right"><strong>0.85169</strong></td><td align="right">−0.21547</td><td>vanilla</td>
+</tr>
+<tr><td>gpt-5.4</td><td align="right">0.85599</td><td align="right"><strong>0.88189</strong></td><td align="right">−0.02590</td><td>vanilla</td></tr>
+<tr>
+<td rowspan="2">introverts-extroverts-classification</td><td rowspan="2">acc ↑</td>
+<td>gpt-5.4-mini</td><td align="right">0.96761</td><td align="right"><strong>0.96802</strong></td><td align="right">−0.00041</td><td>tie <sup>†</sup></td>
+</tr>
+<tr><td>gpt-5.4</td><td align="right">0.96802</td><td align="right"><strong>0.96862</strong></td><td align="right">−0.00061</td><td>tie <sup>†</sup></td></tr>
+<tr>
+<td rowspan="2">multi-class-pred-obesity-risk</td><td rowspan="2">acc ↑</td>
+<td>gpt-5.4-mini</td><td align="right">0.89514</td><td align="right"><strong>0.90092</strong></td><td align="right">−0.00578</td><td>vanilla</td>
+</tr>
+<tr><td>gpt-5.4</td><td align="right"><strong>0.90480</strong></td><td align="right">0.90200</td><td align="right">+0.00280</td><td>skrub-full</td></tr>
+<tr>
+<td rowspan="2">reservation-cancel-classification</td><td rowspan="2">roc_auc ↑</td>
+<td>gpt-5.4-mini</td><td align="right">0.82988</td><td align="right"><strong>0.90179</strong></td><td align="right">−0.07191</td><td>vanilla</td>
+</tr>
+<tr><td>gpt-5.4</td><td align="right">0.89457</td><td align="right"><strong>0.90254</strong></td><td align="right">−0.00797</td><td>vanilla</td></tr>
+<tr>
+<td rowspan="2">restaurant-revenue-regression</td><td rowspan="2">RMSE ↓</td>
+<td>gpt-5.4-mini</td><td align="right"><strong>1,947,091</strong></td><td align="right">2,579,579</td><td align="right">+632,488</td><td>skrub-full</td>
+</tr>
+<tr><td>gpt-5.4</td><td align="right">2,124,753</td><td align="right"><strong>1,813,474</strong></td><td align="right">−311,279</td><td>vanilla</td></tr>
+<tr>
+<td rowspan="2">spaceship-titanic *</td><td rowspan="2">acc ↑</td>
+<td>gpt-5.4-mini</td><td align="right">0.79401</td><td align="right"><strong>0.81038</strong></td><td align="right">−0.01637</td><td>vanilla</td>
+</tr>
+<tr><td>gpt-5.4</td><td align="right">0.80453</td><td align="right"><strong>0.80570</strong></td><td align="right">−0.00117</td><td>tie <sup>†</sup></td></tr>
+</tbody>
+</table>
 
 
 - spaceship-titanic: **public** leaderboard score (20% of test); private (80%) was still processing at write time. All other rows are private scores.
@@ -123,28 +159,68 @@ Private-LB summary (9 tasks incl. spaceship public):
 Two rows per task (one per base LLM). Δ = `vanilla − skrub`, so **positive (bold) = skrub-full faster**. `DataOps` is skrub-full's adherence (vanilla = 0.0 on every task). Detailed sources: `report.md` [(small)](automated_evaluation/eval_results/20260707_115040_gpt_small/report.md) · `[report.md` (large)](automated_evaluation/eval_results/20260709_144250_gpt_large/report.md), "Per (task, system) summary".
 
 
-| Task                                 | Base LLM     | Wall skrub (s) | Wall vanilla (s) | ΔWall (s) | Exec skrub (s) | Exec vanilla (s) | ΔExec (s) | DataOps [0,1] |
-| ------------------------------------ | ------------ | -------------- | ---------------- | --------- | -------------- | ---------------- | --------- | ------------- |
-| abalone-regression                   | gpt-5.4-mini | 2362           | 5506             | **+3143** | 2092           | 2872             | **+780**  | 0.861         |
-| gpt-5.4                              | 573          | 6351           | **+5777**        | 347       | 3275           | **+2928**        | 0.847     |               |
-| bike-sharing-regression              | gpt-5.4-mini | 1251           | 977              | −274      | 588            | 842              | **+254**  | 0.944         |
-| gpt-5.4                              | 537          | 313            | −224             | 163       | 205            | **+42**          | 0.978     |               |
-| blueberry-yield-regression           | gpt-5.4-mini | 9673           | 1045             | −8628     | 896            | 1021             | **+124**  | 0.821         |
-| gpt-5.4                              | 567          | 818            | **+251**         | 352       | 580            | **+228**         | 0.861     |               |
-| covid19-forecasting-regression       | gpt-5.4-mini | 11348          | 1001             | −10347    | 2004           | 358              | −1646     | 0.931         |
-| gpt-5.4                              | 1272         | 893            | −379             | 740       | 660            | −80              | 0.857     |               |
-| employee-attrition-classification    | gpt-5.4-mini | 804            | 226              | −578      | 771            | 89               | −683      | 0.917         |
-| gpt-5.4                              | 503          | 472            | −31              | 212       | 291            | **+79**          | 0.857     |               |
-| introverts-extroverts-classification | gpt-5.4-mini | 1014           | 842              | −172      | 297            | 599              | **+302**  | 0.917         |
-| gpt-5.4                              | 1102         | 867            | −235             | 377       | 831            | **+454**         | 0.819     |               |
-| multi-class-pred-obesity-risk        | gpt-5.4-mini | 3554           | 6112             | **+2558** | 1322           | 3388             | **+2066** | 0.833         |
-| gpt-5.4                              | 2501         | 10810          | **+8309**        | 678       | 4221           | **+3543**        | 0.750     |               |
-| reservation-cancel-classification    | gpt-5.4-mini | 1671           | 3740             | **+2069** | 1695           | 2184             | **+490**  | 0.861         |
-| gpt-5.4                              | 1030         | 2147           | **+1117**        | 646       | 1581           | **+935**         | 0.694     |               |
-| restaurant-revenue-regression        | gpt-5.4-mini | 538            | 280              | −258      | 131            | 216              | **+85**   | 0.875         |
-| gpt-5.4                              | 920          | 867            | −53              | 403       | 800            | **+397**         | 0.798     |               |
-| spaceship-titanic                    | gpt-5.4-mini | 1237           | 2015             | **+778**  | 566            | 2170             | **+1604** | 0.847         |
-| gpt-5.4                              | 529          | 278            | −251             | 245       | 125            | −120             | 0.929     |               |
+<table>
+<thead>
+<tr>
+<th align="left">Task</th><th align="left">Base LLM</th>
+<th align="right">Wall skrub (s)</th><th align="right">Wall vanilla (s)</th><th align="right">ΔWall (s)</th>
+<th align="right">Exec skrub (s)</th><th align="right">Exec vanilla (s)</th><th align="right">ΔExec (s)</th>
+<th align="right">DataOps [0,1]</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td rowspan="2">abalone-regression</td>
+<td>gpt-5.4-mini</td><td align="right">2362</td><td align="right">5506</td><td align="right"><strong>+3143</strong></td><td align="right">2092</td><td align="right">2872</td><td align="right"><strong>+780</strong></td><td align="right">0.861</td>
+</tr>
+<tr><td>gpt-5.4</td><td align="right">573</td><td align="right">6351</td><td align="right"><strong>+5777</strong></td><td align="right">347</td><td align="right">3275</td><td align="right"><strong>+2928</strong></td><td align="right">0.847</td></tr>
+<tr>
+<td rowspan="2">bike-sharing-regression</td>
+<td>gpt-5.4-mini</td><td align="right">1251</td><td align="right">977</td><td align="right">−274</td><td align="right">588</td><td align="right">842</td><td align="right"><strong>+254</strong></td><td align="right">0.944</td>
+</tr>
+<tr><td>gpt-5.4</td><td align="right">537</td><td align="right">313</td><td align="right">−224</td><td align="right">163</td><td align="right">205</td><td align="right"><strong>+42</strong></td><td align="right">0.978</td></tr>
+<tr>
+<td rowspan="2">blueberry-yield-regression</td>
+<td>gpt-5.4-mini</td><td align="right">9673</td><td align="right">1045</td><td align="right">−8628</td><td align="right">896</td><td align="right">1021</td><td align="right"><strong>+124</strong></td><td align="right">0.821</td>
+</tr>
+<tr><td>gpt-5.4</td><td align="right">567</td><td align="right">818</td><td align="right"><strong>+251</strong></td><td align="right">352</td><td align="right">580</td><td align="right"><strong>+228</strong></td><td align="right">0.861</td></tr>
+<tr>
+<td rowspan="2">covid19-forecasting-regression</td>
+<td>gpt-5.4-mini</td><td align="right">11348</td><td align="right">1001</td><td align="right">−10347</td><td align="right">2004</td><td align="right">358</td><td align="right">−1646</td><td align="right">0.931</td>
+</tr>
+<tr><td>gpt-5.4</td><td align="right">1272</td><td align="right">893</td><td align="right">−379</td><td align="right">740</td><td align="right">660</td><td align="right">−80</td><td align="right">0.857</td></tr>
+<tr>
+<td rowspan="2">employee-attrition-classification</td>
+<td>gpt-5.4-mini</td><td align="right">804</td><td align="right">226</td><td align="right">−578</td><td align="right">771</td><td align="right">89</td><td align="right">−683</td><td align="right">0.917</td>
+</tr>
+<tr><td>gpt-5.4</td><td align="right">503</td><td align="right">472</td><td align="right">−31</td><td align="right">212</td><td align="right">291</td><td align="right"><strong>+79</strong></td><td align="right">0.857</td></tr>
+<tr>
+<td rowspan="2">introverts-extroverts-classification</td>
+<td>gpt-5.4-mini</td><td align="right">1014</td><td align="right">842</td><td align="right">−172</td><td align="right">297</td><td align="right">599</td><td align="right"><strong>+302</strong></td><td align="right">0.917</td>
+</tr>
+<tr><td>gpt-5.4</td><td align="right">1102</td><td align="right">867</td><td align="right">−235</td><td align="right">377</td><td align="right">831</td><td align="right"><strong>+454</strong></td><td align="right">0.819</td></tr>
+<tr>
+<td rowspan="2">multi-class-pred-obesity-risk</td>
+<td>gpt-5.4-mini</td><td align="right">3554</td><td align="right">6112</td><td align="right"><strong>+2558</strong></td><td align="right">1322</td><td align="right">3388</td><td align="right"><strong>+2066</strong></td><td align="right">0.833</td>
+</tr>
+<tr><td>gpt-5.4</td><td align="right">2501</td><td align="right">10810</td><td align="right"><strong>+8309</strong></td><td align="right">678</td><td align="right">4221</td><td align="right"><strong>+3543</strong></td><td align="right">0.750</td></tr>
+<tr>
+<td rowspan="2">reservation-cancel-classification</td>
+<td>gpt-5.4-mini</td><td align="right">1671</td><td align="right">3740</td><td align="right"><strong>+2069</strong></td><td align="right">1695</td><td align="right">2184</td><td align="right"><strong>+490</strong></td><td align="right">0.861</td>
+</tr>
+<tr><td>gpt-5.4</td><td align="right">1030</td><td align="right">2147</td><td align="right"><strong>+1117</strong></td><td align="right">646</td><td align="right">1581</td><td align="right"><strong>+935</strong></td><td align="right">0.694</td></tr>
+<tr>
+<td rowspan="2">restaurant-revenue-regression</td>
+<td>gpt-5.4-mini</td><td align="right">538</td><td align="right">280</td><td align="right">−258</td><td align="right">131</td><td align="right">216</td><td align="right"><strong>+85</strong></td><td align="right">0.875</td>
+</tr>
+<tr><td>gpt-5.4</td><td align="right">920</td><td align="right">867</td><td align="right">−53</td><td align="right">403</td><td align="right">800</td><td align="right"><strong>+397</strong></td><td align="right">0.798</td></tr>
+<tr>
+<td rowspan="2">spaceship-titanic</td>
+<td>gpt-5.4-mini</td><td align="right">1237</td><td align="right">2015</td><td align="right"><strong>+778</strong></td><td align="right">566</td><td align="right">2170</td><td align="right"><strong>+1604</strong></td><td align="right">0.847</td>
+</tr>
+<tr><td>gpt-5.4</td><td align="right">529</td><td align="right">278</td><td align="right">−251</td><td align="right">245</td><td align="right">125</td><td align="right">−120</td><td align="right">0.929</td></tr>
+</tbody>
+</table>
 
 
 **Efficiency findings (consistent across both models).**

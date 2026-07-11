@@ -5,7 +5,7 @@ How we ran the benchmark, where the artifacts live, and how to reproduce or exte
 **Detailed harness reference:** [automated_evaluation/automated_evaluation.md](automated_evaluation/automated_evaluation.md)  
 Experimental **config, metrics, and result analysis:** [EXPERIMENTAL_RESULTS.md](EXPERIMENTAL_RESULTS.md)
 
-All commands below assume the **improved checkout root** (`mle-star_improved/`).
+All commands below assume the **improved checkout root** (`skrub-mle-star/`).
 
 ---
 
@@ -130,10 +130,9 @@ cd ../..
 
 # Vanilla worktree (required for --systems vanilla)
 git worktree add ../mle-star_vanilla vanilla-baseline   # skip if already present
-cd ../mle-star_vanilla/agents/machine-learning-engineering
-cp ../../../mle-star_improved/agents/machine-learning-engineering/.env .
-uv sync
-cd ../../../mle-star_improved
+cp agents/machine-learning-engineering/.env \
+   ../mle-star_vanilla/agents/machine-learning-engineering/.env
+(cd ../mle-star_vanilla/agents/machine-learning-engineering && uv sync)
 
 # Task manifest
 python automated_evaluation/generate_tasks_manifest.py
@@ -150,7 +149,7 @@ set -a
 source .env
 set +a
 echo "$ROOT_AGENT_MODEL"   # sanity check
-cd ../..                   # back to mle-star_improved root
+cd ../..                   # back to skrub-mle-star root
 ```
 
 Then start experiments in **that same terminal**. A new terminal needs `source .env` again. Alternative: pass `--model-label openai/your-model` explicitly (no shell export needed).

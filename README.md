@@ -75,19 +75,32 @@ After the agent starts and asks for input, you can tell it to "execute the given
 
 From the repo root on branch `**main**`. Full details: **[EXPERIMENTS.md](EXPERIMENTS.md)**.
 
-#### One-time setup (improved + vanilla)
+#### Directory layout (improved + vanilla)
 
-The harness compares **skrub-full** (`main`, this tree) against **vanilla** (upstream + runtime-compat only). Vanilla lives on branch `vanilla-baseline` in a sibling worktree:
+The harness compares **skrub-full** (`main`, this tree) against **vanilla** (upstream + runtime-compat only). Vanilla is a **sibling worktree** on branch `vanilla-baseline` (same Git repo, second checkout):
+
+```
+<parent>/
+├── skrub-mle-star/          # branch main — skrub-full (clone + run experiments here)
+│   ├── automated_evaluation/
+│   └── agents/machine-learning-engineering/
+└── mle-star_vanilla/        # branch vanilla-baseline — baseline for --systems vanilla
+    └── agents/machine-learning-engineering/
+```
+
+Your local folder names can differ; scripts resolve paths relative to each checkout. The vanilla worktree path `../mle-star_vanilla` is what `evaluate.py` and `run_experiments.py` expect by default.
+
+#### One-time setup (improved + vanilla)
 
 ```bash
 # Improved agent (if not done in Setup above)
 cd agents/machine-learning-engineering && cp .env.example .env && uv sync && cd ../..
 
 # Vanilla baseline — required for --systems vanilla
-git worktree add ../skrub-mle-star-vanilla vanilla-baseline   # skip if already present
+git worktree add ../mle-star_vanilla vanilla-baseline   # skip if already present
 cp agents/machine-learning-engineering/.env \
-   ../skrub-mle-star-vanilla/agents/machine-learning-engineering/.env
-(cd ../skrub-mle-star-vanilla/agents/machine-learning-engineering && uv sync)
+   ../mle-star_vanilla/agents/machine-learning-engineering/.env
+(cd ../mle-star_vanilla/agents/machine-learning-engineering && uv sync)
 
 # Task manifest (exists already, rerun if tasks changed)
 python automated_evaluation/generate_tasks_manifest.py

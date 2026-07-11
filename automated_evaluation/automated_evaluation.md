@@ -2,7 +2,7 @@
 
 `automated_evaluation/` provides a reproducible benchmark pipeline for MLE-STAR: define task metadata, execute agent runs, archive artifacts, and aggregate metrics into reports.
 
-**Run all commands from the improved checkout root** — the directory that contains `automated_evaluation/` and `agents/` (conventionally named `mle-star_improved/`).
+**Run all commands from the improved checkout root** — the directory that contains `automated_evaluation/` and `agents/` (conventionally named `skrub-mle-star/`).
 
 ## Repository layout
 
@@ -10,16 +10,16 @@ Improved and vanilla are **two branches of the same Git repository**, checked ou
 
 ```
 <parent>/
-├── mle-star_improved/          # branch: main — skrub-full (TableReport, tuning, skills)
+├── skrub-mle-star/          # branch: main — skrub-full (TableReport, tuning, skills)
 │   ├── automated_evaluation/
 │   └── agents/machine-learning-engineering/
-└── mle-star_vanilla/           # branch: vanilla-baseline — baseline MLE-STAR (no skrub)
+└── mle-star_vanilla/        # branch: vanilla-baseline — baseline MLE-STAR (no skrub)
     └── agents/machine-learning-engineering/
 ```
 
 | Branch | Worktree (default path) | Role |
 |--------|-------------------------|------|
-| `main` | `mle-star_improved/` | Improved agent (`--systems improved` → archive folder `skrub-full`) |
+| `main` | `skrub-mle-star/` | Improved agent (`--systems improved` → archive folder `skrub-full`) |
 | `vanilla-baseline` | `../mle-star_vanilla/` | Vanilla baseline (`--systems vanilla` → archive folder `vanilla`) |
 
 Both branches include the same bundled benchmark task packs under `machine_learning_engineering/tasks/`.
@@ -50,8 +50,8 @@ Each task folder needs `train.csv`, `test.csv`, and `task_description.txt`.
 ### 0. Clone and check out both branches
 
 ```bash
-git clone https://git.tu-berlin.de/wang.zk25/mle-star_improved.git mle-star_improved
-cd mle-star_improved
+git clone https://github.com/hechtflorian/skrub-mle-star.git skrub-mle-star
+cd skrub-mle-star
 git checkout main
 
 # Sibling worktree for vanilla (same repo, branch vanilla-baseline)
@@ -68,7 +68,7 @@ If `../mle-star_vanilla` already exists, skip `git worktree add`.
 cd agents/machine-learning-engineering
 cp .env.example .env          # fill OPENAI_API_KEY, OPENAI_API_BASE, ROOT_AGENT_MODEL
 uv sync
-cd ../..                      # back to mle-star_improved root
+cd ../..                      # back to skrub-mle-star root
 ```
 
 The orchestrator launches agents via `uv run adk run` inside each agent checkout.
@@ -89,7 +89,7 @@ set -a
 source .env
 set +a
 echo "$ROOT_AGENT_MODEL"   # verify
-cd ../..                   # mle-star_improved root
+cd ../..                   # skrub-mle-star root
 ```
 
 Repeat in the vanilla agent dir if you run `--systems vanilla` (or copy/symlink the same `.env`). New terminals need `source .env` again. Alternatively, pass `--model-label openai/your-model` on every run.
@@ -99,10 +99,10 @@ Repeat in the vanilla agent dir if you run `--systems vanilla` (or copy/symlink 
 The `vanilla-baseline` branch is maintained in the repo (standard (sklearn) prompts; no TableReport / tuning / skrub skills). After the worktree from step 0, set up the agent environment the same way as improved:
 
 ```bash
-cd ../mle-star_vanilla/agents/machine-learning-engineering
-cp ../../../mle-star_improved/agents/machine-learning-engineering/.env .   # or symlink
-uv sync
-cd ../../../mle-star_improved    # back to improved root for experiments
+# From skrub-mle-star root (after worktree from step 0)
+cp agents/machine-learning-engineering/.env \
+   ../mle-star_vanilla/agents/machine-learning-engineering/.env
+(cd ../mle-star_vanilla/agents/machine-learning-engineering && uv sync)
 ```
 
 **Task packs:** both branches already ship the bundled tasks. Use `--sync-tasks-to-vanilla` only when you changed tasks on `main` and want to copy them into the vanilla worktree before a run.
@@ -223,7 +223,7 @@ All other agent settings (`use_data_leakage_checker`, `table_report_enabled`, `t
 
 | Internal key | Archive folder | Worktree / branch | Description |
 |--------------|----------------|-------------------|-------------|
-| `improved` | `skrub-full` | `mle-star_improved/` · `main` | Skrub skills + agent defaults in improved `config.py` |
+| `improved` | `skrub-full` | `skrub-mle-star/` · `main` | Skrub skills + agent defaults in improved `config.py` |
 | `vanilla` | `vanilla` | `mle-star_vanilla/` · `vanilla-baseline` | Baseline prompts + agent defaults in vanilla `config.py` |
 
 ---
@@ -291,7 +291,7 @@ Pointer: `eval_results/latest.json`
 ### Smoke test (improved only)
 
 ```bash
-# From mle-star_improved root
+# From skrub-mle-star root
 python automated_evaluation/generate_tasks_manifest.py
 python automated_evaluation/run_experiments.py --dry-run --tasks spaceship-titanic --systems improved
 python automated_evaluation/run_experiments.py --tasks spaceship-titanic --systems improved
