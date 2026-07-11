@@ -1,0 +1,51 @@
+## Model name
+LightGBM + simple preprocessing
+
+## Example Python code
+import pandas as pd
+from sklearn.compose import ColumnTransformer
+from sklearn.pipeline import Pipeline
+from sklearn.impute import SimpleImputer
+from sklearn.preprocessing import OneHotEncoder
+from lightgbm import LGBMClassifier
+
+train = pd.read_csv('train.csv')
+test = pd.read_csv('test.csv')
+
+y = train['Transported'].astype(int)
+X = train.drop(columns=['Transported'])
+X_test = test.copy()
+
+for df in [X, X_test]:
+    df[['Deck','CabinNum','Side']] = df['Cabin'].fillna('Unknown/0/U').str.split('/', expand=True)
+    df['Group'] = df['PassengerId'].str.split('_').str[0]
+    df['Spending'] = df[['RoomService','FoodCourt','ShoppingMall','Spa','VRDeck']].fillna(0).sum(axis=1)
+    df.drop(columns=['Cabin','Name','PassengerId'], inplace=True)
+
+cat_cols = X.select_dtypes(include=['object','bool']).columns.tolist()
+num_cols = [c for c in X.columns if c not in cat_cols]
+
+preprocess = ColumnTransformer([
+    ('num', SimpleImputer(strategy='median'), num_cols),
+    ('cat', Pipeline([
+        ('imputer', SimpleImputer(strategy='most_frequent')),
+        ('oh', OneHotEncoder(handle_unknown='ignore'))
+    ]), cat_cols)
+])
+
+model = Pipeline([
+    ('prep', preprocess),
+    ('clf', LGBMClassifier(
+        n_estimators=500,
+        learning_rate=0.05,
+        num_leaves=31,
+        subsample=0.9,
+        colsample_bytree=0.8,
+        random_state=42
+    ))
+])
+
+model.fit(X, y)
+pred = model.predict(X_test).astype(bool)
+submission = pd.DataFrame({'PassengerId': test['PassengerId'], 'Transported': pred})
+submission.to_csv('submission.csv', index=False)

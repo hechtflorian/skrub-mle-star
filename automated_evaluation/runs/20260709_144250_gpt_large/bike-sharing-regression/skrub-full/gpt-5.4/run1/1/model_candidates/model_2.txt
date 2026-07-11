@@ -1,0 +1,46 @@
+## Model name
+XGBoost Regressor on log1p(count) with datetime feature engineering
+
+## Example Python code
+import pandas as pd
+import numpy as np
+from xgboost import XGBRegressor
+
+train = pd.read_csv('train.csv')
+test = pd.read_csv('test.csv')
+
+for df in (train, test):
+    dt = pd.to_datetime(df['datetime'])
+    df['year'] = dt.dt.year
+    df['month'] = dt.dt.month
+    df['day'] = dt.dt.day
+    df['hour'] = dt.dt.hour
+    df['weekday'] = dt.dt.weekday
+
+features = [
+    'season','holiday','workingday','weather',
+    'temp','atemp','humidity','windspeed',
+    'year','month','day','hour','weekday'
+]
+
+X_train = train[features]
+y_train = np.log1p(train['count'])
+X_test = test[features]
+
+model = XGBRegressor(
+    n_estimators=1000,
+    learning_rate=0.03,
+    max_depth=6,
+    subsample=0.9,
+    colsample_bytree=0.9,
+    objective='reg:squarederror',
+    random_state=42,
+    verbosity=0
+)
+model.fit(X_train, y_train)
+
+pred = np.expm1(model.predict(X_test))
+pred = np.clip(pred, 0, None)
+
+sub = pd.DataFrame({'datetime': test['datetime'], 'count': pred})
+sub.to_csv('submission.csv', index=False)

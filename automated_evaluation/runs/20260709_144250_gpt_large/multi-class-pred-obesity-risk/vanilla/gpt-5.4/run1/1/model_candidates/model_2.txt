@@ -1,0 +1,56 @@
+## Model name
+TabM
+
+## Example Python code
+import pandas as pd
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import OrdinalEncoder, LabelEncoder
+from sklearn.compose import ColumnTransformer
+from sklearn.pipeline import Pipeline
+from sklearn.impute import SimpleImputer
+from sklearn.metrics import accuracy_score
+from tabm import TabMClassifier
+
+train = pd.read_csv('train.csv')
+test = pd.read_csv('test.csv')
+
+TARGET = 'NObeyesdad'
+ID = 'id'
+
+num_cols = ['Age','Height','Weight','FCVC','NCP','CH2O','FAF','TUE']
+cat_cols = ['Gender','family_history_with_overweight','FAVC','CAEC','SMOKE','SCC','CALC','MTRANS']
+
+X = train[num_cols + cat_cols]
+y = train[TARGET]
+X_test = test[num_cols + cat_cols]
+
+le = LabelEncoder()
+y_enc = le.fit_transform(y)
+
+pre = ColumnTransformer([
+    ('num', Pipeline([('imp', SimpleImputer(strategy='median'))]), num_cols),
+    ('cat', Pipeline([
+        ('imp', SimpleImputer(strategy='most_frequent')),
+        ('enc', OrdinalEncoder(handle_unknown='use_encoded_value', unknown_value=-1))
+    ]), cat_cols)
+])
+
+X_tr, X_va, y_tr, y_va = train_test_split(X, y_enc, test_size=0.2, random_state=42, stratify=y_enc)
+X_tr = pre.fit_transform(X_tr)
+X_va = pre.transform(X_va)
+X_test_t = pre.transform(X_test)
+
+model = TabMClassifier(
+    n_epochs=200,
+    batch_size=256,
+    learning_rate=1e-3,
+    random_state=42
+)
+model.fit(X_tr, y_tr)
+
+va_pred = model.predict(X_va)
+print('valid_acc =', accuracy_score(y_va, va_pred))
+
+test_pred = le.inverse_transform(model.predict(X_test_t))
+sub = pd.DataFrame({ID: test[ID], TARGET: test_pred})
+sub.to_csv('submission.csv', index=False)

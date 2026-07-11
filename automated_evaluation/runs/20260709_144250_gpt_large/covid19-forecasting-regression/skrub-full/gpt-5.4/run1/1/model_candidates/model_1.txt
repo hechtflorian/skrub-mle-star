@@ -1,0 +1,53 @@
+## Model name
+LightGBM Regressor with lag/date/location features
+
+## Example Python code
+import pandas as pd
+import numpy as np
+from lightgbm import LGBMRegressor
+
+train = pd.read_csv('train.csv')
+test = pd.read_csv('test.csv')
+
+for df in (train, test):
+    df['Province_State'] = df['Province_State'].fillna('')
+    df['Region'] = df['Country_Region'] + '_' + df['Province_State']
+    df['Date'] = pd.to_datetime(df['Date'])
+    df['day'] = (df['Date'] - train['Date'].min()).dt.days
+
+all_df = pd.concat([
+    train[['Region','day','ConfirmedCases','Fatalities']].assign(is_test=0),
+    test[['Region','day']].assign(ConfirmedCases=np.nan, Fatalities=np.nan, is_test=1)
+], ignore_index=True).sort_values(['Region','day'])
+
+for lag in [1, 2, 3, 7]:
+    all_df[f'cc_lag_{lag}'] = all_df.groupby('Region')['ConfirmedCases'].shift(lag)
+    all_df[f'ft_lag_{lag}'] = all_df.groupby('Region')['Fatalities'].shift(lag)
+
+full = test[['ForecastId','Region','day']].merge(all_df, on=['Region','day'], how='left')
+train2 = train.merge(all_df, on=['Region','day'], how='left')
+
+features = ['day'] + [c for c in train2.columns if 'lag' in c]
+train2[features] = train2[features].fillna(0)
+full[features] = full[features].fillna(0)
+
+X_train = train2[features]
+y1 = np.log1p(train2['ConfirmedCases'])
+y2 = np.log1p(train2['Fatalities'])
+X_test = full[features]
+
+m1 = LGBMRegressor(n_estimators=500, learning_rate=0.05, num_leaves=31, random_state=42)
+m2 = LGBMRegressor(n_estimators=500, learning_rate=0.05, num_leaves=31, random_state=42)
+
+m1.fit(X_train, y1)
+m2.fit(X_train, y2)
+
+pred_cases = np.expm1(m1.predict(X_test)).clip(0)
+pred_fatal = np.expm1(m2.predict(X_test)).clip(0)
+
+sub = pd.DataFrame({
+    'ForecastId': test['ForecastId'],
+    'ConfirmedCases': pred_cases,
+    'Fatalities': pred_fatal
+})
+sub.to_csv('submission.csv', index=False)

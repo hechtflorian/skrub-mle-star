@@ -1,0 +1,57 @@
+## Model name
+LightGBM with grouped lag/date features
+
+## Example Python code
+import pandas as pd
+import numpy as np
+from lightgbm import LGBMRegressor
+
+train = pd.read_csv('train.csv')
+test = pd.read_csv('test.csv')
+all_df = pd.concat([train, test], sort=False).reset_index(drop=True)
+all_df['Date'] = pd.to_datetime(all_df['Date'])
+all_df['Province_State'] = all_df['Province_State'].fillna('None')
+all_df['geo'] = all_df['Country_Region'] + '_' + all_df['Province_State']
+all_df = all_df.sort_values(['geo', 'Date'])
+
+all_df['day'] = (all_df['Date'] - all_df['Date'].min()).dt.days
+all_df['month'] = all_df['Date'].dt.month
+all_df['week'] = all_df['Date'].dt.isocalendar().week.astype(int)
+all_df['dow'] = all_df['Date'].dt.dayofweek
+all_df['geo_id'] = all_df['geo'].astype('category').cat.codes
+
+for t in ['ConfirmedCases', 'Fatalities']:
+    all_df[f'log_{t}'] = np.log1p(all_df[t])
+    for lag in [1, 2, 3, 7, 14]:
+        all_df[f'{t}_lag{lag}'] = all_df.groupby('geo')[f'log_{t}'].shift(lag)
+
+train_fe = all_df[all_df['ForecastId'].isna()].copy()
+test_fe = all_df[all_df['ForecastId'].notna()].copy()
+
+features = ['day', 'month', 'week', 'dow', 'geo_id'] + [
+    c for c in all_df.columns if 'lag' in c
+]
+train_fe[features] = train_fe[features].fillna(0)
+test_fe[features] = test_fe[features].fillna(0)
+
+preds = {}
+for target in ['ConfirmedCases', 'Fatalities']:
+    y = np.log1p(train_fe[target])
+    model = LGBMRegressor(
+        n_estimators=500,
+        learning_rate=0.05,
+        num_leaves=31,
+        subsample=0.9,
+        colsample_bytree=0.9,
+        random_state=42
+    )
+    model.fit(train_fe[features], y)
+    p = np.expm1(model.predict(test_fe[features]))
+    preds[target] = np.maximum.accumulate(p)  # keep cumulative trend simple
+
+sub = pd.DataFrame({
+    'ForecastId': test_fe['ForecastId'],
+    'ConfirmedCases': preds['ConfirmedCases'],
+    'Fatalities': preds['Fatalities']
+})
+sub.to_csv('submission.csv', index=False)

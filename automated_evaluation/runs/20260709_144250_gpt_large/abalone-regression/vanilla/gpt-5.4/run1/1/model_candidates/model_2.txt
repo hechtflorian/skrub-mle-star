@@ -1,0 +1,60 @@
+## Model name
+FT-Transformer (via PyTorch Tabular)
+
+## Example Python code
+import numpy as np
+import pandas as pd
+from sklearn.model_selection import train_test_split
+from pytorch_tabular import TabularModel
+from pytorch_tabular.models.ft_transformer.config import FTTransformerConfig
+from pytorch_tabular.config import DataConfig, TrainerConfig, OptimizerConfig
+
+train = pd.read_csv('train.csv')
+test = pd.read_csv('test.csv')
+
+features = ['Sex','Length','Diameter','Height','Whole weight','Whole weight.1','Whole weight.2','Shell weight']
+cat_cols = ['Sex']
+num_cols = [c for c in features if c not in cat_cols]
+
+df = train[features + ['Rings']].copy()
+df['Rings'] = df['Rings'].clip(lower=0)
+train_df, val_df = train_test_split(df, test_size=0.2, random_state=42)
+
+data_config = DataConfig(
+    target=['Rings'],
+    continuous_cols=num_cols,
+    categorical_cols=cat_cols
+)
+
+model_config = FTTransformerConfig(
+    task='regression',
+    learning_rate=1e-3,
+    input_embed_dim=32,
+    num_heads=8,
+    num_attn_blocks=4,
+    batch_size=1024
+)
+
+trainer_config = TrainerConfig(
+    auto_lr_find=False,
+    batch_size=1024,
+    max_epochs=50,
+    accelerator='auto'
+)
+
+optimizer_config = OptimizerConfig()
+
+model = TabularModel(
+    data_config=data_config,
+    model_config=model_config,
+    optimizer_config=optimizer_config,
+    trainer_config=trainer_config
+)
+
+model.fit(train=train_df, validation=val_df)
+
+pred_df = model.predict(test[features])
+pred = np.clip(pred_df['prediction'].values, 0, None)
+
+sub = pd.DataFrame({'id': test['id'], 'Rings': pred})
+sub.to_csv('submission_fttransformer.csv', index=False)

@@ -1,0 +1,42 @@
+## Model name
+LightGBMRegressor
+
+## Example Python code
+import pandas as pd
+import lightgbm as lgb
+
+train = pd.read_csv('train.csv')
+test = pd.read_csv('test.csv')
+
+for df in [train, test]:
+    df['Open Date'] = pd.to_datetime(df['Open Date'])
+    df['open_year'] = df['Open Date'].dt.year
+    df['open_month'] = df['Open Date'].dt.month
+    df['open_day'] = df['Open Date'].dt.day
+    df['open_weekday'] = df['Open Date'].dt.weekday
+    df.drop(columns=['Open Date'], inplace=True)
+
+cat_cols = ['City', 'City Group', 'Type']
+for c in cat_cols:
+    train[c] = train[c].astype('category')
+    test[c] = test[c].astype('category')
+
+X = train.drop(columns=['revenue'])
+y = train['revenue']
+X_test = test.copy()
+
+model = lgb.LGBMRegressor(
+    n_estimators=3000,
+    learning_rate=0.02,
+    num_leaves=31,
+    subsample=0.8,
+    colsample_bytree=0.8,
+    objective='regression',
+    random_state=42
+)
+
+model.fit(X, y, categorical_feature=cat_cols)
+pred = model.predict(X_test)
+
+sub = pd.DataFrame({'Id': test['Id'], 'Prediction': pred})
+sub.to_csv('submission_lgbm.csv', index=False)

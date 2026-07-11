@@ -1,0 +1,33 @@
+## Model name
+TabPFNClassifier
+
+## Example Python code
+import pandas as pd
+from sklearn.preprocessing import LabelEncoder
+from tabpfn import TabPFNClassifier
+
+train = pd.read_csv('train.csv')
+test = pd.read_csv('test.csv')
+
+target = 'booking_status'
+features = [c for c in train.columns if c not in ['id', target]]
+
+X = train[features].copy()
+X_test = test[features].copy()
+y = train[target]
+
+# simple encoding for object columns
+for c in X.columns:
+    if X[c].dtype == 'object':
+        le = LabelEncoder()
+        all_vals = pd.concat([X[c].astype(str), X_test[c].astype(str)], axis=0)
+        le.fit(all_vals)
+        X[c] = le.transform(X[c].astype(str))
+        X_test[c] = le.transform(X_test[c].astype(str))
+
+model = TabPFNClassifier(device='cpu')  # use 'cuda' if available
+model.fit(X, y)
+pred = model.predict_proba(X_test)[:, 1]
+
+sub = pd.DataFrame({'id': test['id'], 'booking_status': pred})
+sub.to_csv('submission_tabpfn.csv', index=False)

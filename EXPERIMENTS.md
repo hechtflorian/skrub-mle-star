@@ -3,7 +3,7 @@
 How we ran the benchmark, where the artifacts live, and how to reproduce or extend the evaluation (including additional LLM models).
 
 **Detailed harness reference:** [automated_evaluation/automated_evaluation.md](automated_evaluation/automated_evaluation.md)  
-**Metric definitions:** [EXPERIMENTAL_RESULTS.md](EXPERIMENTAL_RESULTS.md)
+Experimental **config, metrics, and result analysis:** [EXPERIMENTAL_RESULTS.md](EXPERIMENTAL_RESULTS.md)
 
 All commands below assume the **improved checkout root** (`mle-star_improved/`).
 
@@ -12,12 +12,12 @@ All commands below assume the **improved checkout root** (`mle-star_improved/`).
 ## Scripts to execute experiments
 
 
-| Step | Script                                                                                             | Purpose                                                                                                                                           |
-| ---- | -------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 0    | [automated_evaluation/generate_tasks_manifest.py](automated_evaluation/generate_tasks_manifest.py) | Build [tasks_manifest.json](automated_evaluation/tasks_manifest.json) from bundled task packs (already done, redo if tasks change or unavailable) |
-| 1    | [automated_evaluation/run_experiments.py](automated_evaluation/run_experiments.py)                 | Execute agent runs; archive by default under [runs/](automated_evaluation/runs/)                                                                  |
-| 2    | [automated_evaluation/evaluate.py](automated_evaluation/evaluate.py)                               | Analyze archived runs; write reports by default under [eval_results/](automated_evaluation/eval_results/)                                         |
-| —    | [test-scripts/analyze_run.py](test-scripts/analyze_run.py)                                         | Optional per-run deep dive (`final_state.json` + log)                                                                                             |
+| Step | Script                                                                                             | Purpose                                                                                                                            |
+| ---- | -------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| 0    | [automated_evaluation/generate_tasks_manifest.py](automated_evaluation/generate_tasks_manifest.py) | Build [tasks_manifest.json](automated_evaluation/tasks_manifest.json) from bundled task packs (already done, redo if tasks change) |
+| 1    | [automated_evaluation/run_experiments.py](automated_evaluation/run_experiments.py)                 | Execute agent runs; archive by default under [runs/](automated_evaluation/runs/)                                                   |
+| 2    | [automated_evaluation/evaluate.py](automated_evaluation/evaluate.py)                               | Analyze archived runs; write reports by default under [eval_results/](automated_evaluation/eval_results/)                          |
+| —    | [test-scripts/analyze_run.py](test-scripts/analyze_run.py)                                         | Optional per-run deep dive (`final_state.json` + log)                                                                              |
 
 
 ### Exact commands (full pipeline)
@@ -31,7 +31,7 @@ python automated_evaluation/run_experiments.py \
   --runs-root automated_evaluation/runs/<stamp> \  # optional, will save as timestamp by default
   --systems improved  # or "vanilla" - optional, will run both if ommitted
   --tasks task1 task2 task3 ...  # optional, will execute all tasks when ommited
-  --skip-existing  # optional, to make sure nothing overrides
+  --skip-existing  # optional, to make already existing results don't override/run again
 
 # Step 2 — analyze (writes to eval_results/<stamp>/)
 python automated_evaluation/evaluate.py --summarize-only \  # must use --summarize-only!
@@ -44,7 +44,7 @@ Before Step 1, load `.env` into your shell if you changed `ROOT_AGENT_MODEL` (se
 
 ## Result artifacts
 
-### Primary batch — raw run archives
+### Primary batch: raw run archives
 
 **Directory:** [automated_evaluation/runs/20260707_115040_full/](automated_evaluation/runs/20260707_115040_full/)
 
@@ -90,13 +90,15 @@ Regenerate reports with Step 2 above (`evaluate.py --summarize-only`).
 | Eval results       | [eval_results/20260707_115040_full/](automated_evaluation/eval_results/20260707_115040_full/) |
 | Tasks              | 10 (see table below)                                                                          |
 | Systems            | `skrub-full` (improved, ours) + `vanilla` (runtime compatibility applied)                     |
-| Model              | `openai/gpt-5.4-mini` → archive folder `gpt-5.4-mini`                                         |
+| Base models        | `openai/gpt-5.4-mini` , `openai/gpt-5.4`                                                      |
 | Repeats            | `run1`                                                                                        |
 | Seed               | `42`                                                                                          |
-| Completed archives | 20 (`10 tasks × 2 systems`)                                                                   |
+| Completed archives | 40 (`10 tasks × 2 systems x 2 base models`)                                                   |
 
 
 ### Tasks in this batch
+
+10 tabular tasks, 5 classification, 5 regression.
 
 
 | Task                                 | Type           | Metric                      |
@@ -122,7 +124,7 @@ See [automated_evaluation/automated_evaluation.md](automated_evaluation/automate
 ```bash
 # Improved agent
 cd agents/machine-learning-engineering
-cp .env.example .env    # OPENAI_API_KEY, OPENAI_API_BASE, ROOT_AGENT_MODEL
+cp .env.example .env    # setup OPENAI_API_KEY, OPENAI_API_BASE, ROOT_AGENT_MODEL
 uv sync
 cd ../..
 
@@ -139,7 +141,7 @@ python automated_evaluation/generate_tasks_manifest.py
 
 **Model selection:** set `ROOT_AGENT_MODEL` in both agent `.env` files (e.g. `openai/gpt-5.4-mini`).
 
-**Load `.env` into your shell before [run_experiments.py](automated_evaluation/run_experiments.py).** The agent subprocess reads each checkout's `.env` automatically, but the orchestrator picks up `--model-label` (archive folder names, `experiment_meta.json`) from `**ROOT_AGENT_MODEL` in the current shell** — not by re-reading `.env`. After editing `.env`, run:
+**Load `.env` into your shell before [run_experiments.py](automated_evaluation/run_experiments.py).** The agent subprocess reads each checkout's `.env` automatically, but the orchestrator picks up `--model-label` (archive folder names, `experiment_meta.json`) from `**ROOT_AGENT_MODEL` in the current shell, not by re-reading `.env`. After editing `.env`, run:
 
 ```bash
 # From improved agent dir (repeat for vanilla if running --systems vanilla)
@@ -171,12 +173,14 @@ python automated_evaluation/run_experiments.py \
   --systems improved \
   --skip-existing
 
-# Later: next batch of improved tasks, then vanilla counterparts, etc.
+# Then same for vanilla
 python automated_evaluation/run_experiments.py \
   --runs-root "$RUNS" \
   --tasks task1 task2 task3 \
   --systems vanilla \
   --skip-existing
+
+# Later: next batch of improved tasks, then again vanilla counterparts, etc. until done
 ```
 
 `--skip-existing` skips archives that already have `final_state.json` **and** an ADK log ending at `[user]:`. Safe to re-run the same command after interruptions.
@@ -185,7 +189,7 @@ To reproduce the full matrix in one shot (long-running):
 
 ```bash
 python automated_evaluation/run_experiments.py \
-  --runs-root automated_evaluation/runs/<new-stamp>   # optional; auto-stamped if omitted
+  --runs-root automated_evaluation/runs/<new-stamp>   # optional; automatically saved in runs/ with timestamp
 ```
 
 That runs **all tasks × improved + vanilla** with seed `42`. Preview first:
@@ -194,7 +198,7 @@ That runs **all tasks × improved + vanilla** with seed `42`. Preview first:
 python automated_evaluation/run_experiments.py --dry-run
 ```
 
-Or run only one task live first (recommended):
+Or run only one trial task live first (recommended):
 
 ```bash
 python automated_evaluation/run_experiments.py \
@@ -216,13 +220,13 @@ uv run adk web  # then select `machine_learning_engineering` from dropdown
 
 ## Analyze results automatically
 
-Uses [evaluate.py](automated_evaluation/evaluate.py) (use `--summarize-only` flag! No agent execution).
+Uses [evaluate.py](automated_evaluation/evaluate.py) (Must use `--summarize-only` flag! No agent execution, intended to be seperate via `run_experiments.py`).
 
 ### Batch report (vanilla vs skrub-full, per model)
 
 ```bash
 python automated_evaluation/evaluate.py --summarize-only \
-  --runs-root automated_evaluation/runs/20260707_115040_full
+  --runs-root automated_evaluation/runs/<your-run>
 ```
 
 Read:
@@ -267,14 +271,14 @@ set -a && source .env && set +a
 echo "$ROOT_AGENT_MODEL"
 cd ../..
 
-# 3. Run into the same batch directory (for easier analysis)
+# 3. Run into the same batch directory (for easier analysis later on)
 python automated_evaluation/run_experiments.py \
-  --runs-root automated_evaluation/runs/20260707_115040_full \
+  --runs-root automated_evaluation/runs/<your-run>\
   --skip-existing
 
 # 4. Re-analyze everything (both models appear in report.md)
 python automated_evaluation/evaluate.py --summarize-only \
-  --runs-root automated_evaluation/runs/20260707_115040_full
+  --runs-root automated_evaluation/runs/<your-run>
 ```
 
 Or skip shell export and pass `--model-label openai/mistral-large-3-675b-instruct-2512` on the [run_experiments.py](automated_evaluation/run_experiments.py) line.
@@ -339,11 +343,11 @@ python automated_evaluation/run_experiments.py --dry-run
 python automated_evaluation/run_experiments.py \
   --tasks spaceship-titanic --systems improved
 
-# Execute multiple tasks but not all (recommended) - repeat for remaining tasks/system and save in same dir until done
+# Execute multiple tasks but not all (recommended) - repeat for remaining tasks/system/base model setup and save in same dir until done
 python automated_evaluation/run_experiments.py \
   --runs-root automated_evaluation/runs/<your_dir> --tasks task1 task2 task3 --systems improved
 
-# Full compare (improved + vanilla)
+# Full benchmark (improved + vanilla)
 python automated_evaluation/run_experiments.py
 
 # Resume / extend (same model, new tasks or failed cells)

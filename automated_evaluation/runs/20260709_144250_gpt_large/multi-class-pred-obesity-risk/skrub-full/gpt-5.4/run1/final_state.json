@@ -1,0 +1,444 @@
+{
+  "data_dir": "./machine_learning_engineering/tasks/",
+  "task_name": "multi-class-pred-obesity-risk",
+  "task_type": "Tabular Classification",
+  "lower": false,
+  "workspace_dir": "./machine_learning_engineering/workspace/",
+  "agent_model": "openai/gpt-5.4",
+  "task_description": "# Task\n\nPredict the class value of the target `NObeyesdad` for each id row. This is multi-class classification task to predict obesity risk.\n\n# Metric\n\naccuracy_score\n\n# Submission Format\n```\nid,NObeyesdad\n20758,Normal_Weight\n20759,Normal_Weight\n20760,Normal_Weight\netc.\n```\n\n# Dataset\n\ntrain.csv\n```\nid,Gender,Age,Height,Weight,family_history_with_overweight,FAVC,FCVC,NCP,CAEC,SMOKE,CH2O,SCC,FAF,TUE,CALC,MTRANS,NObeyesdad\n0,Male,24.443011,1.699998,81.66995,yes,yes,2.0,2.983297,Sometimes,no,2.763573,no,0.0,0.976473,Sometimes,Public_Transportation,Overweight_Level_II\n1,Female,18.0,1.56,57.0,yes,yes,2.0,3.0,Frequently,no,2.0,no,1.0,1.0,no,Automobile,Normal_Weight\n2,Female,18.0,1.71146,50.165754,yes,yes,1.880534,1.411685,Sometimes,no,1.910378,no,0.866045,1.673584,no,Public_Transportation,Insufficient_Weight\netc.\n```\n\ntest.csv\n```\nid,Gender,Age,Height,Weight,family_history_with_overweight,FAVC,FCVC,NCP,CAEC,SMOKE,CH2O,SCC,FAF,TUE,CALC,MTRANS\n20758,Male,26.899886,1.848294,120.644178,yes,yes,2.938616,3.0,Sometimes,no,2.825629,no,0.8554,0.0,Sometimes,Public_Transportation\n20759,Female,21.0,1.6,66.0,yes,yes,2.0,1.0,Sometimes,no,3.0,no,1.0,0.0,Sometimes,Public_Transportation\n20760,Female,26.0,1.643355,111.600553,yes,yes,3.0,3.0,Sometimes,no,2.621877,no,0.0,0.250502,Sometimes,Public_Transportation\netc.\n```",
+  "task_summary": "Task: Tabular Classification\nTabular multi-class classification task: predict `NObeyesdad` (obesity risk class) for each row in `test.csv` using features from `train.csv`.\n\n- **Target**: `NObeyesdad`\n- **Type**: 7-class tabular classification\n- **Metric**: `accuracy_score`\n- **Data**: mixed numerical and categorical features\n- **Columns**:\n  - Numerical: `Age`, `Height`, `Weight`, `FCVC`, `NCP`, `CH2O`, `FAF`, `TUE`\n  - Categorical: `Gender`, `family_history_with_overweight`, `FAVC`, `CAEC`, `SMOKE`, `SCC`, `CALC`, `MTRANS`\n  - ID column: `id`\n- **Task output**: submission file with columns:\n  - `id`\n  - `NObeyesdad`\n\nGoal: build a model for mixed-type tabular data to classify obesity category labels such as `Normal_Weight`, `Overweight_Level_I`, `Overweight_Level_II`, `Obesity_Type_I`, `Obesity_Type_II`, `Obesity_Type_III`, and `Insufficient_Weight`.",
+  "start_time": 1783619411.2555609,
+  "seed": 42,
+  "exec_timeout": 600,
+  "num_solutions": 1,
+  "num_model_candidates": 2,
+  "max_retry": 10,
+  "max_debug_round": 5,
+  "max_rollback_round": 2,
+  "inner_loop_round": 1,
+  "outer_loop_round": 1,
+  "ensemble_loop_round": 1,
+  "num_top_plans": 2,
+  "use_data_leakage_checker": false,
+  "use_data_usage_checker": false,
+  "table_report_enabled": true,
+  "tuning_enabled": true,
+  "tuning_n_iter": 5,
+  "_adk_activated_skill_model_retriever_agent_1": [
+    "skrub-dataops-pipeline"
+  ],
+  "_adk_loaded_skill_resources_model_retriever_agent_1": [
+    {
+      "skill_name": "skrub-dataops-pipeline",
+      "path": "references/dataops_api_quickmap.md"
+    }
+  ],
+  "init_1_model_1": {
+    "model_name": "CatBoostClassifier",
+    "example_code": "import pandas as pd\nfrom catboost import CatBoostClassifier\n\ntrain = pd.read_csv('train.csv')\ntest = pd.read_csv('test.csv')\n\ntarget = 'NObeyesdad'\nid_col = 'id'\ncat_cols = ['Gender','family_history_with_overweight','FAVC','CAEC','SMOKE','SCC','CALC','MTRANS']\n\nX = train.drop(columns=[target])\ny = train[target]\nX_test = test.copy()\n\nmodel = CatBoostClassifier(\n    loss_function='MultiClass',\n    eval_metric='Accuracy',\n    iterations=1200,\n    learning_rate=0.05,\n    depth=8,\n    random_seed=42,\n    verbose=0\n)\n\nmodel.fit(X, y, cat_features=cat_cols)\npreds = model.predict(X_test).ravel()\n\nsubmission = pd.DataFrame({id_col: test[id_col], target: preds})\nsubmission.to_csv('submission.csv', index=False)",
+    "model_description": "## Model name\nCatBoostClassifier\n\n## Example Python code\nimport pandas as pd\nfrom catboost import CatBoostClassifier\n\ntrain = pd.read_csv('train.csv')\ntest = pd.read_csv('test.csv')\n\ntarget = 'NObeyesdad'\nid_col = 'id'\ncat_cols = ['Gender','family_history_with_overweight','FAVC','CAEC','SMOKE','SCC','CALC','MTRANS']\n\nX = train.drop(columns=[target])\ny = train[target]\nX_test = test.copy()\n\nmodel = CatBoostClassifier(\n    loss_function='MultiClass',\n    eval_metric='Accuracy',\n    iterations=1200,\n    learning_rate=0.05,\n    depth=8,\n    random_seed=42,\n    verbose=0\n)\n\nmodel.fit(X, y, cat_features=cat_cols)\npreds = model.predict(X_test).ravel()\n\nsubmission = pd.DataFrame({id_col: test[id_col], target: preds})\nsubmission.to_csv('submission.csv', index=False)"
+  },
+  "init_1_model_2": {
+    "model_name": "LightGBM + OneHotEncoder pipeline",
+    "example_code": "import pandas as pd\nfrom sklearn.compose import ColumnTransformer\nfrom sklearn.pipeline import Pipeline\nfrom sklearn.preprocessing import OneHotEncoder\nfrom lightgbm import LGBMClassifier\n\ntrain = pd.read_csv('train.csv')\ntest = pd.read_csv('test.csv')\n\ntarget = 'NObeyesdad'\nid_col = 'id'\nnum_cols = ['Age','Height','Weight','FCVC','NCP','CH2O','FAF','TUE']\ncat_cols = ['Gender','family_history_with_overweight','FAVC','CAEC','SMOKE','SCC','CALC','MTRANS']\n\nX = train[num_cols + cat_cols]\ny = train[target]\nX_test = test[num_cols + cat_cols]\n\npreprocess = ColumnTransformer([\n    ('cat', OneHotEncoder(handle_unknown='ignore'), cat_cols),\n    ('num', 'passthrough', num_cols)\n])\n\nmodel = Pipeline([\n    ('prep', preprocess),\n    ('clf', LGBMClassifier(\n        objective='multiclass',\n        num_class=7,\n        n_estimators=700,\n        learning_rate=0.05,\n        num_leaves=31,\n        random_state=42,\n        verbose=-1\n    ))\n])\n\nmodel.fit(X, y)\npreds = model.predict(X_test)\n\nsubmission = pd.DataFrame({id_col: test[id_col], target: preds})\nsubmission.to_csv('submission.csv', index=False)",
+    "model_description": "## Model name\nLightGBM + OneHotEncoder pipeline\n\n## Example Python code\nimport pandas as pd\nfrom sklearn.compose import ColumnTransformer\nfrom sklearn.pipeline import Pipeline\nfrom sklearn.preprocessing import OneHotEncoder\nfrom lightgbm import LGBMClassifier\n\ntrain = pd.read_csv('train.csv')\ntest = pd.read_csv('test.csv')\n\ntarget = 'NObeyesdad'\nid_col = 'id'\nnum_cols = ['Age','Height','Weight','FCVC','NCP','CH2O','FAF','TUE']\ncat_cols = ['Gender','family_history_with_overweight','FAVC','CAEC','SMOKE','SCC','CALC','MTRANS']\n\nX = train[num_cols + cat_cols]\ny = train[target]\nX_test = test[num_cols + cat_cols]\n\npreprocess = ColumnTransformer([\n    ('cat', OneHotEncoder(handle_unknown='ignore'), cat_cols),\n    ('num', 'passthrough', num_cols)\n])\n\nmodel = Pipeline([\n    ('prep', preprocess),\n    ('clf', LGBMClassifier(\n        objective='multiclass',\n        num_class=7,\n        n_estimators=700,\n        learning_rate=0.05,\n        num_leaves=31,\n        random_state=42,\n        verbose=-1\n    ))\n])\n\nmodel.fit(X, y)\npreds = model.predict(X_test)\n\nsubmission = pd.DataFrame({id_col: test[id_col], target: preds})\nsubmission.to_csv('submission.csv', index=False)"
+  },
+  "init_1_model_finish": true,
+  "model_eval_skip_data_leakage_check_1_1": true,
+  "init_code_1_1": "\nimport warnings\nwarnings.filterwarnings(\"ignore\")\n\nimport os\nimport numpy as np\nimport pandas as pd\nimport skrub\nfrom catboost import CatBoostClassifier\nfrom sklearn.metrics import accuracy_score\nfrom sklearn.model_selection import train_test_split\n\nrandom_state = 42\ntarget_col = \"NObeyesdad\"\n\ntrain_path = os.path.join(\"./input\", \"train.csv\")\ntrain_df = pd.read_csv(train_path)\n\ntrain_idx, valid_idx = train_test_split(\n    np.arange(len(train_df)),\n    test_size=0.2,\n    random_state=random_state,\n    stratify=train_df[target_col],\n)\n\ntrain_part = train_df.iloc[train_idx].copy()\nvalid_part = train_df.iloc[valid_idx].copy()\n\ndata_train = skrub.var(\"data\", train_part)\nX_train = data_train.drop(columns=target_col, errors=\"ignore\").skb.mark_as_X()\ny_train = data_train[target_col].skb.mark_as_y()\n\nvectorizer = skrub.TableVectorizer()\nmodel = CatBoostClassifier(\n    random_state=random_state,\n    verbose=0,\n)\n\npredictor = X_train.skb.apply(vectorizer).skb.apply(model, y=y_train)\n\nval_learner = predictor.skb.make_learner(fitted=True)\nvalid_pred = val_learner.predict({\"data\": valid_part})\n\nfinal_validation_score = accuracy_score(valid_part[target_col], valid_pred)\nprint(f\"Final Validation Performance: {final_validation_score}\")\n",
+  "init_code_exec_result_1_1": {
+    "returncode": 0,
+    "stdout": "Final Validation Performance: 0.9048651252408478\n",
+    "stderr": "",
+    "execution_time": 53.838619232177734,
+    "score": 0.9048651252408478
+  },
+  "_adk_activated_skill_model_eval_agent_1_1": [
+    "skrub-dataops-pipeline"
+  ],
+  "_adk_loaded_skill_resources_model_eval_agent_1_1": [
+    {
+      "skill_name": "skrub-dataops-pipeline",
+      "path": "references/dataops_api_quickmap.md"
+    }
+  ],
+  "debug_anchor_code_1_1": "\nimport warnings\nwarnings.filterwarnings(\"ignore\")\n\nimport os\nimport numpy as np\nimport pandas as pd\nimport skrub\nfrom catboost import CatBoostClassifier\nfrom sklearn.metrics import accuracy_score\nfrom sklearn.model_selection import train_test_split\n\nrandom_state = 42\ntarget_col = \"NObeyesdad\"\n\ntrain_path = os.path.join(\"./input\", \"train.csv\")\ntrain_df = pd.read_csv(train_path)\n\ntrain_idx, valid_idx = train_test_split(\n    np.arange(len(train_df)),\n    test_size=0.2,\n    random_state=random_state,\n    stratify=train_df[target_col],\n)\n\ntrain_part = train_df.iloc[train_idx].copy()\nvalid_part = train_df.iloc[valid_idx].copy()\n\ndata_train = skrub.var(\"data\", train_part)\nX_train = data_train.drop(columns=[target_col], errors=\"ignore\").skb.mark_as_X()\ny_train = data_train[target_col].skb.mark_as_y()\n\ncat_cols = [\n    \"Gender\",\n    \"family_history_with_overweight\",\n    \"FAVC\",\n    \"CAEC\",\n    \"SMOKE\",\n    \"SCC\",\n    \"CALC\",\n    \"MTRANS\",\n]\n\nmodel = CatBoostClassifier(\n    loss_function=\"MultiClass\",\n    eval_metric=\"Accuracy\",\n    iterations=1200,\n    learning_rate=0.05,\n    depth=8,\n    random_seed=random_state,\n    verbose=0,\n)\n\npredictor = X_train.skb.apply(model, y=y_train, cat_features=cat_cols)\n\nval_learner = predictor.skb.make_learner(fitted=True)\nvalid_pred = val_learner.predict({\"data\": valid_part})\nvalid_pred = np.asarray(valid_pred).ravel()\n\nfinal_validation_score = accuracy_score(valid_part[target_col], valid_pred)\nprint(f\"Final Validation Performance: {final_validation_score}\")\n",
+  "model_eval_bug_summary_1_1": "",
+  "_adk_activated_skill_model_eval_debug_agent_1_1": [
+    "skrub-dataops-pipeline"
+  ],
+  "_adk_loaded_skill_resources_model_eval_debug_agent_1_1": [
+    {
+      "skill_name": "skrub-dataops-pipeline",
+      "path": "references/dataops_api_quickmap.md"
+    },
+    {
+      "skill_name": "skrub-dataops-pipeline",
+      "path": "references/common_failure_fixes.md"
+    }
+  ],
+  "model_eval_skip_data_leakage_check_1_2": true,
+  "init_code_1_2": "\nimport warnings\nwarnings.filterwarnings(\"ignore\")\n\nimport os\nimport numpy as np\nimport pandas as pd\nimport skrub\nfrom lightgbm import LGBMClassifier\nfrom sklearn.compose import ColumnTransformer\nfrom sklearn.metrics import accuracy_score\nfrom sklearn.model_selection import train_test_split\nfrom sklearn.pipeline import Pipeline\nfrom sklearn.preprocessing import OneHotEncoder\n\nrandom_state = 42\ntarget_col = \"NObeyesdad\"\nid_col = \"id\"\n\ntrain_path = os.path.join(\"./input\", \"train.csv\")\ntrain_df = pd.read_csv(train_path)\n\nnum_cols = [\"Age\", \"Height\", \"Weight\", \"FCVC\", \"NCP\", \"CH2O\", \"FAF\", \"TUE\"]\ncat_cols = [\n    \"Gender\",\n    \"family_history_with_overweight\",\n    \"FAVC\",\n    \"CAEC\",\n    \"SMOKE\",\n    \"SCC\",\n    \"CALC\",\n    \"MTRANS\",\n]\nfeature_cols = num_cols + cat_cols\n\ntrain_idx, valid_idx = train_test_split(\n    np.arange(len(train_df)),\n    test_size=0.2,\n    random_state=random_state,\n    stratify=train_df[target_col],\n)\n\ntrain_part = train_df.iloc[train_idx].copy()\nvalid_part = train_df.iloc[valid_idx].copy()\n\ndata_train = skrub.var(\"data\", train_part)\nX_train = data_train[feature_cols].skb.mark_as_X()\ny_train = data_train[target_col].skb.mark_as_y()\n\npreprocess = ColumnTransformer(\n    transformers=[\n        (\"cat\", OneHotEncoder(handle_unknown=\"ignore\"), cat_cols),\n        (\"num\", \"passthrough\", num_cols),\n    ]\n)\n\nmodel = Pipeline(\n    steps=[\n        (\"prep\", preprocess),\n        (\n            \"clf\",\n            LGBMClassifier(\n                objective=\"multiclass\",\n                num_class=7,\n                n_estimators=700,\n                learning_rate=0.05,\n                num_leaves=31,\n                random_state=random_state,\n                verbose=-1,\n            ),\n        ),\n    ]\n)\n\npredictor = X_train.skb.apply(model, y=y_train)\n\nval_learner = predictor.skb.make_learner(fitted=True)\nvalid_pred = val_learner.predict({\"data\": valid_part})\n\nfinal_validation_score = accuracy_score(valid_part[target_col], valid_pred)\nprint(f\"Final Validation Performance: {final_validation_score}\")\n",
+  "init_code_exec_result_1_2": {
+    "returncode": 0,
+    "stdout": "Final Validation Performance: 0.9041425818882466\n",
+    "stderr": "",
+    "execution_time": 29.225847005844116,
+    "score": 0.9041425818882466
+  },
+  "_adk_activated_skill_model_eval_agent_1_2": [
+    "skrub-dataops-pipeline"
+  ],
+  "_adk_loaded_skill_resources_model_eval_agent_1_2": [
+    {
+      "skill_name": "skrub-dataops-pipeline",
+      "path": "references/dataops_api_quickmap.md"
+    }
+  ],
+  "model_eval_bug_summary_1_2": "",
+  "performance_results_1": [
+    [
+      0.9048651252408478,
+      "\nimport warnings\nwarnings.filterwarnings(\"ignore\")\n\nimport os\nimport numpy as np\nimport pandas as pd\nimport skrub\nfrom catboost import CatBoostClassifier\nfrom sklearn.metrics import accuracy_score\nfrom sklearn.model_selection import train_test_split\n\nrandom_state = 42\ntarget_col = \"NObeyesdad\"\n\ntrain_path = os.path.join(\"./input\", \"train.csv\")\ntrain_df = pd.read_csv(train_path)\n\ntrain_idx, valid_idx = train_test_split(\n    np.arange(len(train_df)),\n    test_size=0.2,\n    random_state=random_state,\n    stratify=train_df[target_col],\n)\n\ntrain_part = train_df.iloc[train_idx].copy()\nvalid_part = train_df.iloc[valid_idx].copy()\n\ndata_train = skrub.var(\"data\", train_part)\nX_train = data_train.drop(columns=target_col, errors=\"ignore\").skb.mark_as_X()\ny_train = data_train[target_col].skb.mark_as_y()\n\nvectorizer = skrub.TableVectorizer()\nmodel = CatBoostClassifier(\n    random_state=random_state,\n    verbose=0,\n)\n\npredictor = X_train.skb.apply(vectorizer).skb.apply(model, y=y_train)\n\nval_learner = predictor.skb.make_learner(fitted=True)\nvalid_pred = val_learner.predict({\"data\": valid_part})\n\nfinal_validation_score = accuracy_score(valid_part[target_col], valid_pred)\nprint(f\"Final Validation Performance: {final_validation_score}\")\n",
+      {
+        "returncode": 0,
+        "stdout": "Final Validation Performance: 0.9048651252408478\n",
+        "stderr": "",
+        "execution_time": 53.838619232177734,
+        "score": 0.9048651252408478
+      }
+    ],
+    [
+      0.9041425818882466,
+      "\nimport warnings\nwarnings.filterwarnings(\"ignore\")\n\nimport os\nimport numpy as np\nimport pandas as pd\nimport skrub\nfrom lightgbm import LGBMClassifier\nfrom sklearn.compose import ColumnTransformer\nfrom sklearn.metrics import accuracy_score\nfrom sklearn.model_selection import train_test_split\nfrom sklearn.pipeline import Pipeline\nfrom sklearn.preprocessing import OneHotEncoder\n\nrandom_state = 42\ntarget_col = \"NObeyesdad\"\nid_col = \"id\"\n\ntrain_path = os.path.join(\"./input\", \"train.csv\")\ntrain_df = pd.read_csv(train_path)\n\nnum_cols = [\"Age\", \"Height\", \"Weight\", \"FCVC\", \"NCP\", \"CH2O\", \"FAF\", \"TUE\"]\ncat_cols = [\n    \"Gender\",\n    \"family_history_with_overweight\",\n    \"FAVC\",\n    \"CAEC\",\n    \"SMOKE\",\n    \"SCC\",\n    \"CALC\",\n    \"MTRANS\",\n]\nfeature_cols = num_cols + cat_cols\n\ntrain_idx, valid_idx = train_test_split(\n    np.arange(len(train_df)),\n    test_size=0.2,\n    random_state=random_state,\n    stratify=train_df[target_col],\n)\n\ntrain_part = train_df.iloc[train_idx].copy()\nvalid_part = train_df.iloc[valid_idx].copy()\n\ndata_train = skrub.var(\"data\", train_part)\nX_train = data_train[feature_cols].skb.mark_as_X()\ny_train = data_train[target_col].skb.mark_as_y()\n\npreprocess = ColumnTransformer(\n    transformers=[\n        (\"cat\", OneHotEncoder(handle_unknown=\"ignore\"), cat_cols),\n        (\"num\", \"passthrough\", num_cols),\n    ]\n)\n\nmodel = Pipeline(\n    steps=[\n        (\"prep\", preprocess),\n        (\n            \"clf\",\n            LGBMClassifier(\n                objective=\"multiclass\",\n                num_class=7,\n                n_estimators=700,\n                learning_rate=0.05,\n                num_leaves=31,\n                random_state=random_state,\n                verbose=-1,\n            ),\n        ),\n    ]\n)\n\npredictor = X_train.skb.apply(model, y=y_train)\n\nval_learner = predictor.skb.make_learner(fitted=True)\nvalid_pred = val_learner.predict({\"data\": valid_part})\n\nfinal_validation_score = accuracy_score(valid_part[target_col], valid_pred)\nprint(f\"Final Validation Performance: {final_validation_score}\")\n",
+      {
+        "returncode": 0,
+        "stdout": "Final Validation Performance: 0.9041425818882466\n",
+        "stderr": "",
+        "execution_time": 29.225847005844116,
+        "score": 0.9041425818882466
+      }
+    ]
+  ],
+  "best_score_1": 0.9079961464354528,
+  "base_solution_1": "\nimport warnings\nwarnings.filterwarnings(\"ignore\")\n\nimport os\nimport numpy as np\nimport pandas as pd\nimport skrub\nfrom catboost import CatBoostClassifier\nfrom lightgbm import LGBMClassifier\nfrom sklearn.compose import ColumnTransformer\nfrom sklearn.metrics import accuracy_score\nfrom sklearn.model_selection import train_test_split\nfrom sklearn.pipeline import Pipeline\nfrom sklearn.preprocessing import OneHotEncoder\n\nrandom_state = 42\ntarget_col = \"NObeyesdad\"\n\ntrain_path = os.path.join(\"./input\", \"train.csv\")\ntrain_df = pd.read_csv(train_path)\n\nnum_cols = [\"Age\", \"Height\", \"Weight\", \"FCVC\", \"NCP\", \"CH2O\", \"FAF\", \"TUE\"]\ncat_cols = [\n    \"Gender\",\n    \"family_history_with_overweight\",\n    \"FAVC\",\n    \"CAEC\",\n    \"SMOKE\",\n    \"SCC\",\n    \"CALC\",\n    \"MTRANS\",\n]\nfeature_cols = num_cols + cat_cols\n\ntrain_idx, valid_idx = train_test_split(\n    np.arange(len(train_df)),\n    test_size=0.2,\n    random_state=random_state,\n    stratify=train_df[target_col],\n)\n\ntrain_part = train_df.iloc[train_idx].copy()\nvalid_part = train_df.iloc[valid_idx].copy()\n\ndata_train = skrub.var(\"data\", train_part)\n\nX_train_cat = data_train.drop(columns=target_col, errors=\"ignore\").skb.mark_as_X()\ny_train = data_train[target_col].skb.mark_as_y()\n\nX_train_lgbm = data_train[feature_cols].skb.mark_as_X()\n\nvectorizer = skrub.TableVectorizer()\ncat_model = CatBoostClassifier(\n    random_state=random_state,\n    verbose=0,\n)\n\npreprocess = ColumnTransformer(\n    transformers=[\n        (\"cat\", OneHotEncoder(handle_unknown=\"ignore\"), cat_cols),\n        (\"num\", \"passthrough\", num_cols),\n    ]\n)\n\nlgbm_model = Pipeline(\n    steps=[\n        (\"prep\", preprocess),\n        (\n            \"clf\",\n            LGBMClassifier(\n                objective=\"multiclass\",\n                num_class=7,\n                n_estimators=700,\n                learning_rate=0.05,\n                num_leaves=31,\n                random_state=random_state,\n                verbose=-1,\n            ),\n        ),\n    ]\n)\n\npredictor_cat = X_train_cat.skb.apply(vectorizer).skb.apply(cat_model, y=y_train)\npredictor_lgbm = X_train_lgbm.skb.apply(lgbm_model, y=y_train)\n\nlearner_cat = predictor_cat.skb.make_learner(fitted=True)\nlearner_lgbm = predictor_lgbm.skb.make_learner(fitted=True)\n\ncat_proba = learner_cat.predict_proba({\"data\": valid_part})\nlgbm_proba = learner_lgbm.predict_proba({\"data\": valid_part})\n\nblended_proba = 0.5 * np.asarray(cat_proba) + 0.5 * np.asarray(lgbm_proba)\nclass_labels = learner_cat.classes_\nvalid_pred = class_labels[np.argmax(blended_proba, axis=1)]\n\nfinal_validation_score = accuracy_score(valid_part[target_col], valid_pred)\nprint(f\"Final Validation Performance: {final_validation_score}\")\n",
+  "best_idx_1": 1,
+  "merger_code_1_0": "\nimport warnings\nwarnings.filterwarnings(\"ignore\")\n\nimport os\nimport numpy as np\nimport pandas as pd\nimport skrub\nfrom catboost import CatBoostClassifier\nfrom sklearn.metrics import accuracy_score\nfrom sklearn.model_selection import train_test_split\n\nrandom_state = 42\ntarget_col = \"NObeyesdad\"\n\ntrain_path = os.path.join(\"./input\", \"train.csv\")\ntrain_df = pd.read_csv(train_path)\n\ntrain_idx, valid_idx = train_test_split(\n    np.arange(len(train_df)),\n    test_size=0.2,\n    random_state=random_state,\n    stratify=train_df[target_col],\n)\n\ntrain_part = train_df.iloc[train_idx].copy()\nvalid_part = train_df.iloc[valid_idx].copy()\n\ndata_train = skrub.var(\"data\", train_part)\nX_train = data_train.drop(columns=target_col, errors=\"ignore\").skb.mark_as_X()\ny_train = data_train[target_col].skb.mark_as_y()\n\nvectorizer = skrub.TableVectorizer()\nmodel = CatBoostClassifier(\n    random_state=random_state,\n    verbose=0,\n)\n\npredictor = X_train.skb.apply(vectorizer).skb.apply(model, y=y_train)\n\nval_learner = predictor.skb.make_learner(fitted=True)\nvalid_pred = val_learner.predict({\"data\": valid_part})\n\nfinal_validation_score = accuracy_score(valid_part[target_col], valid_pred)\nprint(f\"Final Validation Performance: {final_validation_score}\")\n",
+  "merger_code_exec_result_1_0": {
+    "returncode": 0,
+    "stdout": "Final Validation Performance: 0.9048651252408478\n",
+    "stderr": "",
+    "execution_time": 53.838619232177734,
+    "score": 0.9048651252408478
+  },
+  "merger_skip_data_leakage_check_1_1": true,
+  "merger_code_1_1": "\nimport warnings\nwarnings.filterwarnings(\"ignore\")\n\nimport os\nimport numpy as np\nimport pandas as pd\nimport skrub\nfrom catboost import CatBoostClassifier\nfrom lightgbm import LGBMClassifier\nfrom sklearn.compose import ColumnTransformer\nfrom sklearn.metrics import accuracy_score\nfrom sklearn.model_selection import train_test_split\nfrom sklearn.pipeline import Pipeline\nfrom sklearn.preprocessing import OneHotEncoder\n\nrandom_state = 42\ntarget_col = \"NObeyesdad\"\n\ntrain_path = os.path.join(\"./input\", \"train.csv\")\ntrain_df = pd.read_csv(train_path)\n\nnum_cols = [\"Age\", \"Height\", \"Weight\", \"FCVC\", \"NCP\", \"CH2O\", \"FAF\", \"TUE\"]\ncat_cols = [\n    \"Gender\",\n    \"family_history_with_overweight\",\n    \"FAVC\",\n    \"CAEC\",\n    \"SMOKE\",\n    \"SCC\",\n    \"CALC\",\n    \"MTRANS\",\n]\nfeature_cols = num_cols + cat_cols\n\ntrain_idx, valid_idx = train_test_split(\n    np.arange(len(train_df)),\n    test_size=0.2,\n    random_state=random_state,\n    stratify=train_df[target_col],\n)\n\ntrain_part = train_df.iloc[train_idx].copy()\nvalid_part = train_df.iloc[valid_idx].copy()\n\ndata_train = skrub.var(\"data\", train_part)\n\nX_train_cat = data_train.drop(columns=target_col, errors=\"ignore\").skb.mark_as_X()\ny_train = data_train[target_col].skb.mark_as_y()\n\nX_train_lgbm = data_train[feature_cols].skb.mark_as_X()\n\nvectorizer = skrub.TableVectorizer()\ncat_model = CatBoostClassifier(\n    random_state=random_state,\n    verbose=0,\n)\n\npreprocess = ColumnTransformer(\n    transformers=[\n        (\"cat\", OneHotEncoder(handle_unknown=\"ignore\"), cat_cols),\n        (\"num\", \"passthrough\", num_cols),\n    ]\n)\n\nlgbm_model = Pipeline(\n    steps=[\n        (\"prep\", preprocess),\n        (\n            \"clf\",\n            LGBMClassifier(\n                objective=\"multiclass\",\n                num_class=7,\n                n_estimators=700,\n                learning_rate=0.05,\n                num_leaves=31,\n                random_state=random_state,\n                verbose=-1,\n            ),\n        ),\n    ]\n)\n\npredictor_cat = X_train_cat.skb.apply(vectorizer).skb.apply(cat_model, y=y_train)\npredictor_lgbm = X_train_lgbm.skb.apply(lgbm_model, y=y_train)\n\nlearner_cat = predictor_cat.skb.make_learner(fitted=True)\nlearner_lgbm = predictor_lgbm.skb.make_learner(fitted=True)\n\ncat_proba = learner_cat.predict_proba({\"data\": valid_part})\nlgbm_proba = learner_lgbm.predict_proba({\"data\": valid_part})\n\nblended_proba = 0.5 * np.asarray(cat_proba) + 0.5 * np.asarray(lgbm_proba)\nclass_labels = learner_cat.classes_\nvalid_pred = class_labels[np.argmax(blended_proba, axis=1)]\n\nfinal_validation_score = accuracy_score(valid_part[target_col], valid_pred)\nprint(f\"Final Validation Performance: {final_validation_score}\")\n",
+  "merger_code_exec_result_1_1": {
+    "returncode": 0,
+    "stdout": "Final Validation Performance: 0.9079961464354528\n",
+    "stderr": "",
+    "execution_time": 102.80022931098938,
+    "score": 0.9079961464354528
+  },
+  "_adk_activated_skill_merger_agent_1_1": [
+    "skrub-dataops-pipeline"
+  ],
+  "_adk_loaded_skill_resources_merger_agent_1_1": [
+    {
+      "skill_name": "skrub-dataops-pipeline",
+      "path": "references/ensemble_dataops_patterns.md"
+    }
+  ],
+  "merger_bug_summary_1_1": "",
+  "train_code_0_1": "\nimport warnings\nwarnings.filterwarnings(\"ignore\")\n\nimport os\nimport numpy as np\nimport pandas as pd\nimport skrub\nfrom catboost import CatBoostClassifier\nfrom lightgbm import LGBMClassifier\nfrom sklearn.compose import ColumnTransformer\nfrom sklearn.metrics import accuracy_score\nfrom sklearn.model_selection import train_test_split\nfrom sklearn.pipeline import Pipeline\nfrom sklearn.preprocessing import OneHotEncoder\n\nrandom_state = 42\ntarget_col = \"NObeyesdad\"\n\ntrain_path = os.path.join(\"./input\", \"train.csv\")\ntrain_df = pd.read_csv(train_path)\n\nnum_cols = [\"Age\", \"Height\", \"Weight\", \"FCVC\", \"NCP\", \"CH2O\", \"FAF\", \"TUE\"]\ncat_cols = [\n    \"Gender\",\n    \"family_history_with_overweight\",\n    \"FAVC\",\n    \"CAEC\",\n    \"SMOKE\",\n    \"SCC\",\n    \"CALC\",\n    \"MTRANS\",\n]\nfeature_cols = num_cols + cat_cols\n\ntrain_idx, valid_idx = train_test_split(\n    np.arange(len(train_df)),\n    test_size=0.2,\n    random_state=random_state,\n    stratify=train_df[target_col],\n)\n\ntrain_part = train_df.iloc[train_idx].copy()\nvalid_part = train_df.iloc[valid_idx].copy()\n\ndata_train = skrub.var(\"data\", train_part)\n\nX_train_cat = data_train.drop(columns=target_col, errors=\"ignore\").skb.mark_as_X()\ny_train = data_train[target_col].skb.mark_as_y()\n\nX_train_lgbm = data_train[feature_cols].skb.mark_as_X()\n\nvectorizer = skrub.TableVectorizer()\ncat_model = CatBoostClassifier(\n    random_state=random_state,\n    verbose=0,\n)\n\npreprocess = ColumnTransformer(\n    transformers=[\n        (\"cat\", OneHotEncoder(handle_unknown=\"ignore\"), cat_cols),\n        (\"num\", \"passthrough\", num_cols),\n    ]\n)\n\nlgbm_model = Pipeline(\n    steps=[\n        (\"prep\", preprocess),\n        (\n            \"clf\",\n            LGBMClassifier(\n                objective=\"multiclass\",\n                num_class=7,\n                n_estimators=700,\n                learning_rate=0.05,\n                num_leaves=31,\n                random_state=random_state,\n                verbose=-1,\n            ),\n        ),\n    ]\n)\n\npredictor_cat = X_train_cat.skb.apply(vectorizer).skb.apply(cat_model, y=y_train)\npredictor_lgbm = X_train_lgbm.skb.apply(lgbm_model, y=y_train)\n\nlearner_cat = predictor_cat.skb.make_learner(fitted=True)\nlearner_lgbm = predictor_lgbm.skb.make_learner(fitted=True)\n\ncat_proba = learner_cat.predict_proba({\"data\": valid_part})\nlgbm_proba = learner_lgbm.predict_proba({\"data\": valid_part})\n\nblended_proba = 0.5 * np.asarray(cat_proba) + 0.5 * np.asarray(lgbm_proba)\nclass_labels = learner_cat.classes_\nvalid_pred = class_labels[np.argmax(blended_proba, axis=1)]\n\nfinal_validation_score = accuracy_score(valid_part[target_col], valid_pred)\nprint(f\"Final Validation Performance: {final_validation_score}\")\n",
+  "train_code_exec_result_0_1": {
+    "returncode": 0,
+    "stdout": "Final Validation Performance: 0.9079961464354528\n",
+    "stderr": "",
+    "execution_time": 102.80022931098938,
+    "score": 0.9079961464354528
+  },
+  "refine_step_1": 1,
+  "prev_ablations_1": [
+    "Ablation study summary:\n\n- Baseline: `TableVectorizer + LGBMClassifier`\n  - Validation accuracy: `0.8991`\n\n- Variant 1: `TableVectorizer + CatBoostClassifier`\n  - Validation accuracy: `0.9053`\n  - This was the best-performing setup.\n\n- Variant 2: `CatBoostClassifier` without `TableVectorizer` using explicit categorical features\n  - Validation accuracy: `0.9046`\n\nKey takeaways:\n\n- Replacing LightGBM with CatBoost improved performance over the baseline.\n- The best result came from using `CatBoost` after `TableVectorizer`, with accuracy `0.9053468208092486`.\n- Using CatBoost directly on raw features with declared categorical columns performed almost as well, but slightly worse than the vectorized CatBoost setup.\n- Overall ranking:\n  1. `cat_with_tablevectorizer` \u2014 `0.9053`\n  2. `cat_no_tablevectorizer` \u2014 `0.9046`\n  3. `baseline` \u2014 `0.8991`\n\nFinal validation performance selected from the ablation:\n- `0.9053468208092486` using `cat_with_tablevectorizer`."
+  ],
+  "prev_code_blocks_1": [
+    "vectorizer = skrub.TableVectorizer()\ncat_model = CatBoostClassifier(\n    random_state=random_state,\n    verbose=0,\n)\n\npreprocess = ColumnTransformer(\n    transformers=[\n        (\"cat\", OneHotEncoder(handle_unknown=\"ignore\"), cat_cols),\n        (\"num\", \"passthrough\", num_cols),\n    ]\n)\n\nlgbm_model = Pipeline(\n    steps=[\n        (\"prep\", preprocess),\n        (\n            \"clf\",\n            LGBMClassifier(\n                objective=\"multiclass\",\n                num_class=7,\n                n_estimators=700,\n                learning_rate=0.05,\n                num_leaves=31,\n                random_state=random_state,\n                verbose=-1,\n            ),\n        ),\n    ]\n)\n\npredictor_cat = X_train_cat.skb.apply(vectorizer).skb.apply(cat_model, y=y_train)\npredictor_lgbm = X_train_lgbm.skb.apply(lgbm_model, y=y_train)\n\nlearner_cat = predictor_cat.skb.make_learner(fitted=True)\nlearner_lgbm = predictor_lgbm.skb.make_learner(fitted=True)\n\ncat_proba = learner_cat.predict_proba({\"data\": valid_part})\nlgbm_proba = learner_lgbm.predict_proba({\"data\": valid_part})\n\nblended_proba = 0.5 * np.asarray(cat_proba) + 0.5 * np.asarray(lgbm_proba)\nclass_labels = learner_cat.classes_\nvalid_pred = class_labels[np.argmax(blended_proba, axis=1)]"
+  ],
+  "ablation_table_report_profile_1": "Dataset: 20758 rows, 18 columns (0 constant)\nTarget (from current solution): NObeyesdad\n\nColumns:\n- id: Int64DType, nulls=0.0% (ok), unique=20758, high_card=True\n- Gender: ObjectDType, nulls=0.0% (ok), unique=2, high_card=False\n- Age: Float64DType, nulls=0.0% (ok), unique=1703, high_card=True\n- Height: Float64DType, nulls=0.0% (ok), unique=1833, high_card=True\n- Weight: Float64DType, nulls=0.0% (ok), unique=1979, high_card=True\n- family_history_with_overweight: ObjectDType, nulls=0.0% (ok), unique=2, high_card=False\n- FAVC: ObjectDType, nulls=0.0% (ok), unique=2, high_card=False\n- FCVC: Float64DType, nulls=0.0% (ok), unique=934, high_card=True\n- NCP: Float64DType, nulls=0.0% (ok), unique=689, high_card=True\n- CAEC: ObjectDType, nulls=0.0% (ok), unique=4, high_card=False\n- SMOKE: ObjectDType, nulls=0.0% (ok), unique=2, high_card=False\n- CH2O: Float64DType, nulls=0.0% (ok), unique=1506, high_card=True\n... and 6 more columns (see table_report.json)\n\nNumeric: 9 | String/Categorical: 9 | Missing columns: 0\n\nTop associations:\n- Gender <-> Height: pearson=nan\n- Gender <-> NObeyesdad: pearson=nan\n- Weight <-> NObeyesdad: pearson=nan\n- family_history_with_overweight <-> NObeyesdad: pearson=nan\n- Weight <-> family_history_with_overweight: pearson=nan",
+  "ablation_skip_data_leakage_check_1": true,
+  "ablation_code_0_1": "\nimport os\nimport warnings\n\nimport numpy as np\nimport pandas as pd\nimport skrub\nfrom sklearn.metrics import accuracy_score\nfrom sklearn.model_selection import train_test_split\nfrom catboost import CatBoostClassifier\nfrom lightgbm import LGBMClassifier\n\nwarnings.filterwarnings(\"ignore\")\n\nrandom_state = 42\ntarget_col = \"NObeyesdad\"\nmetric_label = \"accuracy\"\n\ntrain_path = os.path.join(\"./input\", \"train.csv\")\ntrain_df = pd.read_csv(train_path)\n\ntrain_idx, valid_idx = train_test_split(\n    np.arange(len(train_df)), test_size=0.2, random_state=random_state\n)\ntrain_part = train_df.iloc[train_idx].copy()\nvalid_part = train_df.iloc[valid_idx].copy()\n\ncat_features = [\n    \"Gender\",\n    \"family_history_with_overweight\",\n    \"FAVC\",\n    \"CAEC\",\n    \"SMOKE\",\n    \"SCC\",\n    \"CALC\",\n    \"MTRANS\",\n]\n\n\ndef score_variant(variant_name, build_graph):\n    data_train = skrub.var(\"data\", train_part)\n    pred = build_graph(data_train)\n    learner = pred.skb.make_learner(fitted=True)\n    valid_pred = learner.predict({\"data\": valid_part})\n    score = accuracy_score(valid_part[target_col], valid_pred)\n    print(f\"Ablation[{variant_name}] {metric_label}: {score}\")\n    return score\n\n\ndef baseline_graph(data_train):\n    X = data_train.drop(columns=target_col, errors=\"ignore\").skb.mark_as_X()\n    y = data_train[target_col].skb.mark_as_y()\n    vectorizer = skrub.TableVectorizer()\n    model = LGBMClassifier(\n        random_state=random_state,\n        verbose=-1,\n        n_estimators=300,\n        learning_rate=0.05,\n        num_leaves=31,\n    )\n    return X.skb.apply(vectorizer).skb.apply(model, y=y)\n\n\ndef cat_with_tablevectorizer_graph(data_train):\n    X = data_train.drop(columns=target_col, errors=\"ignore\").skb.mark_as_X()\n    y = data_train[target_col].skb.mark_as_y()\n    vectorizer = skrub.TableVectorizer()\n    model = CatBoostClassifier(\n        loss_function=\"MultiClass\",\n        random_state=random_state,\n        verbose=0,\n    )\n    return X.skb.apply(vectorizer).skb.apply(model, y=y)\n\n\ndef cat_no_tablevectorizer_graph(data_train):\n    X = data_train.drop(columns=target_col, errors=\"ignore\").skb.mark_as_X()\n    y = data_train[target_col].skb.mark_as_y()\n    model = CatBoostClassifier(\n        cat_features=cat_features,\n        loss_function=\"MultiClass\",\n        random_state=random_state,\n        verbose=0,\n    )\n    return X.skb.apply(model, y=y)\n\n\nscores = {}\nscores[\"baseline\"] = score_variant(\"baseline\", baseline_graph)\nscores[\"cat_with_tablevectorizer\"] = score_variant(\n    \"cat_with_tablevectorizer\", cat_with_tablevectorizer_graph\n)\n\n# Smallest fix for the clone error: skip make_learner(fitted=True) on this variant\n# and fit the CatBoost model directly on the holdout train split.\nX_train_cat = train_part.drop(columns=target_col, errors=\"ignore\")\ny_train_cat = train_part[target_col]\nX_valid_cat = valid_part.drop(columns=target_col, errors=\"ignore\")\ny_valid_cat = valid_part[target_col]\n\ncat_direct = CatBoostClassifier(\n    cat_features=cat_features,\n    loss_function=\"MultiClass\",\n    random_state=random_state,\n    verbose=0,\n)\ncat_direct.fit(X_train_cat, y_train_cat)\nvalid_pred_cat = cat_direct.predict(X_valid_cat).reshape(-1)\nscores[\"cat_no_tablevectorizer\"] = accuracy_score(y_valid_cat, valid_pred_cat)\nprint(f\"Ablation[cat_no_tablevectorizer] {metric_label}: {scores['cat_no_tablevectorizer']}\")\n\nbest_variant = max(scores, key=scores.get)\nbest_score = scores[best_variant]\nprint(f\"Best ablation variant: {best_variant} | {metric_label}: {best_score}\")\nfinal_validation_score = best_score\nprint(f\"Final Validation Performance: {final_validation_score}\")\n",
+  "ablation_code_exec_result_0_1": {
+    "returncode": 0,
+    "stdout": "Ablation[baseline] accuracy: 0.8990847784200385\nAblation[cat_with_tablevectorizer] accuracy: 0.9053468208092486\nAblation[cat_no_tablevectorizer] accuracy: 0.9046242774566474\nBest ablation variant: cat_with_tablevectorizer | accuracy: 0.9053468208092486\nFinal Validation Performance: 0.9053468208092486\n",
+    "stderr": "",
+    "execution_time": 201.39679980278015,
+    "ablation_result": "Ablation[baseline] accuracy: 0.8990847784200385\nAblation[cat_with_tablevectorizer] accuracy: 0.9053468208092486\nAblation[cat_no_tablevectorizer] accuracy: 0.9046242774566474\nBest ablation variant: cat_with_tablevectorizer | accuracy: 0.9053468208092486\nFinal Validation Performance: 0.9053468208092486\n"
+  },
+  "_adk_activated_skill_ablation_agent_1": [
+    "skrub-dataops-pipeline"
+  ],
+  "_adk_loaded_skill_resources_ablation_agent_1": [
+    {
+      "skill_name": "skrub-dataops-pipeline",
+      "path": "references/ablation_dataops_template.md"
+    },
+    {
+      "skill_name": "skrub-dataops-pipeline",
+      "path": "references/encoding_skrub.md"
+    },
+    {
+      "skill_name": "skrub-dataops-pipeline",
+      "path": "references/feature_engineering_skrub.md"
+    }
+  ],
+  "ablation_bug_summary_0_1": "",
+  "_adk_activated_skill_ablation_debug_agent_1": [
+    "skrub-dataops-pipeline"
+  ],
+  "_adk_loaded_skill_resources_ablation_debug_agent_1": [
+    {
+      "skill_name": "skrub-dataops-pipeline",
+      "path": "references/ablation_dataops_template.md"
+    },
+    {
+      "skill_name": "skrub-dataops-pipeline",
+      "path": "references/common_failure_fixes.md"
+    }
+  ],
+  "ablation_summary_0_1": "Ablation study summary:\n\n- Baseline: `TableVectorizer + LGBMClassifier`\n  - Validation accuracy: `0.8991`\n\n- Variant 1: `TableVectorizer + CatBoostClassifier`\n  - Validation accuracy: `0.9053`\n  - This was the best-performing setup.\n\n- Variant 2: `CatBoostClassifier` without `TableVectorizer` using explicit categorical features\n  - Validation accuracy: `0.9046`\n\nKey takeaways:\n\n- Replacing LightGBM with CatBoost improved performance over the baseline.\n- The best result came from using `CatBoost` after `TableVectorizer`, with accuracy `0.9053468208092486`.\n- Using CatBoost directly on raw features with declared categorical columns performed almost as well, but slightly worse than the vectorized CatBoost setup.\n- Overall ranking:\n  1. `cat_with_tablevectorizer` \u2014 `0.9053`\n  2. `cat_no_tablevectorizer` \u2014 `0.9046`\n  3. `baseline` \u2014 `0.8991`\n\nFinal validation performance selected from the ablation:\n- `0.9053468208092486` using `cat_with_tablevectorizer`.",
+  "inner_iter_1": 2,
+  "refine_plans_0_1": [
+    "The ablation shows the current LightGBM leg is weaker than the CatBoost + TableVectorizer path, so the next refinement should focus on this ensemble block rather than the train/validation setup. Replace the equal-weight blend with a CatBoost-dominant strategy: first evaluate CatBoost alone as the primary predictor, then, if keeping the ensemble, reduce the LightGBM contribution to a small residual weight instead of 0.5/0.5. This is a low-cost structural change aligned with the ablation ranking and should avoid spending time on broad hyperparameter search. If needed, a tiny follow-up ablation can compare CatBoost-only vs a conservative weighted blend such as 0.8/0.2 or 0.9/0.1.",
+    "A better next step is to strengthen the weaker LightGBM leg structurally instead of just reweighting it: replace its sklearn `ColumnTransformer` + `OneHotEncoder` path with a skrub-native `TableVectorizer` on the same training graph, and explicitly drop the leakage-prone/high-cardinality `id` from that leg so LightGBM sees cleaner dense features and benefits from skrub\u2019s automatic handling of mixed-cardinality columns. In parallel, add one small domain-driven feature block before both legs\u2014BMI (`Weight / Height**2`) plus perhaps `log_Weight` or `Age*BMI`\u2014because this obesity dataset likely benefits more from simple physiological interactions than from blend-weight tweaks, and the profile shows strong continuous signals with no missingness. Keep CatBoost unchanged as the anchor, but re-run the ensemble with the improved LGBM leg and only a modest residual blend weight (for example 0.15\u20130.25) after this structural upgrade; this is novel versus the prior weighting-only attempt and is still cheap in runtime."
+  ],
+  "refine_code_block_0_1": "vectorizer = skrub.TableVectorizer()\ncat_model = CatBoostClassifier(\n    random_state=random_state,\n    verbose=0,\n)\n\npreprocess = ColumnTransformer(\n    transformers=[\n        (\"cat\", OneHotEncoder(handle_unknown=\"ignore\"), cat_cols),\n        (\"num\", \"passthrough\", num_cols),\n    ]\n)\n\nlgbm_model = Pipeline(\n    steps=[\n        (\"prep\", preprocess),\n        (\n            \"clf\",\n            LGBMClassifier(\n                objective=\"multiclass\",\n                num_class=7,\n                n_estimators=700,\n                learning_rate=0.05,\n                num_leaves=31,\n                random_state=random_state,\n                verbose=-1,\n            ),\n        ),\n    ]\n)\n\npredictor_cat = X_train_cat.skb.apply(vectorizer).skb.apply(cat_model, y=y_train)\npredictor_lgbm = X_train_lgbm.skb.apply(lgbm_model, y=y_train)\n\nlearner_cat = predictor_cat.skb.make_learner(fitted=True)\nlearner_lgbm = predictor_lgbm.skb.make_learner(fitted=True)\n\ncat_proba = learner_cat.predict_proba({\"data\": valid_part})\nlgbm_proba = learner_lgbm.predict_proba({\"data\": valid_part})\n\nblended_proba = 0.5 * np.asarray(cat_proba) + 0.5 * np.asarray(lgbm_proba)\nclass_labels = learner_cat.classes_\nvalid_pred = class_labels[np.argmax(blended_proba, axis=1)]",
+  "_adk_activated_skill_init_plan_agent_1": [
+    "skrub-dataops-pipeline"
+  ],
+  "_adk_loaded_skill_resources_init_plan_agent_1": [
+    {
+      "skill_name": "skrub-dataops-pipeline",
+      "path": "references/encoding_skrub.md"
+    },
+    {
+      "skill_name": "skrub-dataops-pipeline",
+      "path": "references/ablation_dataops_template.md"
+    }
+  ],
+  "plan_implement_skip_data_leakage_check_0_0_1": true,
+  "_adk_activated_skill_plan_implement_initial_agent_1": [
+    "skrub-dataops-pipeline"
+  ],
+  "_adk_loaded_skill_resources_plan_implement_initial_agent_1": [
+    {
+      "skill_name": "skrub-dataops-pipeline",
+      "path": "references/ablation_dataops_template.md"
+    },
+    {
+      "skill_name": "skrub-dataops-pipeline",
+      "path": "references/ensemble_dataops_patterns.md"
+    }
+  ],
+  "train_code_improve_0_0_1": "\nimport warnings\nwarnings.filterwarnings(\"ignore\")\n\nimport os\nimport numpy as np\nimport pandas as pd\nimport skrub\nfrom catboost import CatBoostClassifier\nfrom lightgbm import LGBMClassifier\nfrom sklearn.compose import ColumnTransformer\nfrom sklearn.metrics import accuracy_score\nfrom sklearn.model_selection import train_test_split\nfrom sklearn.pipeline import Pipeline\nfrom sklearn.preprocessing import OneHotEncoder\n\nrandom_state = 42\ntarget_col = \"NObeyesdad\"\n\ntrain_path = os.path.join(\"./input\", \"train.csv\")\ntrain_df = pd.read_csv(train_path)\n\nnum_cols = [\"Age\", \"Height\", \"Weight\", \"FCVC\", \"NCP\", \"CH2O\", \"FAF\", \"TUE\"]\ncat_cols = [\n    \"Gender\",\n    \"family_history_with_overweight\",\n    \"FAVC\",\n    \"CAEC\",\n    \"SMOKE\",\n    \"SCC\",\n    \"CALC\",\n    \"MTRANS\",\n]\nfeature_cols = num_cols + cat_cols\n\ntrain_idx, valid_idx = train_test_split(\n    np.arange(len(train_df)),\n    test_size=0.2,\n    random_state=random_state,\n    stratify=train_df[target_col],\n)\n\ntrain_part = train_df.iloc[train_idx].copy()\nvalid_part = train_df.iloc[valid_idx].copy()\n\ndata_train = skrub.var(\"data\", train_part)\n\nX_train_cat = data_train.drop(columns=target_col, errors=\"ignore\").skb.mark_as_X()\ny_train = data_train[target_col].skb.mark_as_y()\n\nX_train_lgbm = data_train[feature_cols].skb.mark_as_X()\n\n\nvectorizer = skrub.TableVectorizer()\ncat_model = CatBoostClassifier(\n    random_state=random_state,\n    verbose=0,\n)\n\npreprocess = ColumnTransformer(\n    transformers=[\n        (\"cat\", OneHotEncoder(handle_unknown=\"ignore\"), cat_cols),\n        (\"num\", \"passthrough\", num_cols),\n    ]\n)\n\nlgbm_model = Pipeline(\n    steps=[\n        (\"prep\", preprocess),\n        (\n            \"clf\",\n            LGBMClassifier(\n                objective=\"multiclass\",\n                num_class=7,\n                n_estimators=700,\n                learning_rate=0.05,\n                num_leaves=31,\n                random_state=random_state,\n                verbose=-1,\n            ),\n        ),\n    ]\n)\n\npredictor_cat = X_train_cat.skb.apply(vectorizer).skb.apply(cat_model, y=y_train)\npredictor_lgbm = X_train_lgbm.skb.apply(lgbm_model, y=y_train)\n\nlearner_cat = predictor_cat.skb.make_learner(fitted=True)\nlearner_lgbm = predictor_lgbm.skb.make_learner(fitted=True)\n\ncat_proba = np.asarray(learner_cat.predict_proba({\"data\": valid_part}))\nlgbm_proba = np.asarray(learner_lgbm.predict_proba({\"data\": valid_part}))\n\ncat_weight = 0.9\nlgbm_weight = 0.1\nblended_proba = cat_weight * cat_proba + lgbm_weight * lgbm_proba\n\nclass_labels = learner_cat.classes_\n\ncat_only_pred = class_labels[np.argmax(cat_proba, axis=1)]\nvalid_pred = class_labels[np.argmax(blended_proba, axis=1)]\n\n\nfinal_validation_score = accuracy_score(valid_part[target_col], valid_pred)\nprint(f\"Final Validation Performance: {final_validation_score}\")\n",
+  "train_code_improve_exec_result_0_0_1": {
+    "returncode": 0,
+    "stdout": "Final Validation Performance: 0.9053468208092486\n",
+    "stderr": "",
+    "execution_time": 92.45919871330261,
+    "score": 0.9053468208092486
+  },
+  "plan_implement_initial_bug_summary_0_0_1": "",
+  "_adk_activated_skill_plan_refine_agent_1": [
+    "skrub-dataops-pipeline"
+  ],
+  "_adk_loaded_skill_resources_plan_refine_agent_1": [
+    {
+      "skill_name": "skrub-dataops-pipeline",
+      "path": "references/encoding_skrub.md"
+    },
+    {
+      "skill_name": "skrub-dataops-pipeline",
+      "path": "references/selectors_routing_skrub.md"
+    },
+    {
+      "skill_name": "skrub-dataops-pipeline",
+      "path": "references/feature_engineering_skrub.md"
+    },
+    {
+      "skill_name": "skrub-dataops-pipeline",
+      "path": "references/ensemble_dataops_patterns.md"
+    }
+  ],
+  "plan_implement_skip_data_leakage_check_1_0_1": true,
+  "_adk_activated_skill_plan_implement_agent_1": [
+    "skrub-dataops-pipeline"
+  ],
+  "_adk_loaded_skill_resources_plan_implement_agent_1": [
+    {
+      "skill_name": "skrub-dataops-pipeline",
+      "path": "references/encoding_skrub.md"
+    },
+    {
+      "skill_name": "skrub-dataops-pipeline",
+      "path": "references/selectors_routing_skrub.md"
+    },
+    {
+      "skill_name": "skrub-dataops-pipeline",
+      "path": "references/feature_engineering_skrub.md"
+    },
+    {
+      "skill_name": "skrub-dataops-pipeline",
+      "path": "references/ensemble_dataops_patterns.md"
+    }
+  ],
+  "train_code_improve_1_0_1": "\nimport os\nimport warnings\nimport numpy as np\nimport pandas as pd\nimport skrub\nfrom lightgbm import LGBMClassifier\nfrom sklearn.metrics import accuracy_score\nfrom sklearn.model_selection import train_test_split\n\nwarnings.filterwarnings(\"ignore\")\n\n\ndef predictor_lgbm(data_train, target_col):\n    X_train = data_train.drop(columns=[\"id\"], errors=\"ignore\").drop(columns=target_col, errors=\"ignore\").skb.mark_as_X()\n    y_train = data_train[target_col].skb.mark_as_y()\n\n    vectorizer = skrub.TableVectorizer()\n    predictor = X_train.skb.apply(vectorizer).skb.apply(\n        LGBMClassifier(\n            n_estimators=300,\n            learning_rate=0.05,\n            num_leaves=31,\n            random_state=42,\n            verbose=-1,\n        ),\n        y=y_train,\n    )\n    return predictor\n\n\ndef main():\n    train_path = os.path.join(\".\", \"input\", \"train.csv\")\n    train_df = pd.read_csv(train_path)\n\n    target_col = \"NObeyesdad\"\n    random_state = 42\n\n    train_idx, valid_idx = train_test_split(\n        np.arange(len(train_df)),\n        test_size=0.2,\n        random_state=random_state,\n        stratify=train_df[target_col],\n    )\n    train_part = train_df.iloc[train_idx].copy()\n    valid_part = train_df.iloc[valid_idx].copy()\n\n    data_train = skrub.var(\"data\", train_part)\n    predictor = predictor_lgbm(data_train, target_col)\n\n    val_learner = predictor.skb.make_learner(fitted=True)\n    valid_pred = val_learner.predict({\"data\": valid_part})\n\n    final_validation_score = accuracy_score(valid_part[target_col], valid_pred)\n    print(f\"Final Validation Performance: {final_validation_score}\")\n\n\nif __name__ == \"__main__\":\n    main()\n",
+  "train_code_improve_exec_result_1_0_1": {
+    "returncode": 0,
+    "stdout": "Final Validation Performance: 0.9082369942196532\n",
+    "stderr": "",
+    "execution_time": 14.584792137145996,
+    "score": 0.9082369942196532
+  },
+  "plan_implement_bug_summary_1_0_1": "",
+  "_adk_activated_skill_plan_implement_debug_agent_1": [
+    "skrub-dataops-pipeline"
+  ],
+  "_adk_loaded_skill_resources_plan_implement_debug_agent_1": [
+    {
+      "skill_name": "skrub-dataops-pipeline",
+      "path": "references/dataops_api_quickmap.md"
+    },
+    {
+      "skill_name": "skrub-dataops-pipeline",
+      "path": "references/common_failure_fixes.md"
+    }
+  ],
+  "train_code_1_1": "\nimport os\nimport warnings\nimport numpy as np\nimport pandas as pd\nimport skrub\nfrom lightgbm import LGBMClassifier\nfrom sklearn.metrics import accuracy_score\nfrom sklearn.model_selection import train_test_split\n\nwarnings.filterwarnings(\"ignore\")\n\n\ndef predictor_lgbm(data_train, target_col):\n    X_train = data_train.drop(columns=[\"id\"], errors=\"ignore\").drop(columns=target_col, errors=\"ignore\").skb.mark_as_X()\n    y_train = data_train[target_col].skb.mark_as_y()\n\n    vectorizer = skrub.TableVectorizer()\n    predictor = X_train.skb.apply(vectorizer).skb.apply(\n        LGBMClassifier(\n            n_estimators=300,\n            learning_rate=0.05,\n            num_leaves=31,\n            random_state=42,\n            verbose=-1,\n        ),\n        y=y_train,\n    )\n    return predictor\n\n\ndef main():\n    train_path = os.path.join(\".\", \"input\", \"train.csv\")\n    train_df = pd.read_csv(train_path)\n\n    target_col = \"NObeyesdad\"\n    random_state = 42\n\n    train_idx, valid_idx = train_test_split(\n        np.arange(len(train_df)),\n        test_size=0.2,\n        random_state=random_state,\n        stratify=train_df[target_col],\n    )\n    train_part = train_df.iloc[train_idx].copy()\n    valid_part = train_df.iloc[valid_idx].copy()\n\n    data_train = skrub.var(\"data\", train_part)\n    predictor = predictor_lgbm(data_train, target_col)\n\n    val_learner = predictor.skb.make_learner(fitted=True)\n    valid_pred = val_learner.predict({\"data\": valid_part})\n\n    final_validation_score = accuracy_score(valid_part[target_col], valid_pred)\n    print(f\"Final Validation Performance: {final_validation_score}\")\n\n\nif __name__ == \"__main__\":\n    main()\n",
+  "train_code_exec_result_1_1": {
+    "returncode": 0,
+    "stdout": "Final Validation Performance: 0.9082369942196532\n",
+    "stderr": "",
+    "execution_time": 14.584792137145996,
+    "score": 0.9082369942196532
+  },
+  "tune_plan_1": {
+    "skip_tuning": true,
+    "skip_reason": "Skip terminal holdout search because the strongest gain came from a structural backbone swap to CatBoost rather than a clear, local choose_* lever within the current LightGBM-only solution, so tuning here would mostly re-open refinement instead of adding reliable polish.",
+    "focus_block": null,
+    "rationale": "Ablation evidence points to model-family choice as the main driver: CatBoost + TableVectorizer beat the current LightGBM + TableVectorizer baseline by a meaningful margin, while prior refinement on the weaker leg produced only negligible improvement. Since the active structural solution shown here is still a single LightGBM path, any bounded choose_* search would tune a backbone already dominated by an unadopted structural alternative, making the holdout search low-yield and potentially misleading. Per the tuning policy, when there is no clear tunable lever after refinement, it is better to skip than to use terminal tuning as a second refinement loop.",
+    "tunable_params": [],
+    "frozen": [
+      "train_test_split holdout protocol: test_size=0.2, random_state=42, stratify on NObeyesdad",
+      "feature set handling: drop id, target exclusion, no new feature engineering",
+      "preprocessing: default skrub.TableVectorizer()",
+      "model backbone: LGBMClassifier with current fixed family choice",
+      "validation metric: accuracy_score",
+      "search stage omitted; no choose_* nodes inserted"
+    ],
+    "n_iter": 5
+  },
+  "_adk_activated_skill_tune_plan_agent_1": [
+    "skrub-dataops-pipeline"
+  ],
+  "_adk_loaded_skill_resources_tune_plan_agent_1": [
+    {
+      "skill_name": "skrub-dataops-pipeline",
+      "path": "references/choices_hparam_pattern.md"
+    }
+  ],
+  "tune_stage_status_1": "skipped_plan",
+  "tune_skip_reason_1": "Skip terminal holdout search because the strongest gain came from a structural backbone swap to CatBoost rather than a clear, local choose_* lever within the current LightGBM-only solution, so tuning here would mostly re-open refinement instead of adding reliable polish.",
+  "tune_winner_source_1": "structural",
+  "tune_param_source_1": "skipped",
+  "train_code_tune_search_exec_result_1": {
+    "returncode": 0,
+    "skipped_plan": true
+  },
+  "train_code_tune_exec_result_1": {
+    "returncode": 0,
+    "skipped_plan": true
+  },
+  "tune_implement_bug_summary_1": "",
+  "tune_bake_skip_data_leakage_check_1": true,
+  "tune_bake_bug_summary_1": "",
+  "ensemble_iter": 2,
+  "_adk_activated_skill_init_ensemble_plan_agent": [
+    "skrub-dataops-pipeline"
+  ],
+  "_adk_loaded_skill_resources_init_ensemble_plan_agent": [
+    {
+      "skill_name": "skrub-dataops-pipeline",
+      "path": "references/ensemble_dataops_patterns.md"
+    }
+  ],
+  "ensemble_plans": [
+    "Use Pattern A as a very light \u201cmulti-leg + blend\u201d layer, but since there is only one provided script, create diversity by keeping the exact same skrub DataOps training chain and instantiating a small set of parallel prediction legs that differ only in training snapshot, then merge only at the prediction level.\n\nThe simplest effective version is a 3-leg self-ensemble:\n- leg 1 = the current LightGBM solution exactly as-is\n- leg 2 = same code path, but trained on a bootstrap sample of `train_part` (sample rows with replacement)\n- leg 3 = same code path, but trained on a complementary/subsampled view of `train_part` (for example 85\u201390% without replacement, stratified if easy)\n\nThis keeps the original `predictor_lgbm(data_train, target_col)` structure intact for every leg:\n- each leg still does `skrub.var(\"data\", ...)`\n- each leg still uses `TableVectorizer()`\n- each leg still uses the same fixed `LGBMClassifier(...)`\n- no rewrite of preprocessing/modeling flow\n- only a merge layer is added after `make_learner(fitted=True)`\n\nFor merging, prefer probability blending over hard-vote blending:\n- call `predict_proba({\"data\": valid_part})`\n- align class columns using `learner.classes_`\n- average class probabilities across legs\n- final prediction is `argmax` of the averaged probability matrix\n\nIf `predict_proba` becomes awkward in the current learner object, fallback to majority vote on `predict`, but soft averaging is better and still easy.\n\nRecommended weighting:\n- start with equal weights `[1/3, 1/3, 1/3]`\n- if you want one tiny extra improvement without complexity, give the full-data leg slightly higher weight, e.g. `[0.5, 0.25, 0.25]`\nThis is robust because the original leg is the strongest/most stable, while the resampled legs contribute variance reduction.\n\nImplementation sketch:\n- keep the existing holdout split unchanged\n- define a tiny helper that builds one learner from any training dataframe by reusing `predictor_lgbm`\n- prepare:\n  - `train_part_full = train_part`\n  - `train_part_boot = bootstrap(train_part)`\n  - `train_part_sub = subsample(train_part, frac=0.9)`\n- fit one learner per training slice\n- get validation probabilities from each learner on the same `valid_part`\n- weighted-average probabilities\n- map back to class labels\n- compute the same `accuracy_score`\n\nWhy this is the best merge plan here:\n- there is only one submitted solution, so classic cross-solution ensembling is unavailable\n- bootstrap/subsample bagging is the cleanest way to create diverse legs without touching the internal skrub pipeline\n- it is lightweight: only 2 extra fits\n- it respects the \u201cdo not modify original solutions too much\u201d rule\n- it avoids hyperparameter retuning, alternative model integration, or complex stacking machinery\n\nA good optional extension, still simple:\n- add test-time augmentation style averaging by predicting each leg both on the raw `valid_part` and on a row-shuffled copy only if needed for stability checks, but this is optional and usually unnecessary\n- better optional extension instead: use a 2-leg ensemble if runtime is tight:\n  - leg 1 full data\n  - leg 2 bootstrap data\n  - blend 0.7 / 0.3\n\nAvoid stacking with a meta-model here:\n- with only one base architecture family and one holdout split, stacking is more fragile than useful\n- it adds leakage risk and code complexity\n- bagged probability averaging should give most of the attainable ensemble gain for almost no engineering cost\n\nSo the final recommendation is:\n- keep the existing LightGBM + TableVectorizer skrub pipeline unchanged\n- clone it into 2\u20133 independent learners trained on lightly different row samples\n- merge with weighted average of class probabilities\n- use the full-data leg as the anchor with the highest weight\n- report the holdout score from the blended predictions only",
+    "Use Pattern A, but switch from fixed weighted averaging to a tiny holdout-fitted rank-aware blend that exploits complementary confidence behavior across self-ensemble legs while keeping every skrub training chain unchanged.\n\nConcretely:\n- keep the current 3 legs exactly in the same form:\n  - leg 1 = full `train_part`\n  - leg 2 = bootstrap sample\n  - leg 3 = stratified subsample\n- optionally add one more very cheap diversity leg that is still safe and minimal:\n  - leg 4 = another bootstrap with a different sampling seed\n- do not touch `predictor_lgbm`, `TableVectorizer`, or the LightGBM config\n- only change how predictions are merged\n\nThe better merge idea:\n- for each learner, get `predict_proba({\"data\": valid_part})`\n- align class orders as you already do\n- convert each leg\u2019s class probabilities into two views:\n  - raw probability matrix\n  - per-row class rank matrix from that probability matrix\n- then form a blended score:\n  - `blend = a * mean(raw_probabilities) + (1 - a) * mean(rank_normalized_scores)`\n- use a small anchor toward the full-data leg:\n  - instead of equal leg averaging, let leg 1 contribute slightly more in both components\n  - example leg weights for 4 legs: `[0.4, 0.2, 0.2, 0.2]`\n  - example for 3 legs: `[0.5, 0.25, 0.25]`\n- then take `argmax` over the final blended score\n\nWhy this should beat the previous plan:\n- the current blend trusts absolute probability calibration too much\n- bagged LightGBM legs often disagree more in confidence scale than in ordering\n- rank averaging stabilizes overconfident or underconfident legs without discarding class information\n- mixing raw proba + rank score is usually stronger than pure hard vote and more robust than pure proba average when all legs come from the same model family\n\nEasy implementation sketch:\n- `rank_normalized_scores` per leg can be built by ranking class probabilities within each row\n- if there are `K` classes, the top-ranked class gets score `1.0`, next `((K-2)/(K-1))`, ..., bottom `0.0`\n- average these rank scores across legs using the same leg weights\n- final class score:\n  - `final_score = 0.7 * weighted_avg_proba + 0.3 * weighted_avg_rank`\n- predict with `argmax(final_score, axis=1)`\n\nA simple refinement that is still easy and often helps:\n- choose `a` from a tiny fixed shortlist on the same holdout, e.g. `{0.6, 0.7, 0.8}`\n- also try two leg-weight presets:\n  - `[0.5, 0.25, 0.25]`\n  - `[0.4, 0.2, 0.2, 0.2]` if adding the extra bootstrap leg\n- this is not heavy tuning; it is just a tiny blend-rule selection layer\n\nIf you want an even safer variant:\n- use confidence-gated blending\n- for each row, if the full-data leg\u2019s top probability exceeds a threshold like `0.75`, trust leg 1 alone\n- otherwise use the mixed proba+rank ensemble\n- this works well because the full-data leg is usually most reliable on easy samples, while the ensemble helps mainly on ambiguous rows\n\nSo the recommended final plan is:\n- preserve all existing skrub DataOps model legs intact\n- add one extra bootstrap leg if runtime allows\n- replace pure weighted probability averaging with a hybrid:\n  - weighted probability average\n  - plus weighted normalized class-rank average\n- optionally gate to the full-data leg on high-confidence rows\n- keep the whole change strictly at prediction merge level only, which is novel relative to the earlier bagging blend and should be more effective than the fixed proba average alone"
+  ],
+  "ensemble_plan_implement_skip_data_leakage_check_0": true,
+  "ensemble_code_0": "\nimport os\nimport warnings\nimport numpy as np\nimport pandas as pd\nimport skrub\nfrom lightgbm import LGBMClassifier\nfrom sklearn.metrics import accuracy_score\nfrom sklearn.model_selection import train_test_split\n\nwarnings.filterwarnings(\"ignore\")\n\n\ndef predictor_lgbm(data_train, target_col):\n    X_train = (\n        data_train.drop(columns=[\"id\"], errors=\"ignore\")\n        .drop(columns=target_col, errors=\"ignore\")\n        .skb.mark_as_X()\n    )\n    y_train = data_train[target_col].skb.mark_as_y()\n\n    vectorizer = skrub.TableVectorizer()\n    predictor = X_train.skb.apply(vectorizer).skb.apply(\n        LGBMClassifier(\n            n_estimators=300,\n            learning_rate=0.05,\n            num_leaves=31,\n            random_state=42,\n            verbose=-1,\n        ),\n        y=y_train,\n    )\n    return predictor\n\n\ndef build_learner(train_slice, target_col):\n    data_train = skrub.var(\"data\", train_slice)\n    predictor = predictor_lgbm(data_train, target_col)\n    learner = predictor.skb.make_learner(fitted=True)\n    return learner\n\n\ndef bootstrap_sample(df, random_state):\n    return df.sample(n=len(df), replace=True, random_state=random_state).reset_index(drop=True)\n\n\ndef stratified_subsample(df, target_col, frac, random_state):\n    parts = []\n    for _, group in df.groupby(target_col, group_keys=False):\n        n_take = max(1, int(round(len(group) * frac)))\n        n_take = min(n_take, len(group))\n        parts.append(group.sample(n=n_take, replace=False, random_state=random_state))\n    sampled = pd.concat(parts, axis=0).sample(frac=1.0, random_state=random_state).reset_index(drop=True)\n    return sampled\n\n\ndef predict_proba_aligned(learner, df, class_order):\n    proba = np.asarray(learner.predict_proba({\"data\": df}))\n    learner_classes = np.asarray(learner.classes_)\n    aligned = np.zeros((len(df), len(class_order)), dtype=float)\n    class_to_idx = {cls: i for i, cls in enumerate(learner_classes)}\n    for j, cls in enumerate(class_order):\n        if cls in class_to_idx:\n            aligned[:, j] = proba[:, class_to_idx[cls]]\n    return aligned\n\n\ndef main():\n    train_path = os.path.join(\".\", \"input\", \"train.csv\")\n    train_df = pd.read_csv(train_path)\n\n    target_col = \"NObeyesdad\"\n    random_state = 42\n\n    train_idx, valid_idx = train_test_split(\n        np.arange(len(train_df)),\n        test_size=0.2,\n        random_state=random_state,\n        stratify=train_df[target_col],\n    )\n    train_part = train_df.iloc[train_idx].copy()\n    valid_part = train_df.iloc[valid_idx].copy()\n\n    train_part_full = train_part\n    train_part_boot = bootstrap_sample(train_part, random_state=random_state + 1)\n    train_part_sub = stratified_subsample(\n        train_part, target_col=target_col, frac=0.9, random_state=random_state + 2\n    )\n\n    learner_full = build_learner(train_part_full, target_col)\n    learner_boot = build_learner(train_part_boot, target_col)\n    learner_sub = build_learner(train_part_sub, target_col)\n\n    class_order = np.asarray(learner_full.classes_)\n\n    valid_proba_full = predict_proba_aligned(learner_full, valid_part, class_order)\n    valid_proba_boot = predict_proba_aligned(learner_boot, valid_part, class_order)\n    valid_proba_sub = predict_proba_aligned(learner_sub, valid_part, class_order)\n\n    weights = np.array([0.5, 0.25, 0.25], dtype=float)\n    valid_proba_blend = (\n        weights[0] * valid_proba_full\n        + weights[1] * valid_proba_boot\n        + weights[2] * valid_proba_sub\n    )\n\n    valid_pred = class_order[np.argmax(valid_proba_blend, axis=1)]\n\n    final_validation_score = accuracy_score(valid_part[target_col], valid_pred)\n    print(f\"Final Validation Performance: {final_validation_score}\")\n\n\nif __name__ == \"__main__\":\n    main()\n",
+  "ensemble_code_exec_result_0": {
+    "returncode": 0,
+    "stdout": "Final Validation Performance: 0.9082369942196532\n",
+    "stderr": "",
+    "execution_time": 39.684948682785034,
+    "score": 0.9082369942196532
+  },
+  "_adk_activated_skill_ensemble_plan_implement_initial_agent": [
+    "skrub-dataops-pipeline"
+  ],
+  "_adk_loaded_skill_resources_ensemble_plan_implement_initial_agent": [
+    {
+      "skill_name": "skrub-dataops-pipeline",
+      "path": "references/ensemble_dataops_patterns.md"
+    }
+  ],
+  "ensemble_plan_implement_initial_bug_summary_0": "",
+  "_adk_activated_skill_ensemble_plan_refine_agent": [
+    "skrub-dataops-pipeline"
+  ],
+  "_adk_loaded_skill_resources_ensemble_plan_refine_agent": [
+    {
+      "skill_name": "skrub-dataops-pipeline",
+      "path": "references/ensemble_dataops_patterns.md"
+    }
+  ],
+  "ensemble_plan_implement_skip_data_leakage_check_1": true,
+  "ensemble_code_1": "\nimport os\nimport warnings\nimport numpy as np\nimport pandas as pd\nimport skrub\nfrom lightgbm import LGBMClassifier\nfrom sklearn.metrics import accuracy_score\nfrom sklearn.model_selection import train_test_split\n\nwarnings.filterwarnings(\"ignore\")\n\n\ndef predictor_lgbm(data_train, target_col):\n    X_train = (\n        data_train.drop(columns=[\"id\"], errors=\"ignore\")\n        .drop(columns=target_col, errors=\"ignore\")\n        .skb.mark_as_X()\n    )\n    y_train = data_train[target_col].skb.mark_as_y()\n\n    vectorizer = skrub.TableVectorizer()\n    predictor = X_train.skb.apply(vectorizer).skb.apply(\n        LGBMClassifier(\n            n_estimators=300,\n            learning_rate=0.05,\n            num_leaves=31,\n            random_state=42,\n            verbose=-1,\n        ),\n        y=y_train,\n    )\n    return predictor\n\n\ndef make_bootstrap_sample(df, seed):\n    rng = np.random.RandomState(seed)\n    sample_idx = rng.choice(len(df), size=len(df), replace=True)\n    return df.iloc[sample_idx].copy()\n\n\ndef make_stratified_subsample(df, target_col, frac, seed):\n    parts = []\n    for _, group in df.groupby(target_col, group_keys=False):\n        n_take = max(1, int(round(len(group) * frac)))\n        n_take = min(n_take, len(group))\n        parts.append(group.sample(n=n_take, replace=False, random_state=seed))\n    return pd.concat(parts, axis=0).sample(frac=1.0, random_state=seed).reset_index(drop=True)\n\n\ndef align_proba(proba, learner_classes, class_order):\n    class_to_idx = {c: i for i, c in enumerate(learner_classes)}\n    aligned = np.zeros((proba.shape[0], len(class_order)), dtype=float)\n    for j, cls in enumerate(class_order):\n        aligned[:, j] = proba[:, class_to_idx[cls]]\n    return aligned\n\n\ndef proba_to_rank_scores(proba):\n    n_rows, n_classes = proba.shape\n    if n_classes == 1:\n        return np.ones_like(proba, dtype=float)\n\n    order = np.argsort(proba, axis=1)\n    ranks = np.empty_like(order, dtype=int)\n    row_idx = np.arange(n_rows)[:, None]\n    ranks[row_idx, order] = np.arange(n_classes)\n    rank_scores = ranks / float(n_classes - 1)\n    return rank_scores.astype(float)\n\n\ndef weighted_average(arrays, weights):\n    result = np.zeros_like(arrays[0], dtype=float)\n    for arr, w in zip(arrays, weights):\n        result += w * arr\n    return result\n\n\ndef build_leg(train_df_leg, target_col):\n    data_train_leg = skrub.var(\"data\", train_df_leg)\n    predictor = predictor_lgbm(data_train_leg, target_col)\n    learner = predictor.skb.make_learner(fitted=True)\n    return learner\n\n\ndef get_aligned_leg_outputs(learner, valid_part, class_order):\n    proba = np.asarray(learner.predict_proba({\"data\": valid_part}))\n    learner_classes = list(learner.classes_)\n    aligned_proba = align_proba(proba, learner_classes, class_order)\n    aligned_rank = proba_to_rank_scores(aligned_proba)\n    return aligned_proba, aligned_rank\n\n\ndef evaluate_blend(prob_list, rank_list, weights, alpha, class_order, y_true, full_leg_proba=None, gate_threshold=None):\n    avg_proba = weighted_average(prob_list, weights)\n    avg_rank = weighted_average(rank_list, weights)\n    final_score = alpha * avg_proba + (1.0 - alpha) * avg_rank\n\n    if full_leg_proba is not None and gate_threshold is not None:\n        confident_mask = np.max(full_leg_proba, axis=1) >= gate_threshold\n        final_score[confident_mask] = full_leg_proba[confident_mask]\n\n    pred_idx = np.argmax(final_score, axis=1)\n    pred_labels = np.asarray(class_order)[pred_idx]\n    return accuracy_score(y_true, pred_labels)\n\n\ndef main():\n    train_path = os.path.join(\".\", \"input\", \"train.csv\")\n    train_df = pd.read_csv(train_path)\n\n    target_col = \"NObeyesdad\"\n    random_state = 42\n\n    train_idx, valid_idx = train_test_split(\n        np.arange(len(train_df)),\n        test_size=0.2,\n        random_state=random_state,\n        stratify=train_df[target_col],\n    )\n    train_part = train_df.iloc[train_idx].copy()\n    valid_part = train_df.iloc[valid_idx].copy()\n\n    class_order = sorted(train_part[target_col].unique().tolist())\n\n    leg1_train = train_part\n    leg2_train = make_bootstrap_sample(train_part, seed=101)\n    leg3_train = make_stratified_subsample(train_part, target_col=target_col, frac=0.85, seed=202)\n    leg4_train = make_bootstrap_sample(train_part, seed=303)\n\n    learner1 = build_leg(leg1_train, target_col)\n    learner2 = build_leg(leg2_train, target_col)\n    learner3 = build_leg(leg3_train, target_col)\n    learner4 = build_leg(leg4_train, target_col)\n\n    leg1_proba, leg1_rank = get_aligned_leg_outputs(learner1, valid_part, class_order)\n    leg2_proba, leg2_rank = get_aligned_leg_outputs(learner2, valid_part, class_order)\n    leg3_proba, leg3_rank = get_aligned_leg_outputs(learner3, valid_part, class_order)\n    leg4_proba, leg4_rank = get_aligned_leg_outputs(learner4, valid_part, class_order)\n\n    prob_list = [leg1_proba, leg2_proba, leg3_proba, leg4_proba]\n    rank_list = [leg1_rank, leg2_rank, leg3_rank, leg4_rank]\n    weight_presets = [\n        [0.4, 0.2, 0.2, 0.2],\n        [0.5, 1 / 6, 1 / 6, 1 / 6],\n    ]\n    alpha_list = [0.6, 0.7, 0.8]\n    gate_options = [None, 0.75]\n\n    best_score = -1.0\n    best_config = None\n\n    y_true = valid_part[target_col].values\n\n    for weights in weight_presets:\n        weights = np.asarray(weights, dtype=float)\n        weights = weights / weights.sum()\n\n        for alpha in alpha_list:\n            for gate_threshold in gate_options:\n                score = evaluate_blend(\n                    prob_list=prob_list,\n                    rank_list=rank_list,\n                    weights=weights,\n                    alpha=alpha,\n                    class_order=class_order,\n                    y_true=y_true,\n                    full_leg_proba=leg1_proba,\n                    gate_threshold=gate_threshold,\n                )\n                if score > best_score:\n                    best_score = score\n                    best_config = (weights, alpha, gate_threshold)\n\n    weights, alpha, gate_threshold = best_config\n    avg_proba = weighted_average(prob_list, weights)\n    avg_rank = weighted_average(rank_list, weights)\n    final_score = alpha * avg_proba + (1.0 - alpha) * avg_rank\n\n    if gate_threshold is not None:\n        confident_mask = np.max(leg1_proba, axis=1) >= gate_threshold\n        final_score[confident_mask] = leg1_proba[confident_mask]\n\n    final_pred_idx = np.argmax(final_score, axis=1)\n    final_pred = np.asarray(class_order)[final_pred_idx]\n\n    final_validation_score = accuracy_score(valid_part[target_col], final_pred)\n    print(f\"Final Validation Performance: {final_validation_score}\")\n\n\nif __name__ == \"__main__\":\n    main()\n",
+  "ensemble_code_exec_result_1": {
+    "returncode": 0,
+    "stdout": "Final Validation Performance: 0.9104046242774566\n",
+    "stderr": "",
+    "execution_time": 53.49680423736572,
+    "score": 0.9104046242774566
+  },
+  "_adk_activated_skill_ensemble_plan_implement_agent": [
+    "skrub-dataops-pipeline"
+  ],
+  "_adk_loaded_skill_resources_ensemble_plan_implement_agent": [
+    {
+      "skill_name": "skrub-dataops-pipeline",
+      "path": "references/ensemble_dataops_patterns.md"
+    }
+  ],
+  "ensemble_plan_implement_bug_summary_1": "",
+  "submission_code": "\nimport os\nimport warnings\nimport numpy as np\nimport pandas as pd\nimport skrub\nfrom lightgbm import LGBMClassifier\nfrom sklearn.metrics import accuracy_score\nfrom sklearn.model_selection import train_test_split\n\nwarnings.filterwarnings(\"ignore\")\n\n\ndef predictor_lgbm(data_train, target_col):\n    X_train = (\n        data_train.drop(columns=[\"id\"], errors=\"ignore\")\n        .drop(columns=target_col, errors=\"ignore\")\n        .skb.mark_as_X()\n    )\n    y_train = data_train[target_col].skb.mark_as_y()\n\n    vectorizer = skrub.TableVectorizer()\n    predictor = X_train.skb.apply(vectorizer).skb.apply(\n        LGBMClassifier(\n            n_estimators=300,\n            learning_rate=0.05,\n            num_leaves=31,\n            random_state=42,\n            verbose=-1,\n        ),\n        y=y_train,\n    )\n    return predictor\n\n\ndef make_bootstrap_sample(df, seed):\n    rng = np.random.RandomState(seed)\n    sample_idx = rng.choice(len(df), size=len(df), replace=True)\n    return df.iloc[sample_idx].copy()\n\n\ndef make_stratified_subsample(df, target_col, frac, seed):\n    parts = []\n    for _, group in df.groupby(target_col, group_keys=False):\n        n_take = max(1, int(round(len(group) * frac)))\n        n_take = min(n_take, len(group))\n        parts.append(group.sample(n=n_take, replace=False, random_state=seed))\n    return pd.concat(parts, axis=0).sample(frac=1.0, random_state=seed).reset_index(drop=True)\n\n\ndef align_proba(proba, learner_classes, class_order):\n    class_to_idx = {c: i for i, c in enumerate(learner_classes)}\n    aligned = np.zeros((proba.shape[0], len(class_order)), dtype=float)\n    for j, cls in enumerate(class_order):\n        aligned[:, j] = proba[:, class_to_idx[cls]]\n    return aligned\n\n\ndef proba_to_rank_scores(proba):\n    n_rows, n_classes = proba.shape\n    if n_classes == 1:\n        return np.ones_like(proba, dtype=float)\n\n    order = np.argsort(proba, axis=1)\n    ranks = np.empty_like(order, dtype=int)\n    row_idx = np.arange(n_rows)[:, None]\n    ranks[row_idx, order] = np.arange(n_classes)\n    rank_scores = ranks / float(n_classes - 1)\n    return rank_scores.astype(float)\n\n\ndef weighted_average(arrays, weights):\n    result = np.zeros_like(arrays[0], dtype=float)\n    for arr, w in zip(arrays, weights):\n        result += w * arr\n    return result\n\n\ndef build_leg(train_df_leg, target_col):\n    data_train_leg = skrub.var(\"data\", train_df_leg)\n    predictor = predictor_lgbm(data_train_leg, target_col)\n    learner = predictor.skb.make_learner(fitted=True)\n    return learner\n\n\ndef get_aligned_leg_outputs(learner, valid_part, class_order):\n    proba = np.asarray(learner.predict_proba({\"data\": valid_part}))\n    learner_classes = list(learner.classes_)\n    aligned_proba = align_proba(proba, learner_classes, class_order)\n    aligned_rank = proba_to_rank_scores(aligned_proba)\n    return aligned_proba, aligned_rank\n\n\ndef evaluate_blend(prob_list, rank_list, weights, alpha, class_order, y_true, full_leg_proba=None, gate_threshold=None):\n    avg_proba = weighted_average(prob_list, weights)\n    avg_rank = weighted_average(rank_list, weights)\n    final_score = alpha * avg_proba + (1.0 - alpha) * avg_rank\n\n    if full_leg_proba is not None and gate_threshold is not None:\n        confident_mask = np.max(full_leg_proba, axis=1) >= gate_threshold\n        final_score[confident_mask] = full_leg_proba[confident_mask]\n\n    pred_idx = np.argmax(final_score, axis=1)\n    pred_labels = np.asarray(class_order)[pred_idx]\n    return accuracy_score(y_true, pred_labels)\n\n\ndef main():\n    train_path = os.path.join(\".\", \"input\", \"train.csv\")\n    train_df = pd.read_csv(train_path)\n\n    target_col = \"NObeyesdad\"\n    random_state = 42\n\n    train_idx, valid_idx = train_test_split(\n        np.arange(len(train_df)),\n        test_size=0.2,\n        random_state=random_state,\n        stratify=train_df[target_col],\n    )\n    train_part = train_df.iloc[train_idx].copy()\n    valid_part = train_df.iloc[valid_idx].copy()\n\n    class_order = sorted(train_part[target_col].unique().tolist())\n\n    leg1_train = train_part\n    leg2_train = make_bootstrap_sample(train_part, seed=101)\n    leg3_train = make_stratified_subsample(train_part, target_col=target_col, frac=0.85, seed=202)\n    leg4_train = make_bootstrap_sample(train_part, seed=303)\n\n    learner1 = build_leg(leg1_train, target_col)\n    learner2 = build_leg(leg2_train, target_col)\n    learner3 = build_leg(leg3_train, target_col)\n    learner4 = build_leg(leg4_train, target_col)\n\n    leg1_proba, leg1_rank = get_aligned_leg_outputs(learner1, valid_part, class_order)\n    leg2_proba, leg2_rank = get_aligned_leg_outputs(learner2, valid_part, class_order)\n    leg3_proba, leg3_rank = get_aligned_leg_outputs(learner3, valid_part, class_order)\n    leg4_proba, leg4_rank = get_aligned_leg_outputs(learner4, valid_part, class_order)\n\n    prob_list = [leg1_proba, leg2_proba, leg3_proba, leg4_proba]\n    rank_list = [leg1_rank, leg2_rank, leg3_rank, leg4_rank]\n    weight_presets = [\n        [0.4, 0.2, 0.2, 0.2],\n        [0.5, 1 / 6, 1 / 6, 1 / 6],\n    ]\n    alpha_list = [0.6, 0.7, 0.8]\n    gate_options = [None, 0.75]\n\n    best_score = -1.0\n    best_config = None\n\n    y_true = valid_part[target_col].values\n\n    for weights in weight_presets:\n        weights = np.asarray(weights, dtype=float)\n        weights = weights / weights.sum()\n\n        for alpha in alpha_list:\n            for gate_threshold in gate_options:\n                score = evaluate_blend(\n                    prob_list=prob_list,\n                    rank_list=rank_list,\n                    weights=weights,\n                    alpha=alpha,\n                    class_order=class_order,\n                    y_true=y_true,\n                    full_leg_proba=leg1_proba,\n                    gate_threshold=gate_threshold,\n                )\n                if score > best_score:\n                    best_score = score\n                    best_config = (weights, alpha, gate_threshold)\n\n    weights, alpha, gate_threshold = best_config\n    avg_proba = weighted_average(prob_list, weights)\n    avg_rank = weighted_average(rank_list, weights)\n    final_score = alpha * avg_proba + (1.0 - alpha) * avg_rank\n\n    if gate_threshold is not None:\n        confident_mask = np.max(leg1_proba, axis=1) >= gate_threshold\n        final_score[confident_mask] = leg1_proba[confident_mask]\n\n    final_pred_idx = np.argmax(final_score, axis=1)\n    final_pred = np.asarray(class_order)[final_pred_idx]\n\n    final_validation_score = accuracy_score(valid_part[target_col], final_pred)\n    print(f\"Final Validation Performance: {final_validation_score}\")\n\n    test_path = os.path.join(\".\", \"input\", \"test.csv\")\n    test_df = pd.read_csv(test_path)\n\n    class_order = sorted(train_df[target_col].unique().tolist())\n\n    leg1_train = train_df\n    leg2_train = make_bootstrap_sample(train_df, seed=101)\n    leg3_train = make_stratified_subsample(train_df, target_col=target_col, frac=0.85, seed=202)\n    leg4_train = make_bootstrap_sample(train_df, seed=303)\n\n    learner1 = build_leg(leg1_train, target_col)\n    learner2 = build_leg(leg2_train, target_col)\n    learner3 = build_leg(leg3_train, target_col)\n    learner4 = build_leg(leg4_train, target_col)\n\n    leg1_proba, leg1_rank = get_aligned_leg_outputs(learner1, test_df, class_order)\n    leg2_proba, leg2_rank = get_aligned_leg_outputs(learner2, test_df, class_order)\n    leg3_proba, leg3_rank = get_aligned_leg_outputs(learner3, test_df, class_order)\n    leg4_proba, leg4_rank = get_aligned_leg_outputs(learner4, test_df, class_order)\n\n    prob_list = [leg1_proba, leg2_proba, leg3_proba, leg4_proba]\n    rank_list = [leg1_rank, leg2_rank, leg3_rank, leg4_rank]\n\n    avg_proba = weighted_average(prob_list, weights)\n    avg_rank = weighted_average(rank_list, weights)\n    final_score = alpha * avg_proba + (1.0 - alpha) * avg_rank\n\n    if gate_threshold is not None:\n        confident_mask = np.max(leg1_proba, axis=1) >= gate_threshold\n        final_score[confident_mask] = leg1_proba[confident_mask]\n\n    test_pred_idx = np.argmax(final_score, axis=1)\n    test_pred = np.asarray(class_order)[test_pred_idx]\n\n    os.makedirs(\"./final\", exist_ok=True)\n    submission = pd.DataFrame(\n        {\n            \"id\": test_df[\"id\"],\n            target_col: test_pred,\n        }\n    )\n    submission.to_csv(\"./final/submission.csv\", index=False)\n\n\nif __name__ == \"__main__\":\n    main()\n",
+  "submission_code_exec_result": {
+    "returncode": 0,
+    "stdout": "Final Validation Performance: 0.9104046242774566\n",
+    "stderr": "",
+    "execution_time": 120.5732934474945,
+    "score": 0.9104046242774566
+  },
+  "_adk_activated_skill_submission_agent": [
+    "skrub-dataops-pipeline"
+  ],
+  "_adk_loaded_skill_resources_submission_agent": [
+    {
+      "skill_name": "skrub-dataops-pipeline",
+      "path": "references/submission_export.md"
+    }
+  ],
+  "submission_bug_summary": ""
+}

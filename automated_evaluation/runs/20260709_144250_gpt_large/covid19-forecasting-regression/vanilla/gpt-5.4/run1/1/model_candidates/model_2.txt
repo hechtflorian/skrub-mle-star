@@ -1,0 +1,60 @@
+## Model name
+CatBoostRegressor with categorical location + temporal/lag features
+
+## Example Python code
+import pandas as pd
+import numpy as np
+from catboost import CatBoostRegressor
+
+train = pd.read_csv('train.csv')
+test = pd.read_csv('test.csv')
+all_df = pd.concat([train, test], sort=False).reset_index(drop=True)
+all_df['Date'] = pd.to_datetime(all_df['Date'])
+all_df['Province_State'] = all_df['Province_State'].fillna('None')
+all_df['Country_Region'] = all_df['Country_Region'].fillna('None')
+all_df['geo'] = all_df['Country_Region'] + '_' + all_df['Province_State']
+all_df = all_df.sort_values(['geo', 'Date'])
+
+all_df['day'] = (all_df['Date'] - all_df['Date'].min()).dt.days
+all_df['week'] = all_df['Date'].dt.isocalendar().week.astype(int)
+all_df['dow'] = all_df['Date'].dt.dayofweek
+
+for t in ['ConfirmedCases', 'Fatalities']:
+    all_df[f'log_{t}'] = np.log1p(all_df[t])
+    all_df[f'{t}_lag1'] = all_df.groupby('geo')[f'log_{t}'].shift(1)
+    all_df[f'{t}_lag7'] = all_df.groupby('geo')[f'log_{t}'].shift(7)
+    all_df[f'{t}_lag14'] = all_df.groupby('geo')[f'log_{t}'].shift(14)
+
+train_fe = all_df[all_df['ForecastId'].isna()].copy()
+test_fe = all_df[all_df['ForecastId'].notna()].copy()
+
+features = [
+    'Country_Region', 'Province_State', 'geo', 'day', 'week', 'dow',
+    'ConfirmedCases_lag1', 'ConfirmedCases_lag7', 'ConfirmedCases_lag14',
+    'Fatalities_lag1', 'Fatalities_lag7', 'Fatalities_lag14'
+]
+cat_features = [0, 1, 2]
+train_fe[features] = train_fe[features].fillna(0)
+test_fe[features] = test_fe[features].fillna(0)
+
+preds = {}
+for target in ['ConfirmedCases', 'Fatalities']:
+    y = np.log1p(train_fe[target])
+    model = CatBoostRegressor(
+        iterations=400,
+        depth=8,
+        learning_rate=0.05,
+        loss_function='RMSE',
+        verbose=False,
+        random_seed=42
+    )
+    model.fit(train_fe[features], y, cat_features=cat_features)
+    p = np.expm1(model.predict(test_fe[features]))
+    preds[target] = np.maximum.accumulate(p)
+
+sub = pd.DataFrame({
+    'ForecastId': test_fe['ForecastId'],
+    'ConfirmedCases': preds['ConfirmedCases'],
+    'Fatalities': preds['Fatalities']
+})
+sub.to_csv('submission.csv', index=False)

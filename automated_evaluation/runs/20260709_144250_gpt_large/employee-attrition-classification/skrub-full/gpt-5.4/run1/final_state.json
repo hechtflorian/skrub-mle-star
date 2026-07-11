@@ -1,0 +1,467 @@
+{
+  "data_dir": "./machine_learning_engineering/tasks/",
+  "task_name": "employee-attrition-classification",
+  "task_type": "Tabular Classification",
+  "lower": false,
+  "workspace_dir": "./machine_learning_engineering/workspace/",
+  "agent_model": "openai/gpt-5.4",
+  "task_description": "# Task\n\nPredict the probability for the target variable `Attrition` for each `EmployeeNumber`.\n\n# Metric\n\nroc_auc_score\n\n# Submission Format\n```\nEmployeeNumber,Attrition\n1677,0.78\n1678,0.34\n1679,0.55\netc.\n```\n\n# Dataset\n\ntrain.csv\n```\nid,Age,BusinessTravel,DailyRate,Department,DistanceFromHome,Education,EducationField,EmployeeCount,EnvironmentSatisfaction,Gender,HourlyRate,JobInvolvement,JobLevel,JobRole,JobSatisfaction,MaritalStatus,MonthlyIncome,MonthlyRate,NumCompaniesWorked,Over18,OverTime,PercentSalaryHike,PerformanceRating,RelationshipSatisfaction,StandardHours,StockOptionLevel,TotalWorkingYears,TrainingTimesLastYear,WorkLifeBalance,YearsAtCompany,YearsInCurrentRole,YearsSinceLastPromotion,YearsWithCurrManager,Attrition\n0,36,Travel_Frequently,599,Research & Development,24,3,Medical,1,4,Male,42,3,1,Laboratory Technician,4,Married,2596,5099,1,Y,Yes,13,3,2,80,1,10,2,3,10,0,7,8,0\n1,35,Travel_Rarely,921,Sales,8,3,Other,1,1,Male,46,3,1,Sales Representative,1,Married,2899,10778,1,Y,No,17,3,4,80,1,4,3,3,4,2,0,3,0\n2,32,Travel_Rarely,718,Sales,26,3,Marketing,1,3,Male,80,3,2,Sales Executive,4,Divorced,4627,16495,0,Y,No,17,3,4,80,2,4,3,3,3,2,1,2,0\netc.\n```\n\ntest.csv\n```\nid,Age,BusinessTravel,DailyRate,Department,DistanceFromHome,Education,EducationField,EmployeeCount,EnvironmentSatisfaction,Gender,HourlyRate,JobInvolvement,JobLevel,JobRole,JobSatisfaction,MaritalStatus,MonthlyIncome,MonthlyRate,NumCompaniesWorked,Over18,OverTime,PercentSalaryHike,PerformanceRating,RelationshipSatisfaction,StandardHours,StockOptionLevel,TotalWorkingYears,TrainingTimesLastYear,WorkLifeBalance,YearsAtCompany,YearsInCurrentRole,YearsSinceLastPromotion,YearsWithCurrManager\n1677,19,Non-Travel,992,Research & Development,1,1,Medical,1,4,Male,43,3,1,Laboratory Technician,3,Single,2318,17778,1,Y,No,12,3,4,80,0,1,2,2,1,0,0,0\n1678,45,Travel_Rarely,1136,Sales,4,4,Marketing,1,3,Male,67,3,2,Sales Executive,1,Divorced,5486,12421,6,Y,Yes,12,3,3,80,1,7,3,3,2,2,2,2\n1679,37,Travel_Rarely,155,Research & Development,13,3,Life Sciences,1,4,Male,41,3,1,Research Scientist,4,Divorced,2741,23577,4,Y,Yes,13,3,2,80,2,13,2,2,7,7,1,7\netc.\n```",
+  "task_summary": "Task: Tabular Classification\nTabular binary classification task: predict `Attrition` probability for each `EmployeeNumber`/`id` in `test.csv` using `train.csv`. Evaluation metric is ROC-AUC. Data is structured HR employee tabular data with mixed numerical and categorical features (demographics, job role, compensation, satisfaction, tenure, travel, overtime, etc.). Output submission CSV format: `EmployeeNumber,Attrition` with predicted probabilities.",
+  "start_time": 1783617809.6270287,
+  "seed": 42,
+  "exec_timeout": 600,
+  "num_solutions": 1,
+  "num_model_candidates": 2,
+  "max_retry": 10,
+  "max_debug_round": 5,
+  "max_rollback_round": 2,
+  "inner_loop_round": 1,
+  "outer_loop_round": 1,
+  "ensemble_loop_round": 1,
+  "num_top_plans": 2,
+  "use_data_leakage_checker": false,
+  "use_data_usage_checker": false,
+  "table_report_enabled": true,
+  "tuning_enabled": true,
+  "tuning_n_iter": 5,
+  "_adk_activated_skill_model_retriever_agent_1": [
+    "skrub-dataops-pipeline"
+  ],
+  "_adk_loaded_skill_resources_model_retriever_agent_1": [
+    {
+      "skill_name": "skrub-dataops-pipeline",
+      "path": "references/dataops_api_quickmap.md"
+    }
+  ],
+  "init_1_model_1": {
+    "model_name": "CatBoostClassifier",
+    "example_code": "import pandas as pd\nfrom catboost import CatBoostClassifier\n\ntrain = pd.read_csv('train.csv')\ntest = pd.read_csv('test.csv')\n\ntarget = 'Attrition'\nid_col = 'EmployeeNumber' if 'EmployeeNumber' in test.columns else 'id'\n\nX = train.drop(columns=[target])\ny = train[target]\nX_test = test.copy()\n\ncat_cols = X.select_dtypes(include=['object', 'category']).columns.tolist()\ncat_idx = [X.columns.get_loc(c) for c in cat_cols]\n\nmodel = CatBoostClassifier(\n    loss_function='Logloss',\n    eval_metric='AUC',\n    iterations=1200,\n    learning_rate=0.03,\n    depth=6,\n    l2_leaf_reg=5,\n    random_seed=42,\n    verbose=0\n)\n\nmodel.fit(X, y, cat_features=cat_idx)\npred = model.predict_proba(X_test)[:, 1]\n\nsubmission = pd.DataFrame({id_col: test[id_col], 'Attrition': pred})\nsubmission.to_csv('submission.csv', index=False)\n",
+    "model_description": "## Model name\nCatBoostClassifier\n\n## Example Python code\nimport pandas as pd\nfrom catboost import CatBoostClassifier\n\ntrain = pd.read_csv('train.csv')\ntest = pd.read_csv('test.csv')\n\ntarget = 'Attrition'\nid_col = 'EmployeeNumber' if 'EmployeeNumber' in test.columns else 'id'\n\nX = train.drop(columns=[target])\ny = train[target]\nX_test = test.copy()\n\ncat_cols = X.select_dtypes(include=['object', 'category']).columns.tolist()\ncat_idx = [X.columns.get_loc(c) for c in cat_cols]\n\nmodel = CatBoostClassifier(\n    loss_function='Logloss',\n    eval_metric='AUC',\n    iterations=1200,\n    learning_rate=0.03,\n    depth=6,\n    l2_leaf_reg=5,\n    random_seed=42,\n    verbose=0\n)\n\nmodel.fit(X, y, cat_features=cat_idx)\npred = model.predict_proba(X_test)[:, 1]\n\nsubmission = pd.DataFrame({id_col: test[id_col], 'Attrition': pred})\nsubmission.to_csv('submission.csv', index=False)\n"
+  },
+  "init_1_model_2": {
+    "model_name": "LightGBM + Skrub TableVectorizer",
+    "example_code": "import pandas as pd\nimport skrub\nfrom lightgbm import LGBMClassifier\n\ntrain = pd.read_csv('train.csv')\ntest = pd.read_csv('test.csv')\n\ntarget = 'Attrition'\nid_col = 'EmployeeNumber' if 'EmployeeNumber' in test.columns else 'id'\n\nX_df = train.drop(columns=[target])\ny = train[target]\nX_test_df = test.copy()\n\nX = skrub.X(X_df)\ny_s = skrub.y(y)\nvectorizer = skrub.TableVectorizer()\n\npred = X.skb.apply(vectorizer).skb.apply(\n    LGBMClassifier(\n        n_estimators=700,\n        learning_rate=0.03,\n        num_leaves=64,\n        subsample=0.8,\n        colsample_bytree=0.8,\n        objective='binary',\n        random_state=42,\n        verbose=-1\n    ),\n    y=y_s,\n)\n\nlearner = pred.skb.make_learner(fitted=True)\npred_test = learner.predict({'X': X_test_df})\n\nsubmission = pd.DataFrame({id_col: test[id_col], 'Attrition': pred_test})\nsubmission.to_csv('submission.csv', index=False)\n",
+    "model_description": "## Model name\nLightGBM + Skrub TableVectorizer\n\n## Example Python code\nimport pandas as pd\nimport skrub\nfrom lightgbm import LGBMClassifier\n\ntrain = pd.read_csv('train.csv')\ntest = pd.read_csv('test.csv')\n\ntarget = 'Attrition'\nid_col = 'EmployeeNumber' if 'EmployeeNumber' in test.columns else 'id'\n\nX_df = train.drop(columns=[target])\ny = train[target]\nX_test_df = test.copy()\n\nX = skrub.X(X_df)\ny_s = skrub.y(y)\nvectorizer = skrub.TableVectorizer()\n\npred = X.skb.apply(vectorizer).skb.apply(\n    LGBMClassifier(\n        n_estimators=700,\n        learning_rate=0.03,\n        num_leaves=64,\n        subsample=0.8,\n        colsample_bytree=0.8,\n        objective='binary',\n        random_state=42,\n        verbose=-1\n    ),\n    y=y_s,\n)\n\nlearner = pred.skb.make_learner(fitted=True)\npred_test = learner.predict({'X': X_test_df})\n\nsubmission = pd.DataFrame({id_col: test[id_col], 'Attrition': pred_test})\nsubmission.to_csv('submission.csv', index=False)\n"
+  },
+  "init_1_model_finish": true,
+  "model_eval_skip_data_leakage_check_1_1": true,
+  "init_code_1_1": "\nimport warnings\nwarnings.filterwarnings(\"ignore\")\n\nfrom pathlib import Path\n\nimport numpy as np\nimport pandas as pd\nimport skrub\nfrom catboost import CatBoostClassifier\nfrom sklearn.metrics import roc_auc_score\nfrom sklearn.model_selection import train_test_split\n\nrandom_state = 42\ntarget_col = \"Attrition\"\n\ninput_dir = Path(\"./input\")\ntrain_path = input_dir / \"train.csv\"\ntrain_df = pd.read_csv(train_path)\n\ntrain_part, valid_part = train_test_split(\n    train_df,\n    test_size=0.2,\n    random_state=random_state,\n    stratify=train_df[target_col],\n)\n\ndata_train = skrub.var(\"data\", train_part)\nX_train = data_train.drop(columns=[target_col], errors=\"ignore\").skb.mark_as_X()\ny_train = data_train[target_col].skb.mark_as_y()\n\nvectorizer = skrub.TableVectorizer()\nmodel = CatBoostClassifier(\n    loss_function=\"Logloss\",\n    eval_metric=\"AUC\",\n    iterations=1200,\n    learning_rate=0.03,\n    depth=6,\n    l2_leaf_reg=5,\n    random_seed=random_state,\n    verbose=0,\n)\n\npredictor = X_train.skb.apply(vectorizer).skb.apply(model, y=y_train)\n\nval_learner = predictor.skb.make_learner(fitted=True)\nvalid_pred = val_learner.predict({\"data\": valid_part})\n\nfinal_validation_score = roc_auc_score(valid_part[target_col], valid_pred)\nprint(f\"Final Validation Performance: {final_validation_score}\")\n",
+  "init_code_exec_result_1_1": {
+    "returncode": 0,
+    "stdout": "Final Validation Performance: 0.5432432432432434\n",
+    "stderr": "",
+    "execution_time": 11.532476902008057,
+    "score": 0.5432432432432434
+  },
+  "_adk_activated_skill_model_eval_agent_1_1": [
+    "skrub-dataops-pipeline"
+  ],
+  "_adk_loaded_skill_resources_model_eval_agent_1_1": [
+    {
+      "skill_name": "skrub-dataops-pipeline",
+      "path": "references/dataops_api_quickmap.md"
+    }
+  ],
+  "model_eval_bug_summary_1_1": "",
+  "model_eval_skip_data_leakage_check_1_2": true,
+  "init_code_1_2": "\nimport warnings\nwarnings.filterwarnings(\"ignore\")\n\nfrom pathlib import Path\n\nimport pandas as pd\nimport skrub\nfrom lightgbm import LGBMClassifier\nfrom sklearn.metrics import roc_auc_score\nfrom sklearn.model_selection import train_test_split\n\nrandom_state = 42\ntarget_col = \"Attrition\"\n\ninput_dir = Path(\"./input\")\ntrain_path = input_dir / \"train.csv\"\ntrain_df = pd.read_csv(train_path)\n\ntrain_part, valid_part = train_test_split(\n    train_df,\n    test_size=0.2,\n    random_state=random_state,\n    stratify=train_df[target_col],\n)\n\ndata_train = skrub.var(\"data\", train_part)\nX_train = data_train.drop(columns=[target_col], errors=\"ignore\").skb.mark_as_X()\ny_train = data_train[target_col].skb.mark_as_y()\n\nvectorizer = skrub.TableVectorizer()\nmodel = LGBMClassifier(\n    n_estimators=700,\n    learning_rate=0.03,\n    num_leaves=64,\n    subsample=0.8,\n    colsample_bytree=0.8,\n    objective=\"binary\",\n    random_state=random_state,\n    verbose=-1,\n)\n\npredictor = X_train.skb.apply(vectorizer).skb.apply(model, y=y_train)\n\nval_learner = predictor.skb.make_learner(fitted=True)\nvalid_pred = val_learner.predict({\"data\": valid_part})\n\nfinal_validation_score = roc_auc_score(valid_part[target_col], valid_pred)\nprint(f\"Final Validation Performance: {final_validation_score}\")\n",
+  "init_code_exec_result_1_2": {
+    "returncode": 0,
+    "stdout": "Final Validation Performance: 0.5631756756756756\n",
+    "stderr": "",
+    "execution_time": 6.254842519760132,
+    "score": 0.5631756756756756
+  },
+  "_adk_activated_skill_model_eval_agent_1_2": [
+    "skrub-dataops-pipeline"
+  ],
+  "_adk_loaded_skill_resources_model_eval_agent_1_2": [
+    {
+      "skill_name": "skrub-dataops-pipeline",
+      "path": "references/dataops_api_quickmap.md"
+    }
+  ],
+  "model_eval_bug_summary_1_2": "",
+  "performance_results_1": [
+    [
+      0.5631756756756756,
+      "\nimport warnings\nwarnings.filterwarnings(\"ignore\")\n\nfrom pathlib import Path\n\nimport pandas as pd\nimport skrub\nfrom lightgbm import LGBMClassifier\nfrom sklearn.metrics import roc_auc_score\nfrom sklearn.model_selection import train_test_split\n\nrandom_state = 42\ntarget_col = \"Attrition\"\n\ninput_dir = Path(\"./input\")\ntrain_path = input_dir / \"train.csv\"\ntrain_df = pd.read_csv(train_path)\n\ntrain_part, valid_part = train_test_split(\n    train_df,\n    test_size=0.2,\n    random_state=random_state,\n    stratify=train_df[target_col],\n)\n\ndata_train = skrub.var(\"data\", train_part)\nX_train = data_train.drop(columns=[target_col], errors=\"ignore\").skb.mark_as_X()\ny_train = data_train[target_col].skb.mark_as_y()\n\nvectorizer = skrub.TableVectorizer()\nmodel = LGBMClassifier(\n    n_estimators=700,\n    learning_rate=0.03,\n    num_leaves=64,\n    subsample=0.8,\n    colsample_bytree=0.8,\n    objective=\"binary\",\n    random_state=random_state,\n    verbose=-1,\n)\n\npredictor = X_train.skb.apply(vectorizer).skb.apply(model, y=y_train)\n\nval_learner = predictor.skb.make_learner(fitted=True)\nvalid_pred = val_learner.predict({\"data\": valid_part})\n\nfinal_validation_score = roc_auc_score(valid_part[target_col], valid_pred)\nprint(f\"Final Validation Performance: {final_validation_score}\")\n",
+      {
+        "returncode": 0,
+        "stdout": "Final Validation Performance: 0.5631756756756756\n",
+        "stderr": "",
+        "execution_time": 6.254842519760132,
+        "score": 0.5631756756756756
+      }
+    ],
+    [
+      0.5432432432432434,
+      "\nimport warnings\nwarnings.filterwarnings(\"ignore\")\n\nfrom pathlib import Path\n\nimport numpy as np\nimport pandas as pd\nimport skrub\nfrom catboost import CatBoostClassifier\nfrom sklearn.metrics import roc_auc_score\nfrom sklearn.model_selection import train_test_split\n\nrandom_state = 42\ntarget_col = \"Attrition\"\n\ninput_dir = Path(\"./input\")\ntrain_path = input_dir / \"train.csv\"\ntrain_df = pd.read_csv(train_path)\n\ntrain_part, valid_part = train_test_split(\n    train_df,\n    test_size=0.2,\n    random_state=random_state,\n    stratify=train_df[target_col],\n)\n\ndata_train = skrub.var(\"data\", train_part)\nX_train = data_train.drop(columns=[target_col], errors=\"ignore\").skb.mark_as_X()\ny_train = data_train[target_col].skb.mark_as_y()\n\nvectorizer = skrub.TableVectorizer()\nmodel = CatBoostClassifier(\n    loss_function=\"Logloss\",\n    eval_metric=\"AUC\",\n    iterations=1200,\n    learning_rate=0.03,\n    depth=6,\n    l2_leaf_reg=5,\n    random_seed=random_state,\n    verbose=0,\n)\n\npredictor = X_train.skb.apply(vectorizer).skb.apply(model, y=y_train)\n\nval_learner = predictor.skb.make_learner(fitted=True)\nvalid_pred = val_learner.predict({\"data\": valid_part})\n\nfinal_validation_score = roc_auc_score(valid_part[target_col], valid_pred)\nprint(f\"Final Validation Performance: {final_validation_score}\")\n",
+      {
+        "returncode": 0,
+        "stdout": "Final Validation Performance: 0.5432432432432434\n",
+        "stderr": "",
+        "execution_time": 11.532476902008057,
+        "score": 0.5432432432432434
+      }
+    ]
+  ],
+  "best_score_1": 0.5728462837837839,
+  "base_solution_1": "\nimport warnings\nwarnings.filterwarnings(\"ignore\")\n\nfrom pathlib import Path\n\nimport numpy as np\nimport pandas as pd\nimport skrub\nfrom catboost import CatBoostClassifier\nfrom lightgbm import LGBMClassifier\nfrom sklearn.metrics import roc_auc_score\nfrom sklearn.model_selection import train_test_split\n\nrandom_state = 42\ntarget_col = \"Attrition\"\n\ninput_dir = Path(\"./input\")\ntrain_path = input_dir / \"train.csv\"\ntrain_df = pd.read_csv(train_path)\n\ntrain_part, valid_part = train_test_split(\n    train_df,\n    test_size=0.2,\n    random_state=random_state,\n    stratify=train_df[target_col],\n)\n\ndata_train = skrub.var(\"data\", train_part)\nX_train = data_train.drop(columns=[target_col], errors=\"ignore\").skb.mark_as_X()\ny_train = data_train[target_col].skb.mark_as_y()\n\nvectorizer_lgbm = skrub.TableVectorizer()\nvectorizer_cat = skrub.TableVectorizer()\n\nlgbm_model = LGBMClassifier(\n    n_estimators=700,\n    learning_rate=0.03,\n    num_leaves=64,\n    subsample=0.8,\n    colsample_bytree=0.8,\n    objective=\"binary\",\n    random_state=random_state,\n    verbose=-1,\n)\n\ncat_model = CatBoostClassifier(\n    loss_function=\"Logloss\",\n    eval_metric=\"AUC\",\n    iterations=1200,\n    learning_rate=0.03,\n    depth=6,\n    l2_leaf_reg=5,\n    random_seed=random_state,\n    verbose=0,\n)\n\nlgbm_predictor = X_train.skb.apply(vectorizer_lgbm).skb.apply(lgbm_model, y=y_train)\ncat_predictor = X_train.skb.apply(vectorizer_cat).skb.apply(cat_model, y=y_train)\n\nlgbm_learner = lgbm_predictor.skb.make_learner(fitted=True)\ncat_learner = cat_predictor.skb.make_learner(fitted=True)\n\nvalid_pred_lgbm = np.asarray(lgbm_learner.predict({\"data\": valid_part}), dtype=float).ravel()\nvalid_pred_cat = np.asarray(cat_learner.predict({\"data\": valid_part}), dtype=float).ravel()\n\nvalid_pred = 0.5 * valid_pred_lgbm + 0.5 * valid_pred_cat\n\nfinal_validation_score = roc_auc_score(valid_part[target_col], valid_pred)\nprint(f\"Final Validation Performance: {final_validation_score}\")\n",
+  "best_idx_1": 1,
+  "merger_code_1_0": "\nimport warnings\nwarnings.filterwarnings(\"ignore\")\n\nfrom pathlib import Path\n\nimport pandas as pd\nimport skrub\nfrom lightgbm import LGBMClassifier\nfrom sklearn.metrics import roc_auc_score\nfrom sklearn.model_selection import train_test_split\n\nrandom_state = 42\ntarget_col = \"Attrition\"\n\ninput_dir = Path(\"./input\")\ntrain_path = input_dir / \"train.csv\"\ntrain_df = pd.read_csv(train_path)\n\ntrain_part, valid_part = train_test_split(\n    train_df,\n    test_size=0.2,\n    random_state=random_state,\n    stratify=train_df[target_col],\n)\n\ndata_train = skrub.var(\"data\", train_part)\nX_train = data_train.drop(columns=[target_col], errors=\"ignore\").skb.mark_as_X()\ny_train = data_train[target_col].skb.mark_as_y()\n\nvectorizer = skrub.TableVectorizer()\nmodel = LGBMClassifier(\n    n_estimators=700,\n    learning_rate=0.03,\n    num_leaves=64,\n    subsample=0.8,\n    colsample_bytree=0.8,\n    objective=\"binary\",\n    random_state=random_state,\n    verbose=-1,\n)\n\npredictor = X_train.skb.apply(vectorizer).skb.apply(model, y=y_train)\n\nval_learner = predictor.skb.make_learner(fitted=True)\nvalid_pred = val_learner.predict({\"data\": valid_part})\n\nfinal_validation_score = roc_auc_score(valid_part[target_col], valid_pred)\nprint(f\"Final Validation Performance: {final_validation_score}\")\n",
+  "merger_code_exec_result_1_0": {
+    "returncode": 0,
+    "stdout": "Final Validation Performance: 0.5631756756756756\n",
+    "stderr": "",
+    "execution_time": 6.254842519760132,
+    "score": 0.5631756756756756
+  },
+  "merger_skip_data_leakage_check_1_1": true,
+  "merger_code_1_1": "\nimport warnings\nwarnings.filterwarnings(\"ignore\")\n\nfrom pathlib import Path\n\nimport numpy as np\nimport pandas as pd\nimport skrub\nfrom catboost import CatBoostClassifier\nfrom lightgbm import LGBMClassifier\nfrom sklearn.metrics import roc_auc_score\nfrom sklearn.model_selection import train_test_split\n\nrandom_state = 42\ntarget_col = \"Attrition\"\n\ninput_dir = Path(\"./input\")\ntrain_path = input_dir / \"train.csv\"\ntrain_df = pd.read_csv(train_path)\n\ntrain_part, valid_part = train_test_split(\n    train_df,\n    test_size=0.2,\n    random_state=random_state,\n    stratify=train_df[target_col],\n)\n\ndata_train = skrub.var(\"data\", train_part)\nX_train = data_train.drop(columns=[target_col], errors=\"ignore\").skb.mark_as_X()\ny_train = data_train[target_col].skb.mark_as_y()\n\nvectorizer_lgbm = skrub.TableVectorizer()\nvectorizer_cat = skrub.TableVectorizer()\n\nlgbm_model = LGBMClassifier(\n    n_estimators=700,\n    learning_rate=0.03,\n    num_leaves=64,\n    subsample=0.8,\n    colsample_bytree=0.8,\n    objective=\"binary\",\n    random_state=random_state,\n    verbose=-1,\n)\n\ncat_model = CatBoostClassifier(\n    loss_function=\"Logloss\",\n    eval_metric=\"AUC\",\n    iterations=1200,\n    learning_rate=0.03,\n    depth=6,\n    l2_leaf_reg=5,\n    random_seed=random_state,\n    verbose=0,\n)\n\nlgbm_predictor = X_train.skb.apply(vectorizer_lgbm).skb.apply(lgbm_model, y=y_train)\ncat_predictor = X_train.skb.apply(vectorizer_cat).skb.apply(cat_model, y=y_train)\n\nlgbm_learner = lgbm_predictor.skb.make_learner(fitted=True)\ncat_learner = cat_predictor.skb.make_learner(fitted=True)\n\nvalid_pred_lgbm = np.asarray(lgbm_learner.predict({\"data\": valid_part}), dtype=float).ravel()\nvalid_pred_cat = np.asarray(cat_learner.predict({\"data\": valid_part}), dtype=float).ravel()\n\nvalid_pred = 0.5 * valid_pred_lgbm + 0.5 * valid_pred_cat\n\nfinal_validation_score = roc_auc_score(valid_part[target_col], valid_pred)\nprint(f\"Final Validation Performance: {final_validation_score}\")\n",
+  "merger_code_exec_result_1_1": {
+    "returncode": 0,
+    "stdout": "Final Validation Performance: 0.5728462837837839\n",
+    "stderr": "",
+    "execution_time": 26.011972427368164,
+    "score": 0.5728462837837839
+  },
+  "_adk_activated_skill_merger_agent_1_1": [
+    "skrub-dataops-pipeline"
+  ],
+  "_adk_loaded_skill_resources_merger_agent_1_1": [
+    {
+      "skill_name": "skrub-dataops-pipeline",
+      "path": "references/ensemble_dataops_patterns.md"
+    }
+  ],
+  "merger_bug_summary_1_1": "",
+  "train_code_0_1": "\nimport warnings\nwarnings.filterwarnings(\"ignore\")\n\nfrom pathlib import Path\n\nimport numpy as np\nimport pandas as pd\nimport skrub\nfrom catboost import CatBoostClassifier\nfrom lightgbm import LGBMClassifier\nfrom sklearn.metrics import roc_auc_score\nfrom sklearn.model_selection import train_test_split\n\nrandom_state = 42\ntarget_col = \"Attrition\"\n\ninput_dir = Path(\"./input\")\ntrain_path = input_dir / \"train.csv\"\ntrain_df = pd.read_csv(train_path)\n\ntrain_part, valid_part = train_test_split(\n    train_df,\n    test_size=0.2,\n    random_state=random_state,\n    stratify=train_df[target_col],\n)\n\ndata_train = skrub.var(\"data\", train_part)\nX_train = data_train.drop(columns=[target_col], errors=\"ignore\").skb.mark_as_X()\ny_train = data_train[target_col].skb.mark_as_y()\n\nvectorizer_lgbm = skrub.TableVectorizer()\nvectorizer_cat = skrub.TableVectorizer()\n\nlgbm_model = LGBMClassifier(\n    n_estimators=700,\n    learning_rate=0.03,\n    num_leaves=64,\n    subsample=0.8,\n    colsample_bytree=0.8,\n    objective=\"binary\",\n    random_state=random_state,\n    verbose=-1,\n)\n\ncat_model = CatBoostClassifier(\n    loss_function=\"Logloss\",\n    eval_metric=\"AUC\",\n    iterations=1200,\n    learning_rate=0.03,\n    depth=6,\n    l2_leaf_reg=5,\n    random_seed=random_state,\n    verbose=0,\n)\n\nlgbm_predictor = X_train.skb.apply(vectorizer_lgbm).skb.apply(lgbm_model, y=y_train)\ncat_predictor = X_train.skb.apply(vectorizer_cat).skb.apply(cat_model, y=y_train)\n\nlgbm_learner = lgbm_predictor.skb.make_learner(fitted=True)\ncat_learner = cat_predictor.skb.make_learner(fitted=True)\n\nvalid_pred_lgbm = np.asarray(lgbm_learner.predict({\"data\": valid_part}), dtype=float).ravel()\nvalid_pred_cat = np.asarray(cat_learner.predict({\"data\": valid_part}), dtype=float).ravel()\n\nvalid_pred = 0.5 * valid_pred_lgbm + 0.5 * valid_pred_cat\n\nfinal_validation_score = roc_auc_score(valid_part[target_col], valid_pred)\nprint(f\"Final Validation Performance: {final_validation_score}\")\n",
+  "train_code_exec_result_0_1": {
+    "returncode": 0,
+    "stdout": "Final Validation Performance: 0.5728462837837839\n",
+    "stderr": "",
+    "execution_time": 26.011972427368164,
+    "score": 0.5728462837837839
+  },
+  "refine_step_1": 1,
+  "prev_ablations_1": [
+    "Here is a concise summary of the ablation study:\n\n### Ablation results\n- **Baseline ensemble (LightGBM + CatBoost):** **0.5728 ROC-AUC**\n- **LightGBM only:** **0.5632 ROC-AUC**\n- **CatBoost only:** **0.5432 ROC-AUC**\n- **Ensemble with `id` and constant columns dropped:** **0.5706 ROC-AUC**\n\n### Key takeaways\n- The **best-performing setup** was the **baseline ensemble** of LightGBM and CatBoost.\n- **LightGBM alone** performed slightly worse than the ensemble, with a drop of about **0.0097 ROC-AUC**.\n- **CatBoost alone** performed substantially worse than the ensemble, with a drop of about **0.0296 ROC-AUC**.\n- **Dropping redundant columns** (`id`, `EmployeeCount`, `Over18`, `StandardHours`) caused only a **small performance decrease** of about **0.0023 ROC-AUC**, suggesting these columns had little effect overall.\n\n### Largest impact\n- The ablation with the **largest impact relative to baseline** was **`catboost_only`**, confirming that:\n  - **CatBoost was the weaker individual model**\n  - The **ensemble\u2019s gain mainly came from combining CatBoost with a stronger LightGBM model**, though LightGBM appears to contribute most of the predictive strength\n\n### Overall conclusion\nThe study suggests that:\n- **Ensembling helps**, but only modestly over LightGBM alone.\n- **LightGBM is the strongest single component**.\n- **CatBoost by itself is notably weaker**, but still adds enough diversity to slightly improve the ensemble.\n- **Removing obvious redundant/constant columns is not an important driver of performance** in this setup."
+  ],
+  "prev_code_blocks_1": [
+    "vectorizer_lgbm = skrub.TableVectorizer()\nvectorizer_cat = skrub.TableVectorizer()\n\nlgbm_model = LGBMClassifier(\n    n_estimators=700,\n    learning_rate=0.03,\n    num_leaves=64,\n    subsample=0.8,\n    colsample_bytree=0.8,\n    objective=\"binary\",\n    random_state=random_state,\n    verbose=-1,\n)\n\ncat_model = CatBoostClassifier(\n    loss_function=\"Logloss\",\n    eval_metric=\"AUC\",\n    iterations=1200,\n    learning_rate=0.03,\n    depth=6,\n    l2_leaf_reg=5,\n    random_seed=random_state,\n    verbose=0,\n)\n\nlgbm_predictor = X_train.skb.apply(vectorizer_lgbm).skb.apply(lgbm_model, y=y_train)\ncat_predictor = X_train.skb.apply(vectorizer_cat).skb.apply(cat_model, y=y_train)\n\nlgbm_learner = lgbm_predictor.skb.make_learner(fitted=True)\ncat_learner = cat_predictor.skb.make_learner(fitted=True)\n\nvalid_pred_lgbm = np.asarray(lgbm_learner.predict({\"data\": valid_part}), dtype=float).ravel()\nvalid_pred_cat = np.asarray(cat_learner.predict({\"data\": valid_part}), dtype=float).ravel()\n\nvalid_pred = 0.5 * valid_pred_lgbm + 0.5 * valid_pred_cat"
+  ],
+  "ablation_table_report_profile_1": "Dataset: 1677 rows, 35 columns (3 constant)\nTarget (from current solution): Attrition\n\nColumns:\n- id: Int64DType, nulls=0.0% (ok), unique=1677, high_card=True\n- Age: Int64DType, nulls=0.0% (ok), unique=43, high_card=True\n- BusinessTravel: ObjectDType, nulls=0.0% (ok), unique=3, high_card=False\n- DailyRate: Int64DType, nulls=0.0% (ok), unique=625, high_card=True\n- Department: ObjectDType, nulls=0.0% (ok), unique=3, high_card=False\n- DistanceFromHome: Int64DType, nulls=0.0% (ok), unique=29, high_card=False\n- Education: Int64DType, nulls=0.0% (ok), unique=6, high_card=False\n- EducationField: ObjectDType, nulls=0.0% (ok), unique=6, high_card=False\n- EnvironmentSatisfaction: Int64DType, nulls=0.0% (ok), unique=4, high_card=False\n- Gender: ObjectDType, nulls=0.0% (ok), unique=2, high_card=False\n- HourlyRate: Int64DType, nulls=0.0% (ok), unique=71, high_card=True\n- JobInvolvement: Int64DType, nulls=0.0% (ok), unique=4, high_card=False\n... and 23 more columns (see table_report.json)\n\nNumeric: 27 | String/Categorical: 8 | Missing columns: 0",
+  "ablation_skip_data_leakage_check_1": true,
+  "ablation_code_0_1": "import warnings\nwarnings.filterwarnings(\"ignore\")\n\nfrom pathlib import Path\n\nimport numpy as np\nimport pandas as pd\nimport skrub\nfrom catboost import CatBoostClassifier\nfrom lightgbm import LGBMClassifier\nfrom sklearn.metrics import roc_auc_score\nfrom sklearn.model_selection import train_test_split\n\nrandom_state = 42\ntarget_col = \"Attrition\"\nmetric_label = \"ROC-AUC\"\n\ninput_dir = Path(\"./input\")\ntrain_path = input_dir / \"train.csv\"\ntrain_df = pd.read_csv(train_path)\n\ntrain_part, valid_part = train_test_split(\n    train_df,\n    test_size=0.2,\n    random_state=random_state,\n    stratify=train_df[target_col],\n)\n\ndef build_lgbm():\n    return LGBMClassifier(\n        n_estimators=700,\n        learning_rate=0.03,\n        num_leaves=64,\n        subsample=0.8,\n        colsample_bytree=0.8,\n        objective=\"binary\",\n        random_state=random_state,\n        verbose=-1,\n    )\n\ndef build_cat():\n    return CatBoostClassifier(\n        loss_function=\"Logloss\",\n        eval_metric=\"AUC\",\n        iterations=1200,\n        learning_rate=0.03,\n        depth=6,\n        l2_leaf_reg=5,\n        random_seed=random_state,\n        verbose=0,\n    )\n\ndef drop_redundant_columns(df):\n    out = df.copy()\n    cols_to_drop = [c for c in [\"id\", \"EmployeeCount\", \"Over18\", \"StandardHours\"] if c in out.columns]\n    if cols_to_drop:\n        out = out.drop(columns=cols_to_drop, errors=\"ignore\")\n    return out\n\ndef score_variant(variant_name, use_lgbm=True, use_cat=True, drop_redundant=False):\n    data_train = skrub.var(\"data\", train_part)\n\n    if drop_redundant:\n        data_train = data_train.skb.apply_func(drop_redundant_columns)\n\n    X_train = data_train.drop(columns=[target_col], errors=\"ignore\").skb.mark_as_X()\n    y_train = data_train[target_col].skb.mark_as_y()\n\n    preds = []\n\n    if use_lgbm:\n        vectorizer_lgbm = skrub.TableVectorizer()\n        lgbm_predictor = X_train.skb.apply(vectorizer_lgbm).skb.apply(build_lgbm(), y=y_train)\n        lgbm_learner = lgbm_predictor.skb.make_learner(fitted=True)\n        pred_lgbm = np.asarray(lgbm_learner.predict({\"data\": valid_part}), dtype=float).ravel()\n        preds.append(pred_lgbm)\n\n    if use_cat:\n        vectorizer_cat = skrub.TableVectorizer()\n        cat_predictor = X_train.skb.apply(vectorizer_cat).skb.apply(build_cat(), y=y_train)\n        cat_learner = cat_predictor.skb.make_learner(fitted=True)\n        pred_cat = np.asarray(cat_learner.predict({\"data\": valid_part}), dtype=float).ravel()\n        preds.append(pred_cat)\n\n    valid_pred = np.mean(preds, axis=0)\n    score = roc_auc_score(valid_part[target_col], valid_pred)\n    print(f\"Ablation[{variant_name}] {metric_label}: {score}\")\n    return score\n\nscores = {}\nscores[\"baseline_ensemble\"] = score_variant(\"baseline_ensemble\", use_lgbm=True, use_cat=True, drop_redundant=False)\nscores[\"lgbm_only\"] = score_variant(\"lgbm_only\", use_lgbm=True, use_cat=False, drop_redundant=False)\nscores[\"catboost_only\"] = score_variant(\"catboost_only\", use_lgbm=False, use_cat=True, drop_redundant=False)\nscores[\"drop_id_constant_cols\"] = score_variant(\"drop_id_constant_cols\", use_lgbm=True, use_cat=True, drop_redundant=True)\n\nbaseline_score = scores[\"baseline_ensemble\"]\nbiggest_impact_name = None\nbiggest_impact_delta = -1.0\n\nfor name, score in scores.items():\n    if name == \"baseline_ensemble\":\n        continue\n    delta = abs(score - baseline_score)\n    if delta > biggest_impact_delta:\n        biggest_impact_delta = delta\n        biggest_impact_name = name\n\nprint(f\"Part with largest impact vs baseline: {biggest_impact_name} | delta_{metric_label}: {biggest_impact_delta}\")",
+  "ablation_code_exec_result_0_1": {
+    "returncode": 0,
+    "stdout": "Ablation[baseline_ensemble] ROC-AUC: 0.5728462837837839\nAblation[lgbm_only] ROC-AUC: 0.5631756756756756\nAblation[catboost_only] ROC-AUC: 0.5432432432432434\nAblation[drop_id_constant_cols] ROC-AUC: 0.5705658783783785\nPart with largest impact vs baseline: catboost_only | delta_ROC-AUC: 0.029603040540540526\n",
+    "stderr": "",
+    "execution_time": 59.81955170631409,
+    "ablation_result": "Ablation[baseline_ensemble] ROC-AUC: 0.5728462837837839\nAblation[lgbm_only] ROC-AUC: 0.5631756756756756\nAblation[catboost_only] ROC-AUC: 0.5432432432432434\nAblation[drop_id_constant_cols] ROC-AUC: 0.5705658783783785\nPart with largest impact vs baseline: catboost_only | delta_ROC-AUC: 0.029603040540540526\n"
+  },
+  "_adk_activated_skill_ablation_agent_1": [
+    "skrub-dataops-pipeline"
+  ],
+  "_adk_loaded_skill_resources_ablation_agent_1": [
+    {
+      "skill_name": "skrub-dataops-pipeline",
+      "path": "references/ablation_dataops_template.md"
+    },
+    {
+      "skill_name": "skrub-dataops-pipeline",
+      "path": "references/encoding_skrub.md"
+    },
+    {
+      "skill_name": "skrub-dataops-pipeline",
+      "path": "references/feature_engineering_skrub.md"
+    }
+  ],
+  "ablation_bug_summary_0_1": "",
+  "ablation_summary_0_1": "Here is a concise summary of the ablation study:\n\n### Ablation results\n- **Baseline ensemble (LightGBM + CatBoost):** **0.5728 ROC-AUC**\n- **LightGBM only:** **0.5632 ROC-AUC**\n- **CatBoost only:** **0.5432 ROC-AUC**\n- **Ensemble with `id` and constant columns dropped:** **0.5706 ROC-AUC**\n\n### Key takeaways\n- The **best-performing setup** was the **baseline ensemble** of LightGBM and CatBoost.\n- **LightGBM alone** performed slightly worse than the ensemble, with a drop of about **0.0097 ROC-AUC**.\n- **CatBoost alone** performed substantially worse than the ensemble, with a drop of about **0.0296 ROC-AUC**.\n- **Dropping redundant columns** (`id`, `EmployeeCount`, `Over18`, `StandardHours`) caused only a **small performance decrease** of about **0.0023 ROC-AUC**, suggesting these columns had little effect overall.\n\n### Largest impact\n- The ablation with the **largest impact relative to baseline** was **`catboost_only`**, confirming that:\n  - **CatBoost was the weaker individual model**\n  - The **ensemble\u2019s gain mainly came from combining CatBoost with a stronger LightGBM model**, though LightGBM appears to contribute most of the predictive strength\n\n### Overall conclusion\nThe study suggests that:\n- **Ensembling helps**, but only modestly over LightGBM alone.\n- **LightGBM is the strongest single component**.\n- **CatBoost by itself is notably weaker**, but still adds enough diversity to slightly improve the ensemble.\n- **Removing obvious redundant/constant columns is not an important driver of performance** in this setup.",
+  "inner_iter_1": 2,
+  "refine_plans_0_1": [
+    "Keep the two-model ensemble, since ablation shows it is the best setup, but shift the blend to favor LightGBM because it is the strongest individual model and CatBoost mainly contributes diversity. The most efficient next refinement is to improve the model/ensemble block by using a weighted average such as 0.65-0.75 for LightGBM and 0.25-0.35 for CatBoost, instead of the current fixed 50/50 blend. In the same block, make CatBoost consume raw categorical columns more appropriately by replacing its generic vectorizer path with a lighter category-preserving preprocessing route, while leaving the strong LightGBM path mostly intact. This is a targeted structural change with low runtime cost and is more justified by the ablation than dropping redundant columns or doing a large search.",
+    "A better next step is to keep the two-model ensemble but make the preprocessing more intentionally structured: drop the clearly useless `id` column and add a small, domain-driven feature block that creates interaction/ratio features from the ordinal tenure and compensation variables that often matter for attrition (for example `MonthlyIncome / JobLevel`, `TotalWorkingYears - YearsAtCompany`, `YearsInCurrentRole / max(YearsAtCompany,1)`, `Age * DistanceFromHome`, with safe zero guards). Feed this enriched table into the same LightGBM and CatBoost legs, using one shared `apply_func` feature-engineering step before the current model branches, while preserving the existing fixed model params and only using a mild LGBM-favored blend. This is novel relative to the prior blend/encoding tweak because it targets structural signal creation from the profile instead of only reweighting or rerouting encoders, and it should be cheap on this 1.7k-row dataset while giving both boosters stronger, less purely raw-tabular inputs."
+  ],
+  "refine_code_block_0_1": "vectorizer_lgbm = skrub.TableVectorizer()\nvectorizer_cat = skrub.TableVectorizer()\n\nlgbm_model = LGBMClassifier(\n    n_estimators=700,\n    learning_rate=0.03,\n    num_leaves=64,\n    subsample=0.8,\n    colsample_bytree=0.8,\n    objective=\"binary\",\n    random_state=random_state,\n    verbose=-1,\n)\n\ncat_model = CatBoostClassifier(\n    loss_function=\"Logloss\",\n    eval_metric=\"AUC\",\n    iterations=1200,\n    learning_rate=0.03,\n    depth=6,\n    l2_leaf_reg=5,\n    random_seed=random_state,\n    verbose=0,\n)\n\nlgbm_predictor = X_train.skb.apply(vectorizer_lgbm).skb.apply(lgbm_model, y=y_train)\ncat_predictor = X_train.skb.apply(vectorizer_cat).skb.apply(cat_model, y=y_train)\n\nlgbm_learner = lgbm_predictor.skb.make_learner(fitted=True)\ncat_learner = cat_predictor.skb.make_learner(fitted=True)\n\nvalid_pred_lgbm = np.asarray(lgbm_learner.predict({\"data\": valid_part}), dtype=float).ravel()\nvalid_pred_cat = np.asarray(cat_learner.predict({\"data\": valid_part}), dtype=float).ravel()\n\nvalid_pred = 0.5 * valid_pred_lgbm + 0.5 * valid_pred_cat",
+  "_adk_activated_skill_init_plan_agent_1": [
+    "skrub-dataops-pipeline"
+  ],
+  "_adk_loaded_skill_resources_init_plan_agent_1": [
+    {
+      "skill_name": "skrub-dataops-pipeline",
+      "path": "references/encoding_skrub.md"
+    },
+    {
+      "skill_name": "skrub-dataops-pipeline",
+      "path": "references/selectors_routing_skrub.md"
+    },
+    {
+      "skill_name": "skrub-dataops-pipeline",
+      "path": "references/feature_engineering_skrub.md"
+    }
+  ],
+  "plan_implement_skip_data_leakage_check_0_0_1": true,
+  "_adk_activated_skill_plan_implement_initial_agent_1": [
+    "skrub-dataops-pipeline"
+  ],
+  "_adk_loaded_skill_resources_plan_implement_initial_agent_1": [
+    {
+      "skill_name": "skrub-dataops-pipeline",
+      "path": "references/encoding_skrub.md"
+    },
+    {
+      "skill_name": "skrub-dataops-pipeline",
+      "path": "references/selectors_routing_skrub.md"
+    },
+    {
+      "skill_name": "skrub-dataops-pipeline",
+      "path": "references/ensemble_dataops_patterns.md"
+    }
+  ],
+  "train_code_improve_0_0_1": "\nimport os\nimport warnings\n\nwarnings.filterwarnings(\"ignore\")\n\nimport numpy as np\nimport pandas as pd\nimport skrub\nfrom sklearn.model_selection import train_test_split\nfrom sklearn.metrics import roc_auc_score\nfrom catboost import CatBoostClassifier\nfrom lightgbm import LGBMClassifier\n\nRANDOM_STATE = 42\nTARGET_COL = \"Attrition\"\nID_COL = \"id\"\n\ntrain_path = \"./input/train.csv\"\ntest_path = \"./input/test.csv\"\n\ntrain_df = pd.read_csv(train_path)\ntest_df = pd.read_csv(test_path)\n\ntrain_idx, valid_idx = train_test_split(\n    np.arange(len(train_df)),\n    test_size=0.2,\n    random_state=RANDOM_STATE,\n    stratify=train_df[TARGET_COL],\n)\ntrain_part = train_df.iloc[train_idx].copy()\nvalid_part = train_df.iloc[valid_idx].copy()\n\ndata_train = skrub.var(\"data\", train_part)\nX_train = data_train.drop(columns=TARGET_COL, errors=\"ignore\").skb.mark_as_X()\ny_train = data_train[TARGET_COL].skb.mark_as_y()\n\nvectorizer = skrub.TableVectorizer()\n\ncat_X_train = X_train.skb.apply(vectorizer)\ncat_model = CatBoostClassifier(\n    random_state=RANDOM_STATE,\n    verbose=0,\n    cat_features=None,\n)\ncat_predictor = cat_X_train.skb.apply(cat_model, y=y_train)\n\nlgbm_X_train = X_train.skb.apply(vectorizer)\nlgbm_model = LGBMClassifier(\n    random_state=RANDOM_STATE,\n    verbose=-1,\n)\nlgbm_predictor = lgbm_X_train.skb.apply(lgbm_model, y=y_train)\n\ncat_learner = cat_predictor.skb.make_learner(fitted=True)\nlgbm_learner = lgbm_predictor.skb.make_learner(fitted=True)\n\ncat_valid_pred = np.asarray(cat_learner.predict({\"data\": valid_part}))\nlgbm_valid_pred = np.asarray(lgbm_learner.predict({\"data\": valid_part}))\n\nif set(np.unique(cat_valid_pred)).issubset({0, 1}):\n    cat_valid_pred = cat_learner.predict_proba({\"data\": valid_part})[:, 1]\nif set(np.unique(lgbm_valid_pred)).issubset({0, 1}):\n    lgbm_valid_pred = lgbm_learner.predict_proba({\"data\": valid_part})[:, 1]\n\nensemble_valid_pred = 0.5 * np.asarray(cat_valid_pred) + 0.5 * np.asarray(lgbm_valid_pred)\nfinal_validation_score = roc_auc_score(valid_part[TARGET_COL], ensemble_valid_pred)\nprint(f\"Final Validation Performance: {final_validation_score}\")\n",
+  "train_code_improve_exec_result_0_0_1": {
+    "returncode": 0,
+    "stdout": "Final Validation Performance: 0.8253378378378379\n",
+    "stderr": "",
+    "execution_time": 10.987485647201538,
+    "score": 0.8253378378378379
+  },
+  "plan_implement_initial_bug_summary_0_0_1": "",
+  "_adk_activated_skill_plan_implement_initial_debug_agent_1": [
+    "skrub-dataops-pipeline"
+  ],
+  "_adk_loaded_skill_resources_plan_implement_initial_debug_agent_1": [
+    {
+      "skill_name": "skrub-dataops-pipeline",
+      "path": "references/dataops_api_quickmap.md"
+    },
+    {
+      "skill_name": "skrub-dataops-pipeline",
+      "path": "references/common_failure_fixes.md"
+    }
+  ],
+  "_adk_activated_skill_plan_refine_agent_1": [
+    "skrub-dataops-pipeline"
+  ],
+  "_adk_loaded_skill_resources_plan_refine_agent_1": [
+    {
+      "skill_name": "skrub-dataops-pipeline",
+      "path": "references/encoding_skrub.md"
+    },
+    {
+      "skill_name": "skrub-dataops-pipeline",
+      "path": "references/selectors_routing_skrub.md"
+    },
+    {
+      "skill_name": "skrub-dataops-pipeline",
+      "path": "references/feature_engineering_skrub.md"
+    },
+    {
+      "skill_name": "skrub-dataops-pipeline",
+      "path": "references/ensemble_dataops_patterns.md"
+    }
+  ],
+  "plan_implement_skip_data_leakage_check_1_0_1": true,
+  "_adk_activated_skill_plan_implement_agent_1": [
+    "skrub-dataops-pipeline"
+  ],
+  "_adk_loaded_skill_resources_plan_implement_agent_1": [
+    {
+      "skill_name": "skrub-dataops-pipeline",
+      "path": "references/feature_engineering_skrub.md"
+    },
+    {
+      "skill_name": "skrub-dataops-pipeline",
+      "path": "references/encoding_skrub.md"
+    },
+    {
+      "skill_name": "skrub-dataops-pipeline",
+      "path": "references/ensemble_dataops_patterns.md"
+    }
+  ],
+  "train_code_improve_1_0_1": "\nimport warnings\nwarnings.filterwarnings(\"ignore\")\n\nfrom pathlib import Path\n\nimport numpy as np\nimport pandas as pd\nimport skrub\nfrom catboost import CatBoostClassifier\nfrom lightgbm import LGBMClassifier\nfrom sklearn.metrics import roc_auc_score\nfrom sklearn.model_selection import train_test_split\n\nrandom_state = 42\ntarget_col = \"Attrition\"\n\ninput_dir = Path(\"./input\")\ntrain_path = input_dir / \"train.csv\"\ntrain_df = pd.read_csv(train_path)\n\ntrain_part, valid_part = train_test_split(\n    train_df,\n    test_size=0.2,\n    random_state=random_state,\n    stratify=train_df[target_col],\n)\n\ndata_train = skrub.var(\"data\", train_part)\nX_train = data_train.drop(columns=[target_col], errors=\"ignore\").skb.mark_as_X()\ny_train = data_train[target_col].skb.mark_as_y()\n\n\ndef add_attrition_features(df):\n    out = df.copy()\n\n    if \"id\" in out.columns:\n        out = out.drop(columns=[\"id\"])\n\n    if \"MonthlyIncome\" in out.columns and \"JobLevel\" in out.columns:\n        denom = out[\"JobLevel\"].replace(0, np.nan)\n        out[\"MonthlyIncome_per_JobLevel\"] = (\n            (out[\"MonthlyIncome\"] / denom)\n            .replace([np.inf, -np.inf], np.nan)\n            .fillna(0.0)\n        )\n\n    if \"TotalWorkingYears\" in out.columns and \"YearsAtCompany\" in out.columns:\n        out[\"ExternalExperience\"] = (\n            out[\"TotalWorkingYears\"] - out[\"YearsAtCompany\"]\n        )\n\n    if \"YearsInCurrentRole\" in out.columns and \"YearsAtCompany\" in out.columns:\n        denom = out[\"YearsAtCompany\"].replace(0, np.nan)\n        out[\"RoleTenureShare\"] = (\n            (out[\"YearsInCurrentRole\"] / denom)\n            .replace([np.inf, -np.inf], np.nan)\n            .fillna(0.0)\n        )\n\n    if \"Age\" in out.columns and \"DistanceFromHome\" in out.columns:\n        out[\"Age_x_DistanceFromHome\"] = out[\"Age\"] * out[\"DistanceFromHome\"]\n\n    return out\n\n\ndata_train_fe = skrub.var(\"data\", train_part).skb.apply_func(add_attrition_features)\nX_train = data_train_fe.drop(columns=target_col, errors=\"ignore\").skb.mark_as_X()\ny_train = data_train_fe[target_col].skb.mark_as_y()\n\nvectorizer_lgbm = skrub.TableVectorizer()\nvectorizer_cat = skrub.TableVectorizer()\n\nlgbm_model = LGBMClassifier(\n    n_estimators=700,\n    learning_rate=0.03,\n    num_leaves=64,\n    subsample=0.8,\n    colsample_bytree=0.8,\n    objective=\"binary\",\n    random_state=random_state,\n    verbose=-1,\n)\n\ncat_model = CatBoostClassifier(\n    loss_function=\"Logloss\",\n    eval_metric=\"AUC\",\n    iterations=1200,\n    learning_rate=0.03,\n    depth=6,\n    l2_leaf_reg=5,\n    random_seed=random_state,\n    verbose=0,\n)\n\nlgbm_predictor = X_train.skb.apply(vectorizer_lgbm).skb.apply(lgbm_model, y=y_train)\ncat_predictor = X_train.skb.apply(vectorizer_cat).skb.apply(cat_model, y=y_train)\n\nlgbm_learner = lgbm_predictor.skb.make_learner(fitted=True)\ncat_learner = cat_predictor.skb.make_learner(fitted=True)\n\nvalid_pred_lgbm = np.asarray(lgbm_learner.predict({\"data\": valid_part}), dtype=float).ravel()\nvalid_pred_cat = np.asarray(cat_learner.predict({\"data\": valid_part}), dtype=float).ravel()\n\nvalid_pred = 0.55 * valid_pred_lgbm + 0.45 * valid_pred_cat\n\n\nfinal_validation_score = roc_auc_score(valid_part[target_col], valid_pred)\nprint(f\"Final Validation Performance: {final_validation_score}\")\n",
+  "train_code_improve_exec_result_1_0_1": {
+    "returncode": 0,
+    "stdout": "Final Validation Performance: 0.5653716216216216\n",
+    "stderr": "",
+    "execution_time": 18.330742120742798,
+    "score": 0.5653716216216216
+  },
+  "plan_implement_bug_summary_1_0_1": "",
+  "train_code_1_1": "\nimport os\nimport warnings\n\nwarnings.filterwarnings(\"ignore\")\n\nimport numpy as np\nimport pandas as pd\nimport skrub\nfrom sklearn.model_selection import train_test_split\nfrom sklearn.metrics import roc_auc_score\nfrom catboost import CatBoostClassifier\nfrom lightgbm import LGBMClassifier\n\nRANDOM_STATE = 42\nTARGET_COL = \"Attrition\"\nID_COL = \"id\"\n\ntrain_path = \"./input/train.csv\"\ntest_path = \"./input/test.csv\"\n\ntrain_df = pd.read_csv(train_path)\ntest_df = pd.read_csv(test_path)\n\ntrain_idx, valid_idx = train_test_split(\n    np.arange(len(train_df)),\n    test_size=0.2,\n    random_state=RANDOM_STATE,\n    stratify=train_df[TARGET_COL],\n)\ntrain_part = train_df.iloc[train_idx].copy()\nvalid_part = train_df.iloc[valid_idx].copy()\n\ndata_train = skrub.var(\"data\", train_part)\nX_train = data_train.drop(columns=TARGET_COL, errors=\"ignore\").skb.mark_as_X()\ny_train = data_train[TARGET_COL].skb.mark_as_y()\n\nvectorizer = skrub.TableVectorizer()\n\ncat_X_train = X_train.skb.apply(vectorizer)\ncat_model = CatBoostClassifier(\n    random_state=RANDOM_STATE,\n    verbose=0,\n    cat_features=None,\n)\ncat_predictor = cat_X_train.skb.apply(cat_model, y=y_train)\n\nlgbm_X_train = X_train.skb.apply(vectorizer)\nlgbm_model = LGBMClassifier(\n    random_state=RANDOM_STATE,\n    verbose=-1,\n)\nlgbm_predictor = lgbm_X_train.skb.apply(lgbm_model, y=y_train)\n\ncat_learner = cat_predictor.skb.make_learner(fitted=True)\nlgbm_learner = lgbm_predictor.skb.make_learner(fitted=True)\n\ncat_valid_pred = np.asarray(cat_learner.predict({\"data\": valid_part}))\nlgbm_valid_pred = np.asarray(lgbm_learner.predict({\"data\": valid_part}))\n\nif set(np.unique(cat_valid_pred)).issubset({0, 1}):\n    cat_valid_pred = cat_learner.predict_proba({\"data\": valid_part})[:, 1]\nif set(np.unique(lgbm_valid_pred)).issubset({0, 1}):\n    lgbm_valid_pred = lgbm_learner.predict_proba({\"data\": valid_part})[:, 1]\n\nensemble_valid_pred = 0.5 * np.asarray(cat_valid_pred) + 0.5 * np.asarray(lgbm_valid_pred)\nfinal_validation_score = roc_auc_score(valid_part[TARGET_COL], ensemble_valid_pred)\nprint(f\"Final Validation Performance: {final_validation_score}\")\n",
+  "train_code_exec_result_1_1": {
+    "returncode": 0,
+    "stdout": "Final Validation Performance: 0.8253378378378379\n",
+    "stderr": "",
+    "execution_time": 10.987485647201538,
+    "score": 0.8253378378378379
+  },
+  "tune_plan_1": {
+    "skip_tuning": false,
+    "skip_reason": "",
+    "focus_block": "model",
+    "rationale": "A small terminal holdout search is worth running because the ablation shows the strongest signal sits on the LightGBM leg, while preprocessing changes were weak and the ensemble gain over LightGBM is modest. The clearest tunable lever is therefore the LightGBM model capacity/regularization in its existing vectorized branch, keeping CatBoost and the ensemble structure fixed.",
+    "tunable_params": [
+      {
+        "name": "lgbm_num_leaves",
+        "kind": "choose_int",
+        "low": 15,
+        "high": 63,
+        "default": 31
+      },
+      {
+        "name": "lgbm_learning_rate",
+        "kind": "choose_float",
+        "low": 0.03,
+        "high": 0.12,
+        "default": 0.1,
+        "log": true
+      }
+    ],
+    "frozen": [
+      "Same holdout protocol as current solution: train_test_split(test_size=0.2, random_state=42, stratify=train_df[\"Attrition\"]).",
+      "Focus only on the LightGBM leg inside the existing two-model ensemble.",
+      "CatBoost leg frozen with the same CatBoostClassifier class and fixed structural params (random_state=42, verbose=0).",
+      "Both branches keep the same skrub TableVectorizer preprocessing; no encoder/preprocessing tuning.",
+      "Ensemble structure and equal-weight blend stay frozen at 0.5 * CatBoost + 0.5 * LightGBM during tuning evaluation.",
+      "LightGBM backbone class stays LGBMClassifier; no model family swap.",
+      "Search should use make_randomized_search(..., n_jobs=1) because LightGBM is internally multithreaded.",
+      "During search, set a reduced LightGBM n_estimators to about half of the eventual structural value to keep runtime within budget."
+    ],
+    "n_iter": 5
+  },
+  "_adk_activated_skill_tune_plan_agent_1": [
+    "skrub-dataops-pipeline"
+  ],
+  "_adk_loaded_skill_resources_tune_plan_agent_1": [
+    {
+      "skill_name": "skrub-dataops-pipeline",
+      "path": "references/choices_hparam_pattern.md"
+    }
+  ],
+  "train_code_tune_search_1": "\nimport json\nimport warnings\n\nwarnings.filterwarnings(\"ignore\")\n\nimport numpy as np\nimport pandas as pd\nimport skrub\nfrom sklearn.model_selection import train_test_split\nfrom sklearn.metrics import roc_auc_score\nfrom catboost import CatBoostClassifier\nfrom lightgbm import LGBMClassifier\n\nRANDOM_STATE = 42\nTARGET_COL = \"Attrition\"\nID_COL = \"id\"\n\ntune_plan = {\n    \"tunable_params\": [\n        {\n            \"name\": \"lgbm_num_leaves\",\n            \"kind\": \"choose_int\",\n            \"low\": 15,\n            \"high\": 63,\n            \"default\": 31,\n        },\n        {\n            \"name\": \"lgbm_learning_rate\",\n            \"kind\": \"choose_float\",\n            \"low\": 0.03,\n            \"high\": 0.12,\n            \"default\": 0.1,\n            \"log\": True,\n        },\n    ]\n}\n\ntrain_path = \"./input/train.csv\"\ntrain_df = pd.read_csv(train_path)\n\ntrain_idx, valid_idx = train_test_split(\n    np.arange(len(train_df)),\n    test_size=0.2,\n    random_state=RANDOM_STATE,\n    stratify=train_df[TARGET_COL],\n)\ntrain_part = train_df.iloc[train_idx].copy()\nvalid_part = train_df.iloc[valid_idx].copy()\n\ndata_train = skrub.var(\"data\", train_part)\nX_train = data_train.drop(columns=TARGET_COL, errors=\"ignore\").skb.mark_as_X()\ny_train = data_train[TARGET_COL].skb.mark_as_y()\n\nvectorizer = skrub.TableVectorizer()\n\ncat_X_train = X_train.skb.apply(vectorizer)\ncat_model = CatBoostClassifier(\n    random_state=RANDOM_STATE,\n    verbose=0,\n    cat_features=None,\n)\ncat_predictor = cat_X_train.skb.apply(cat_model, y=y_train)\n\nlgbm_X_train = X_train.skb.apply(vectorizer)\nlgbm_predictor = lgbm_X_train.skb.apply(\n    LGBMClassifier(\n        random_state=RANDOM_STATE,\n        verbose=-1,\n        n_estimators=50,\n        num_leaves=skrub.choose_int(\n            15, 63, default=31, name=\"lgbm_num_leaves\"\n        ),\n        learning_rate=skrub.choose_float(\n            0.03, 0.12, default=0.1, log=True, name=\"lgbm_learning_rate\"\n        ),\n    ),\n    y=y_train,\n)\n\nsearch = lgbm_predictor.skb.make_randomized_search(\n    n_iter=5,\n    n_jobs=1,\n    random_state=RANDOM_STATE,\n    fitted=True,\n)\nsearch.fit({\"data\": train_part})\n\ncat_learner = cat_predictor.skb.make_learner(fitted=True)\n\nlgbm_valid_pred = np.asarray(search.best_learner_.predict({\"data\": valid_part}))\ncat_valid_pred = np.asarray(cat_learner.predict({\"data\": valid_part}))\n\nif set(np.unique(lgbm_valid_pred)).issubset({0, 1}):\n    lgbm_valid_pred = search.best_learner_.predict_proba({\"data\": valid_part})[:, 1]\nif set(np.unique(cat_valid_pred)).issubset({0, 1}):\n    cat_valid_pred = cat_learner.predict_proba({\"data\": valid_part})[:, 1]\n\nensemble_valid_pred = 0.5 * np.asarray(cat_valid_pred) + 0.5 * np.asarray(lgbm_valid_pred)\nfinal_validation_score = roc_auc_score(valid_part[TARGET_COL], ensemble_valid_pred)\n\nraw_values = list(search.best_params_.values())\nremaining = list(raw_values)\nbest_params = {}\n\nfor spec in tune_plan[\"tunable_params\"]:\n    name = spec[\"name\"]\n    kind = spec[\"kind\"]\n    match = None\n\n    if kind == \"choose_int\":\n        for v in remaining:\n            try:\n                iv = int(round(float(v)))\n                if spec[\"low\"] <= iv <= spec[\"high\"]:\n                    match = iv\n                    break\n            except Exception:\n                pass\n        if match is None:\n            match = int(spec.get(\"default\"))\n        best_params[name] = int(match)\n        for v in list(remaining):\n            try:\n                if int(round(float(v))) == int(match):\n                    remaining.remove(v)\n                    break\n            except Exception:\n                pass\n\n    elif kind == \"choose_float\":\n        for v in remaining:\n            try:\n                fv = float(v)\n                if spec[\"low\"] <= fv <= spec[\"high\"]:\n                    match = fv\n                    break\n            except Exception:\n                pass\n        if match is None:\n            match = float(spec.get(\"default\"))\n        best_params[name] = float(match)\n        for v in list(remaining):\n            try:\n                if float(v) == float(match):\n                    remaining.remove(v)\n                    break\n            except Exception:\n                pass\n\nprint(f\"Final Validation Performance: {final_validation_score}\")\nprint(\"TUNING_BEST_PARAMS:\", json.dumps(best_params, default=str))\n",
+  "train_code_tune_search_exec_result_1": {
+    "returncode": 0,
+    "stdout": "Final Validation Performance: 0.8163851351351351\nTUNING_BEST_PARAMS: {\"lgbm_num_leaves\": 61, \"lgbm_learning_rate\": 0.05042162933217116}\n",
+    "stderr": "",
+    "execution_time": 31.610999584197998,
+    "score": 0.8163851351351351
+  },
+  "_adk_activated_skill_tune_implement_agent_1": [
+    "skrub-dataops-pipeline"
+  ],
+  "_adk_loaded_skill_resources_tune_implement_agent_1": [
+    {
+      "skill_name": "skrub-dataops-pipeline",
+      "path": "references/tuning_dataops_template.md"
+    },
+    {
+      "skill_name": "skrub-dataops-pipeline",
+      "path": "references/choices_hparam_pattern.md"
+    }
+  ],
+  "tune_best_params_1": {
+    "lgbm_num_leaves": 61,
+    "lgbm_learning_rate": 0.05042162933217116
+  },
+  "tune_implement_skip_data_leakage_check_1": true,
+  "tune_implement_bug_summary_1": "",
+  "tune_param_source_1": "search",
+  "tune_bake_skip_data_leakage_check_1": true,
+  "train_code_tune_1": "\nimport warnings\n\nwarnings.filterwarnings(\"ignore\")\n\nimport numpy as np\nimport pandas as pd\nimport skrub\nfrom sklearn.model_selection import train_test_split\nfrom sklearn.metrics import roc_auc_score\nfrom catboost import CatBoostClassifier\nfrom lightgbm import LGBMClassifier\n\nRANDOM_STATE = 42\nTARGET_COL = \"Attrition\"\nID_COL = \"id\"\n\ntrain_path = \"./input/train.csv\"\n\ntrain_df = pd.read_csv(train_path)\n\ntrain_idx, valid_idx = train_test_split(\n    np.arange(len(train_df)),\n    test_size=0.2,\n    random_state=RANDOM_STATE,\n    stratify=train_df[TARGET_COL],\n)\ntrain_part = train_df.iloc[train_idx].copy()\nvalid_part = train_df.iloc[valid_idx].copy()\n\ndata_train = skrub.var(\"data\", train_part)\nX_train = data_train.drop(columns=TARGET_COL, errors=\"ignore\").skb.mark_as_X()\ny_train = data_train[TARGET_COL].skb.mark_as_y()\n\nvectorizer = skrub.TableVectorizer()\n\ncat_X_train = X_train.skb.apply(vectorizer)\ncat_model = CatBoostClassifier(\n    random_state=RANDOM_STATE,\n    verbose=0,\n    cat_features=None,\n)\ncat_predictor = cat_X_train.skb.apply(cat_model, y=y_train)\n\nlgbm_X_train = X_train.skb.apply(vectorizer)\nlgbm_model = LGBMClassifier(\n    random_state=RANDOM_STATE,\n    verbose=-1,\n    n_estimators=100,\n    num_leaves=61,\n    learning_rate=0.05042162933217116,\n)\nlgbm_predictor = lgbm_X_train.skb.apply(lgbm_model, y=y_train)\n\ncat_learner = cat_predictor.skb.make_learner(fitted=True)\nlgbm_learner = lgbm_predictor.skb.make_learner(fitted=True)\n\ncat_valid_pred = np.asarray(cat_learner.predict({\"data\": valid_part}))\nlgbm_valid_pred = np.asarray(lgbm_learner.predict({\"data\": valid_part}))\n\nif set(np.unique(cat_valid_pred)).issubset({0, 1}):\n    cat_valid_pred = cat_learner.predict_proba({\"data\": valid_part})[:, 1]\nif set(np.unique(lgbm_valid_pred)).issubset({0, 1}):\n    lgbm_valid_pred = lgbm_learner.predict_proba({\"data\": valid_part})[:, 1]\n\nensemble_valid_pred = 0.5 * np.asarray(cat_valid_pred) + 0.5 * np.asarray(lgbm_valid_pred)\nfinal_validation_score = roc_auc_score(valid_part[TARGET_COL], ensemble_valid_pred)\nprint(f\"Final Validation Performance: {final_validation_score}\")\n",
+  "train_code_tune_exec_result_1": {
+    "returncode": 0,
+    "stdout": "Final Validation Performance: 0.8231418918918919\n",
+    "stderr": "",
+    "execution_time": 13.775578260421753,
+    "score": 0.8231418918918919
+  },
+  "_adk_activated_skill_tune_bake_agent_1": [
+    "skrub-dataops-pipeline"
+  ],
+  "tune_bake_bug_summary_1": "",
+  "tune_stage_status_1": "ran",
+  "tune_winner_source_1": "structural",
+  "ensemble_iter": 2,
+  "_adk_activated_skill_init_ensemble_plan_agent": [
+    "skrub-dataops-pipeline"
+  ],
+  "_adk_loaded_skill_resources_init_ensemble_plan_agent": [
+    {
+      "skill_name": "skrub-dataops-pipeline",
+      "path": "references/ensemble_dataops_patterns.md"
+    }
+  ],
+  "ensemble_plans": [
+    "Use Pattern A exactly: keep the current CatBoost leg and LightGBM leg unchanged as two separate skrub prediction chains, then add only a thin merge layer on top of their validation/test probabilities.\n\nThe simplest strong version is a three-branch blend search over the same trained legs:\n1. raw CatBoost probability\n2. raw LightGBM probability\n3. rank-averaged probability of the two legs\n\nThen form a final convex blend:\nfinal_pred = a * cat_prob + b * lgbm_prob + c * rank_mean_prob, with a + b + c = 1 and a,b,c >= 0.\n\nWhy this is a good fit:\n- it preserves the existing DataOps graph fully\n- it is more robust than plain 50/50 averaging because rank averaging often helps when tree models have slightly different calibration but similar ordering quality\n- it is easy to implement with almost no retraining cost\n- it only adds a lightweight holdout-side merge layer\n\nImplementation sketch:\n- train both existing learners exactly as written\n- get `cat_valid_pred` and `lgbm_valid_pred` as positive-class probabilities\n- create `cat_rank` and `lgbm_rank` using pandas/numpy rank normalization on the validation predictions\n- define `rank_mean = 0.5 * cat_rank + 0.5 * lgbm_rank`\n- try a very small manual weight grid such as:\n  - `(0.5, 0.5, 0.0)` current baseline\n  - `(0.6, 0.4, 0.0)`\n  - `(0.4, 0.6, 0.0)`\n  - `(0.4, 0.4, 0.2)`\n  - `(0.35, 0.35, 0.30)`\n  - `(0.45, 0.45, 0.10)`\n- score each on the same validation split with ROC AUC\n- keep the best blend weights\n- use those same fixed weights later for test prediction blending\n\nIf you want an even more \u201cnovel but still safe\u201d merge, add one extra post-processing rule without changing the model legs:\n- compute disagreement = `abs(cat_valid_pred - lgbm_valid_pred)`\n- use mostly average prediction, but in high-disagreement rows lean toward the model with better standalone validation AUC\n- for example: if CatBoost standalone AUC > LightGBM standalone AUC, then\n  - low disagreement: `0.5*cat + 0.5*lgbm`\n  - high disagreement: `0.65*cat + 0.35*lgbm`\nThis can be implemented with a single percentile cutoff on disagreement, like top 20%.\n\nMy recommended final plan is:\n- keep the two-leg CatBoost + LightGBM structure intact\n- evaluate standalone AUCs first\n- build a lightweight blend layer with raw-probability blend plus rank-blend component\n- pick the best weights on the existing holdout\n- only if gains are tiny, optionally add the disagreement-aware fallback weighting rule\n- avoid stacking, CV OOF, or refitting extra meta-models since there is only one provided solution and the runtime/gain tradeoff is poor\n\nThis gives you a practical ensemble that is stronger than naive averaging, low-risk, and requires only minimal edits around the current prediction outputs.",
+    "Keep Pattern A exactly, but replace the previous static blend with a monotone two-stage merge that is still very lightweight: first convert each model\u2019s validation probabilities to percentile ranks, then learn only a tiny 1D family of blends between raw-average and rank-average, with an adaptive confidence gate.\n\nConcretely:\n- keep the CatBoost skrub leg unchanged\n- keep the LightGBM skrub leg unchanged\n- only change the merge logic after `cat_valid_pred` and `lgbm_valid_pred` are produced\n\nUse four candidate components:\n- `raw_mean = 0.5 * cat_prob + 0.5 * lgbm_prob`\n- `rank_cat = rank_normalize(cat_prob)`\n- `rank_lgbm = rank_normalize(lgbm_prob)`\n- `rank_mean = 0.5 * rank_cat + 0.5 * rank_lgbm`\n\nThen add a confidence-sensitive interpolation:\n- define `consensus = 1.0 - abs(rank_cat - rank_lgbm)`\n- rows with high consensus should trust `rank_mean` more, because AUC cares about ordering\n- rows with low consensus should retain more raw probability information, because harsh rank replacement can overreact on disagreeing rows\n\nBuild:\n- `adaptive_blend = alpha * raw_mean + (1 - alpha) * (consensus * rank_mean + (1 - consensus) * raw_mean)`\nThis simplifies to a safe convex combination of `raw_mean` and `rank_mean`, but with row-wise stronger rank usage only when both models agree.\n\nImplementation sketch:\n- evaluate standalone AUCs for CatBoost and LightGBM\n- compute `raw_mean`, `rank_mean`, and `consensus`\n- scan only a tiny grid for `alpha`, for example:\n  - `0.0, 0.1, 0.2, 0.3, 0.4, 0.5`\n- optionally also test a small asymmetry before averaging if one leg is stronger:\n  - if `cat_auc > lgbm_auc`, try raw pre-blends `(0.55,0.45)` and `(0.60,0.40)`\n  - if `lgbm_auc > cat_auc`, mirror those\n  - always include `(0.50,0.50)`\n- for each raw pre-blend, recompute its matching rank-blend using the same weights, then apply the adaptive formula above\n- choose the best validation AUC\n\nWhy this is better than the previous plan:\n- it is different from a fixed global 3-weight blend and different from a hard disagreement cutoff\n- it keeps the same two learners and same DataOps graph, so implementation risk is very low\n- it directly targets ROC AUC by injecting rank information more smoothly, instead of adding rank as just another static branch\n- it avoids brittle threshold behavior from top-20%-disagreement routing\n- it should be stronger when the two tree models are similarly good but calibrated differently, which is exactly the usual CatBoost + LightGBM case\n\nVery small candidate set to try:\n- raw weights: `(0.50,0.50)`, plus `(0.55,0.45)` / `(0.45,0.55)`, plus `(0.60,0.40)` / `(0.40,0.60)` depending on which solo model wins\n- `alpha` grid: `0.0, 0.1, 0.2, 0.3, 0.4, 0.5`\n\nSelection rule:\n- best AUC over this tiny search wins\n- if nothing beats simple raw averaging, fall back to the best raw weighted average\n- no extra model fitting, no stacking, no CV, no rewiring of skrub chains\n\nRecommended final plan:\n- preserve both current skrub prediction chains intact\n- compute raw weighted mean, weighted rank mean, and rank-consensus\n- use the adaptive consensus-weighted raw/rank interpolation\n- pick the best small-grid setting on the existing holdout\n- use that same fixed merge rule later for test blending"
+  ],
+  "ensemble_plan_implement_skip_data_leakage_check_0": true,
+  "ensemble_code_0": "\nimport warnings\nwarnings.filterwarnings(\"ignore\")\n\nimport numpy as np\nimport pandas as pd\nimport skrub\nfrom sklearn.model_selection import train_test_split\nfrom sklearn.metrics import roc_auc_score\nfrom catboost import CatBoostClassifier\nfrom lightgbm import LGBMClassifier\n\nRANDOM_STATE = 42\nTARGET_COL = \"Attrition\"\nID_COL = \"id\"\n\ntrain_path = \"./input/train.csv\"\n\ntrain_df = pd.read_csv(train_path)\n\ntrain_idx, valid_idx = train_test_split(\n    np.arange(len(train_df)),\n    test_size=0.2,\n    random_state=RANDOM_STATE,\n    stratify=train_df[TARGET_COL],\n)\ntrain_part = train_df.iloc[train_idx].copy()\nvalid_part = train_df.iloc[valid_idx].copy()\n\n\ndef get_positive_class_prob(learner, df):\n    try:\n        pred_proba = np.asarray(learner.predict_proba({\"data\": df}))\n        if pred_proba.ndim == 2 and pred_proba.shape[1] > 1:\n            return pred_proba[:, 1].astype(float)\n        return pred_proba.ravel().astype(float)\n    except Exception:\n        pred = np.asarray(learner.predict({\"data\": df})).ravel()\n        return pred.astype(float)\n\n\ndef rank_normalize(pred):\n    pred = np.asarray(pred).ravel()\n    return pd.Series(pred).rank(method=\"average\", pct=True).to_numpy(dtype=float)\n\n\ndata_train = skrub.var(\"data\", train_part)\nX_train = data_train.drop(columns=TARGET_COL, errors=\"ignore\").skb.mark_as_X()\ny_train = data_train[TARGET_COL].skb.mark_as_y()\n\nvectorizer = skrub.TableVectorizer()\n\ncat_X_train = X_train.skb.apply(vectorizer)\ncat_model = CatBoostClassifier(\n    random_state=RANDOM_STATE,\n    verbose=0,\n    cat_features=None,\n)\ncat_predictor = cat_X_train.skb.apply(cat_model, y=y_train)\n\nlgbm_X_train = X_train.skb.apply(vectorizer)\nlgbm_model = LGBMClassifier(\n    random_state=RANDOM_STATE,\n    verbose=-1,\n)\nlgbm_predictor = lgbm_X_train.skb.apply(lgbm_model, y=y_train)\n\ncat_learner = cat_predictor.skb.make_learner(fitted=True)\nlgbm_learner = lgbm_predictor.skb.make_learner(fitted=True)\n\ncat_valid_pred = get_positive_class_prob(cat_learner, valid_part)\nlgbm_valid_pred = get_positive_class_prob(lgbm_learner, valid_part)\n\ncat_auc = roc_auc_score(valid_part[TARGET_COL], cat_valid_pred)\nlgbm_auc = roc_auc_score(valid_part[TARGET_COL], lgbm_valid_pred)\n\ncat_rank = rank_normalize(cat_valid_pred)\nlgbm_rank = rank_normalize(lgbm_valid_pred)\nrank_mean_prob = 0.5 * cat_rank + 0.5 * lgbm_rank\n\nweight_grid = [\n    (0.5, 0.5, 0.0),\n    (0.6, 0.4, 0.0),\n    (0.4, 0.6, 0.0),\n    (0.4, 0.4, 0.2),\n    (0.35, 0.35, 0.30),\n    (0.45, 0.45, 0.10),\n]\n\nbest_score = -np.inf\nbest_pred = None\nbest_weights = None\n\nfor a, b, c in weight_grid:\n    blend_pred = a * cat_valid_pred + b * lgbm_valid_pred + c * rank_mean_prob\n    score = roc_auc_score(valid_part[TARGET_COL], blend_pred)\n    if score > best_score:\n        best_score = score\n        best_pred = blend_pred\n        best_weights = (a, b, c)\n\nbaseline_score = best_score\n\ndisagreement = np.abs(cat_valid_pred - lgbm_valid_pred)\ncutoff = np.percentile(disagreement, 80)\n\nif cat_auc >= lgbm_auc:\n    low_disagree_pred = 0.5 * cat_valid_pred + 0.5 * lgbm_valid_pred\n    high_disagree_pred = 0.65 * cat_valid_pred + 0.35 * lgbm_valid_pred\nelse:\n    low_disagree_pred = 0.5 * cat_valid_pred + 0.5 * lgbm_valid_pred\n    high_disagree_pred = 0.35 * cat_valid_pred + 0.65 * lgbm_valid_pred\n\ndisagreement_aware_pred = np.where(\n    disagreement >= cutoff,\n    high_disagree_pred,\n    low_disagree_pred,\n)\n\ndisagreement_aware_score = roc_auc_score(valid_part[TARGET_COL], disagreement_aware_pred)\n\nif disagreement_aware_score > baseline_score:\n    final_validation_score = disagreement_aware_score\nelse:\n    final_validation_score = best_score\n\nprint(f\"Final Validation Performance: {final_validation_score}\")\n",
+  "ensemble_code_exec_result_0": {
+    "returncode": 0,
+    "stdout": "Final Validation Performance: 0.8331081081081081\n",
+    "stderr": "",
+    "execution_time": 11.499600410461426,
+    "score": 0.8331081081081081
+  },
+  "_adk_activated_skill_ensemble_plan_implement_initial_agent": [
+    "skrub-dataops-pipeline"
+  ],
+  "_adk_loaded_skill_resources_ensemble_plan_implement_initial_agent": [
+    {
+      "skill_name": "skrub-dataops-pipeline",
+      "path": "references/ensemble_dataops_patterns.md"
+    }
+  ],
+  "ensemble_plan_implement_initial_bug_summary_0": "",
+  "_adk_activated_skill_ensemble_plan_refine_agent": [
+    "skrub-dataops-pipeline"
+  ],
+  "_adk_loaded_skill_resources_ensemble_plan_refine_agent": [
+    {
+      "skill_name": "skrub-dataops-pipeline",
+      "path": "references/ensemble_dataops_patterns.md"
+    }
+  ],
+  "ensemble_plan_implement_skip_data_leakage_check_1": true,
+  "ensemble_code_1": "\nimport os\nimport warnings\n\nwarnings.filterwarnings(\"ignore\")\n\nimport numpy as np\nimport pandas as pd\nimport skrub\nfrom sklearn.model_selection import train_test_split\nfrom sklearn.metrics import roc_auc_score\nfrom catboost import CatBoostClassifier\nfrom lightgbm import LGBMClassifier\n\nRANDOM_STATE = 42\nTARGET_COL = \"Attrition\"\nID_COL = \"id\"\n\ntrain_path = \"./input/train.csv\"\n\ntrain_df = pd.read_csv(train_path)\n\ntrain_idx, valid_idx = train_test_split(\n    np.arange(len(train_df)),\n    test_size=0.2,\n    random_state=RANDOM_STATE,\n    stratify=train_df[TARGET_COL],\n)\ntrain_part = train_df.iloc[train_idx].copy()\nvalid_part = train_df.iloc[valid_idx].copy()\n\ndata_train = skrub.var(\"data\", train_part)\nX_train = data_train.drop(columns=TARGET_COL, errors=\"ignore\").skb.mark_as_X()\ny_train = data_train[TARGET_COL].skb.mark_as_y()\n\nvectorizer = skrub.TableVectorizer()\n\ncat_X_train = X_train.skb.apply(vectorizer)\ncat_model = CatBoostClassifier(\n    random_state=RANDOM_STATE,\n    verbose=0,\n    cat_features=None,\n)\ncat_predictor = cat_X_train.skb.apply(cat_model, y=y_train)\n\nlgbm_X_train = X_train.skb.apply(vectorizer)\nlgbm_model = LGBMClassifier(\n    random_state=RANDOM_STATE,\n    verbose=-1,\n)\nlgbm_predictor = lgbm_X_train.skb.apply(lgbm_model, y=y_train)\n\ncat_learner = cat_predictor.skb.make_learner(fitted=True)\nlgbm_learner = lgbm_predictor.skb.make_learner(fitted=True)\n\ncat_valid_pred = np.asarray(cat_learner.predict({\"data\": valid_part}))\nlgbm_valid_pred = np.asarray(lgbm_learner.predict({\"data\": valid_part}))\n\nif set(np.unique(cat_valid_pred)).issubset({0, 1}):\n    cat_valid_pred = cat_learner.predict_proba({\"data\": valid_part})[:, 1]\nif set(np.unique(lgbm_valid_pred)).issubset({0, 1}):\n    lgbm_valid_pred = lgbm_learner.predict_proba({\"data\": valid_part})[:, 1]\n\ncat_valid_pred = np.asarray(cat_valid_pred, dtype=float).ravel()\nlgbm_valid_pred = np.asarray(lgbm_valid_pred, dtype=float).ravel()\n\ndef rank_normalize(x):\n    s = pd.Series(np.asarray(x, dtype=float).ravel())\n    ranks = s.rank(method=\"average\", pct=True).to_numpy()\n    return ranks.astype(float)\n\ny_valid = valid_part[TARGET_COL].to_numpy()\n\ncat_auc = roc_auc_score(y_valid, cat_valid_pred)\nlgbm_auc = roc_auc_score(y_valid, lgbm_valid_pred)\n\nraw_weight_candidates = [(0.50, 0.50)]\nif cat_auc > lgbm_auc:\n    raw_weight_candidates.extend([(0.55, 0.45), (0.60, 0.40)])\nelif lgbm_auc > cat_auc:\n    raw_weight_candidates.extend([(0.45, 0.55), (0.40, 0.60)])\n\nalpha_grid = [0.0, 0.1, 0.2, 0.3, 0.4, 0.5]\n\nbest_auc = -np.inf\nbest_pred = None\n\nbest_raw_auc = -np.inf\nbest_raw_pred = None\n\nfor w_cat, w_lgbm in raw_weight_candidates:\n    raw_mean = w_cat * cat_valid_pred + w_lgbm * lgbm_valid_pred\n\n    rank_cat = rank_normalize(cat_valid_pred)\n    rank_lgbm = rank_normalize(lgbm_valid_pred)\n    rank_mean = w_cat * rank_cat + w_lgbm * rank_lgbm\n    consensus = 1.0 - np.abs(rank_cat - rank_lgbm)\n\n    raw_auc = roc_auc_score(y_valid, raw_mean)\n    if raw_auc > best_raw_auc:\n        best_raw_auc = raw_auc\n        best_raw_pred = raw_mean.copy()\n\n    for alpha in alpha_grid:\n        adaptive_blend = alpha * raw_mean + (1.0 - alpha) * (\n            consensus * rank_mean + (1.0 - consensus) * raw_mean\n        )\n        auc = roc_auc_score(y_valid, adaptive_blend)\n        if auc > best_auc:\n            best_auc = auc\n            best_pred = adaptive_blend.copy()\n\nif best_auc > best_raw_auc:\n    final_validation_score = best_auc\nelse:\n    final_validation_score = best_raw_auc\n    best_pred = best_raw_pred\n\nprint(f\"Final Validation Performance: {final_validation_score}\")\n",
+  "ensemble_code_exec_result_1": {
+    "returncode": 0,
+    "stdout": "Final Validation Performance: 0.8308277027027027\n",
+    "stderr": "",
+    "execution_time": 13.375849962234497,
+    "score": 0.8308277027027027
+  },
+  "_adk_activated_skill_ensemble_plan_implement_agent": [
+    "skrub-dataops-pipeline"
+  ],
+  "_adk_loaded_skill_resources_ensemble_plan_implement_agent": [
+    {
+      "skill_name": "skrub-dataops-pipeline",
+      "path": "references/ensemble_dataops_patterns.md"
+    }
+  ],
+  "ensemble_plan_implement_bug_summary_1": "",
+  "submission_code": "\nimport os\nimport warnings\n\nwarnings.filterwarnings(\"ignore\")\n\nimport numpy as np\nimport pandas as pd\nimport skrub\nfrom sklearn.model_selection import train_test_split\nfrom sklearn.metrics import roc_auc_score\nfrom catboost import CatBoostClassifier\nfrom lightgbm import LGBMClassifier\n\nRANDOM_STATE = 42\nTARGET_COL = \"Attrition\"\nID_COL = \"id\"\n\ntrain_path = \"./input/train.csv\"\n\ntrain_df = pd.read_csv(train_path)\n\ntrain_idx, valid_idx = train_test_split(\n    np.arange(len(train_df)),\n    test_size=0.2,\n    random_state=RANDOM_STATE,\n    stratify=train_df[TARGET_COL],\n)\ntrain_part = train_df.iloc[train_idx].copy()\nvalid_part = train_df.iloc[valid_idx].copy()\n\ndata_train = skrub.var(\"data\", train_part)\nX_train = data_train.drop(columns=TARGET_COL, errors=\"ignore\").skb.mark_as_X()\ny_train = data_train[TARGET_COL].skb.mark_as_y()\n\nvectorizer = skrub.TableVectorizer()\n\ncat_X_train = X_train.skb.apply(vectorizer)\ncat_model = CatBoostClassifier(\n    random_state=RANDOM_STATE,\n    verbose=0,\n    cat_features=None,\n)\ncat_predictor = cat_X_train.skb.apply(cat_model, y=y_train)\n\nlgbm_X_train = X_train.skb.apply(vectorizer)\nlgbm_model = LGBMClassifier(\n    random_state=RANDOM_STATE,\n    verbose=-1,\n)\nlgbm_predictor = lgbm_X_train.skb.apply(lgbm_model, y=y_train)\n\ncat_learner = cat_predictor.skb.make_learner(fitted=True)\nlgbm_learner = lgbm_predictor.skb.make_learner(fitted=True)\n\ncat_valid_pred = np.asarray(cat_learner.predict({\"data\": valid_part}))\nlgbm_valid_pred = np.asarray(lgbm_learner.predict({\"data\": valid_part}))\n\nif set(np.unique(cat_valid_pred)).issubset({0, 1}):\n    cat_valid_pred = cat_learner.predict_proba({\"data\": valid_part})[:, 1]\nif set(np.unique(lgbm_valid_pred)).issubset({0, 1}):\n    lgbm_valid_pred = lgbm_learner.predict_proba({\"data\": valid_part})[:, 1]\n\ncat_valid_pred = np.asarray(cat_valid_pred, dtype=float).ravel()\nlgbm_valid_pred = np.asarray(lgbm_valid_pred, dtype=float).ravel()\n\ndef rank_normalize(x):\n    s = pd.Series(np.asarray(x, dtype=float).ravel())\n    ranks = s.rank(method=\"average\", pct=True).to_numpy()\n    return ranks.astype(float)\n\ny_valid = valid_part[TARGET_COL].to_numpy()\n\ncat_auc = roc_auc_score(y_valid, cat_valid_pred)\nlgbm_auc = roc_auc_score(y_valid, lgbm_valid_pred)\n\nraw_weight_candidates = [(0.50, 0.50)]\nif cat_auc > lgbm_auc:\n    raw_weight_candidates.extend([(0.55, 0.45), (0.60, 0.40)])\nelif lgbm_auc > cat_auc:\n    raw_weight_candidates.extend([(0.45, 0.55), (0.40, 0.60)])\n\nalpha_grid = [0.0, 0.1, 0.2, 0.3, 0.4, 0.5]\n\nbest_auc = -np.inf\nbest_pred = None\n\nbest_raw_auc = -np.inf\nbest_raw_pred = None\n\nfor w_cat, w_lgbm in raw_weight_candidates:\n    raw_mean = w_cat * cat_valid_pred + w_lgbm * lgbm_valid_pred\n\n    rank_cat = rank_normalize(cat_valid_pred)\n    rank_lgbm = rank_normalize(lgbm_valid_pred)\n    rank_mean = w_cat * rank_cat + w_lgbm * rank_lgbm\n    consensus = 1.0 - np.abs(rank_cat - rank_lgbm)\n\n    raw_auc = roc_auc_score(y_valid, raw_mean)\n    if raw_auc > best_raw_auc:\n        best_raw_auc = raw_auc\n        best_raw_pred = raw_mean.copy()\n\n    for alpha in alpha_grid:\n        adaptive_blend = alpha * raw_mean + (1.0 - alpha) * (\n            consensus * rank_mean + (1.0 - consensus) * raw_mean\n        )\n        auc = roc_auc_score(y_valid, adaptive_blend)\n        if auc > best_auc:\n            best_auc = auc\n            best_pred = adaptive_blend.copy()\n\nif best_auc > best_raw_auc:\n    final_validation_score = best_auc\nelse:\n    final_validation_score = best_raw_auc\n    best_pred = best_raw_pred\n\nprint(f\"Final Validation Performance: {final_validation_score}\")\n\ntest_df = pd.read_csv(\"./input/test.csv\")\n\ndata_full = skrub.var(\"data\", train_df)\nX_full = data_full.drop(columns=TARGET_COL, errors=\"ignore\").skb.mark_as_X()\ny_full = data_full[TARGET_COL].skb.mark_as_y()\n\ncat_X_full = X_full.skb.apply(vectorizer)\ncat_full_predictor = cat_X_full.skb.apply(cat_model, y=y_full)\n\nlgbm_X_full = X_full.skb.apply(vectorizer)\nlgbm_full_predictor = lgbm_X_full.skb.apply(lgbm_model, y=y_full)\n\ncat_full_learner = cat_full_predictor.skb.make_learner(fitted=True)\nlgbm_full_learner = lgbm_full_predictor.skb.make_learner(fitted=True)\n\ncat_test_pred = np.asarray(cat_full_learner.predict({\"data\": test_df}))\nlgbm_test_pred = np.asarray(lgbm_full_learner.predict({\"data\": test_df}))\n\nif set(np.unique(cat_test_pred)).issubset({0, 1}):\n    cat_test_pred = cat_full_learner.predict_proba({\"data\": test_df})[:, 1]\nif set(np.unique(lgbm_test_pred)).issubset({0, 1}):\n    lgbm_test_pred = lgbm_full_learner.predict_proba({\"data\": test_df})[:, 1]\n\ncat_test_pred = np.asarray(cat_test_pred, dtype=float).ravel()\nlgbm_test_pred = np.asarray(lgbm_test_pred, dtype=float).ravel()\n\ntest_rank_cat = rank_normalize(cat_test_pred)\ntest_rank_lgbm = rank_normalize(lgbm_test_pred)\ntest_consensus = 1.0 - np.abs(test_rank_cat - test_rank_lgbm)\n\nbest_test_pred = None\ncurrent_best_auc = -np.inf\n\nfor w_cat, w_lgbm in raw_weight_candidates:\n    test_raw_mean = w_cat * cat_test_pred + w_lgbm * lgbm_test_pred\n    test_rank_mean = w_cat * test_rank_cat + w_lgbm * test_rank_lgbm\n\n    if best_auc > best_raw_auc:\n        for alpha in alpha_grid:\n            test_adaptive_blend = alpha * test_raw_mean + (1.0 - alpha) * (\n                test_consensus * test_rank_mean + (1.0 - test_consensus) * test_raw_mean\n            )\n            validation_like_score = roc_auc_score(y_valid, alpha * (w_cat * cat_valid_pred + w_lgbm * lgbm_valid_pred) + (1.0 - alpha) * (\n                (1.0 - np.abs(rank_normalize(cat_valid_pred) - rank_normalize(lgbm_valid_pred))) * (w_cat * rank_normalize(cat_valid_pred) + w_lgbm * rank_normalize(lgbm_valid_pred))\n                + (1.0 - (1.0 - np.abs(rank_normalize(cat_valid_pred) - rank_normalize(lgbm_valid_pred)))) * (w_cat * cat_valid_pred + w_lgbm * lgbm_valid_pred)\n            ))\n            if validation_like_score > current_best_auc:\n                current_best_auc = validation_like_score\n                best_test_pred = test_adaptive_blend.copy()\n    else:\n        validation_like_score = roc_auc_score(y_valid, w_cat * cat_valid_pred + w_lgbm * lgbm_valid_pred)\n        if validation_like_score > current_best_auc:\n            current_best_auc = validation_like_score\n            best_test_pred = test_raw_mean.copy()\n\nos.makedirs(\"./final\", exist_ok=True)\nsubmission = pd.DataFrame(\n    {\n        \"EmployeeNumber\": test_df[ID_COL],\n        TARGET_COL: np.asarray(best_test_pred, dtype=float).ravel(),\n    }\n)\nsubmission.to_csv(\"./final/submission.csv\", index=False)\n",
+  "submission_code_exec_result": {
+    "returncode": 0,
+    "stdout": "Final Validation Performance: 0.8308277027027027\n",
+    "stderr": "",
+    "execution_time": 25.06190013885498,
+    "score": 0.8308277027027027
+  },
+  "_adk_activated_skill_submission_agent": [
+    "skrub-dataops-pipeline"
+  ],
+  "_adk_loaded_skill_resources_submission_agent": [
+    {
+      "skill_name": "skrub-dataops-pipeline",
+      "path": "references/submission_export.md"
+    }
+  ],
+  "submission_bug_summary": ""
+}

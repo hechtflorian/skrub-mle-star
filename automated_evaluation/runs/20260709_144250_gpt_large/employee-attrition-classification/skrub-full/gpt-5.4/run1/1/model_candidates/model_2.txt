@@ -1,0 +1,41 @@
+## Model name
+LightGBM + Skrub TableVectorizer
+
+## Example Python code
+import pandas as pd
+import skrub
+from lightgbm import LGBMClassifier
+
+train = pd.read_csv('train.csv')
+test = pd.read_csv('test.csv')
+
+target = 'Attrition'
+id_col = 'EmployeeNumber' if 'EmployeeNumber' in test.columns else 'id'
+
+X_df = train.drop(columns=[target])
+y = train[target]
+X_test_df = test.copy()
+
+X = skrub.X(X_df)
+y_s = skrub.y(y)
+vectorizer = skrub.TableVectorizer()
+
+pred = X.skb.apply(vectorizer).skb.apply(
+    LGBMClassifier(
+        n_estimators=700,
+        learning_rate=0.03,
+        num_leaves=64,
+        subsample=0.8,
+        colsample_bytree=0.8,
+        objective='binary',
+        random_state=42,
+        verbose=-1
+    ),
+    y=y_s,
+)
+
+learner = pred.skb.make_learner(fitted=True)
+pred_test = learner.predict({'X': X_test_df})
+
+submission = pd.DataFrame({id_col: test[id_col], 'Attrition': pred_test})
+submission.to_csv('submission.csv', index=False)

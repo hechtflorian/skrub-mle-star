@@ -1,0 +1,459 @@
+{
+  "data_dir": "./machine_learning_engineering/tasks/",
+  "task_name": "introverts-extroverts-classification",
+  "task_type": "Tabular Classification",
+  "lower": false,
+  "workspace_dir": "./machine_learning_engineering/workspace/",
+  "agent_model": "openai/gpt-5.4",
+  "task_description": "# Task\n\nPredict the target `Personality` for each id. This task is about predicting whether a person is an Introvert or Extrovert, given their social behavior and personality traits.\n\n# Metric\n\naccuracy_score\n\n# Submission Format\n```\nid,Personality\n18524,Extrovert\n18525,Introvert\n18526,Introvert\netc.\n```\n\n# Dataset\n\ntrain.csv\n```\nid,Time_spent_Alone,Stage_fear,Social_event_attendance,Going_outside,Drained_after_socializing,Friends_circle_size,Post_frequency,Personality\n0,0.0,No,6.0,4.0,No,15.0,5.0,Extrovert\n1,1.0,No,7.0,3.0,No,10.0,8.0,Extrovert\n2,6.0,Yes,1.0,0.0,,3.0,0.0,Introvert\netc.\n```\n\ntest.csv\n```\nid,Time_spent_Alone,Stage_fear,Social_event_attendance,Going_outside,Drained_after_socializing,Friends_circle_size,Post_frequency\n18524,3.0,No,7.0,4.0,No,6.0,\n18525,,Yes,0.0,0.0,Yes,5.0,1.0\n18526,3.0,No,5.0,6.0,No,15.0,9.0\netc.\n```",
+  "task_summary": "Task: Tabular Classification\nTabular binary classification task: predict `Personality` (`Introvert` or `Extrovert`) for each `id` using mixed numerical and categorical social-behavior features.\n\n- **Target:** `Personality`\n- **Classes:** Introvert, Extrovert\n- **Metric:** accuracy\n- **Train columns:** `id`, `Time_spent_Alone`, `Stage_fear`, `Social_event_attendance`, `Going_outside`, `Drained_after_socializing`, `Friends_circle_size`, `Post_frequency`, `Personality`\n- **Test columns:** same minus `Personality`\n- **Feature types:** numeric + categorical, with missing values present\n- **Output:** CSV with `id,Personality`\n\nGood search keywords: **tabular binary classification, mixed-type features, missing values, label prediction, accuracy metric**",
+  "start_time": 1783618306.446532,
+  "seed": 42,
+  "exec_timeout": 600,
+  "num_solutions": 1,
+  "num_model_candidates": 2,
+  "max_retry": 10,
+  "max_debug_round": 5,
+  "max_rollback_round": 2,
+  "inner_loop_round": 1,
+  "outer_loop_round": 1,
+  "ensemble_loop_round": 1,
+  "num_top_plans": 2,
+  "use_data_leakage_checker": false,
+  "use_data_usage_checker": false,
+  "table_report_enabled": true,
+  "tuning_enabled": true,
+  "tuning_n_iter": 5,
+  "_adk_activated_skill_model_retriever_agent_1": [
+    "skrub-dataops-pipeline"
+  ],
+  "_adk_loaded_skill_resources_model_retriever_agent_1": [
+    {
+      "skill_name": "skrub-dataops-pipeline",
+      "path": "references/dataops_api_quickmap.md"
+    }
+  ],
+  "init_1_model_1": {
+    "model_name": "CatBoostClassifier",
+    "example_code": "import pandas as pd\nfrom sklearn.model_selection import train_test_split\nfrom sklearn.metrics import accuracy_score\nfrom catboost import CatBoostClassifier\n\ntrain_df = pd.read_csv('train.csv')\ntest_df = pd.read_csv('test.csv')\n\ntarget_col = 'Personality'\ncat_cols = ['Stage_fear', 'Drained_after_socializing']\nfeature_cols = [c for c in train_df.columns if c not in ['id', target_col]]\n\nX = train_df[feature_cols].copy()\ny = train_df[target_col].map({'Introvert': 0, 'Extrovert': 1})\nX_test = test_df[feature_cols].copy()\n\nfor c in cat_cols:\n    X[c] = X[c].astype('string').fillna('missing')\n    X_test[c] = X_test[c].astype('string').fillna('missing')\n\nX_train, X_valid, y_train, y_valid = train_test_split(\n    X, y, test_size=0.2, random_state=42, stratify=y\n)\n\nmodel = CatBoostClassifier(\n    iterations=500,\n    depth=6,\n    learning_rate=0.05,\n    loss_function='Logloss',\n    eval_metric='Accuracy',\n    verbose=0,\n    random_state=42\n)\n\nmodel.fit(\n    X_train, y_train,\n    cat_features=cat_cols,\n    eval_set=(X_valid, y_valid),\n    use_best_model=True\n)\n\nvalid_pred = model.predict(X_valid).reshape(-1)\nprint('valid_acc =', accuracy_score(y_valid, valid_pred))\n\ntest_pred = model.predict(X_test).reshape(-1)\nsubmission = pd.DataFrame({\n    'id': test_df['id'],\n    'Personality': pd.Series(test_pred).map({0: 'Introvert', 1: 'Extrovert'})\n})\nsubmission.to_csv('submission.csv', index=False)",
+    "model_description": "## Model name\nCatBoostClassifier\n\n## Example Python code\nimport pandas as pd\nfrom sklearn.model_selection import train_test_split\nfrom sklearn.metrics import accuracy_score\nfrom catboost import CatBoostClassifier\n\ntrain_df = pd.read_csv('train.csv')\ntest_df = pd.read_csv('test.csv')\n\ntarget_col = 'Personality'\ncat_cols = ['Stage_fear', 'Drained_after_socializing']\nfeature_cols = [c for c in train_df.columns if c not in ['id', target_col]]\n\nX = train_df[feature_cols].copy()\ny = train_df[target_col].map({'Introvert': 0, 'Extrovert': 1})\nX_test = test_df[feature_cols].copy()\n\nfor c in cat_cols:\n    X[c] = X[c].astype('string').fillna('missing')\n    X_test[c] = X_test[c].astype('string').fillna('missing')\n\nX_train, X_valid, y_train, y_valid = train_test_split(\n    X, y, test_size=0.2, random_state=42, stratify=y\n)\n\nmodel = CatBoostClassifier(\n    iterations=500,\n    depth=6,\n    learning_rate=0.05,\n    loss_function='Logloss',\n    eval_metric='Accuracy',\n    verbose=0,\n    random_state=42\n)\n\nmodel.fit(\n    X_train, y_train,\n    cat_features=cat_cols,\n    eval_set=(X_valid, y_valid),\n    use_best_model=True\n)\n\nvalid_pred = model.predict(X_valid).reshape(-1)\nprint('valid_acc =', accuracy_score(y_valid, valid_pred))\n\ntest_pred = model.predict(X_test).reshape(-1)\nsubmission = pd.DataFrame({\n    'id': test_df['id'],\n    'Personality': pd.Series(test_pred).map({0: 'Introvert', 1: 'Extrovert'})\n})\nsubmission.to_csv('submission.csv', index=False)"
+  },
+  "init_1_model_2": {
+    "model_name": "LightGBMClassifier",
+    "example_code": "import pandas as pd\nfrom sklearn.model_selection import train_test_split\nfrom sklearn.metrics import accuracy_score\nfrom lightgbm import LGBMClassifier\n\ntrain_df = pd.read_csv('train.csv')\ntest_df = pd.read_csv('test.csv')\n\ntarget_col = 'Personality'\ncat_cols = ['Stage_fear', 'Drained_after_socializing']\nfeature_cols = [c for c in train_df.columns if c not in ['id', target_col]]\n\nX = train_df[feature_cols].copy()\ny = train_df[target_col].map({'Introvert': 0, 'Extrovert': 1})\nX_test = test_df[feature_cols].copy()\n\nfor c in cat_cols:\n    X[c] = X[c].astype('category')\n    X_test[c] = X_test[c].astype('category')\n\nX_train, X_valid, y_train, y_valid = train_test_split(\n    X, y, test_size=0.2, random_state=42, stratify=y\n)\n\nmodel = LGBMClassifier(\n    n_estimators=400,\n    learning_rate=0.05,\n    num_leaves=31,\n    subsample=0.9,\n    colsample_bytree=0.9,\n    random_state=42,\n    verbose=-1\n)\n\nmodel.fit(\n    X_train, y_train,\n    eval_set=[(X_valid, y_valid)],\n    eval_metric='binary_error',\n    categorical_feature=cat_cols\n)\n\nvalid_pred = model.predict(X_valid)\nprint('valid_acc =', accuracy_score(y_valid, valid_pred))\n\ntest_pred = model.predict(X_test)\nsubmission = pd.DataFrame({\n    'id': test_df['id'],\n    'Personality': pd.Series(test_pred).map({0: 'Introvert', 1: 'Extrovert'})\n})\nsubmission.to_csv('submission.csv', index=False)",
+    "model_description": "## Model name\nLightGBMClassifier\n\n## Example Python code\nimport pandas as pd\nfrom sklearn.model_selection import train_test_split\nfrom sklearn.metrics import accuracy_score\nfrom lightgbm import LGBMClassifier\n\ntrain_df = pd.read_csv('train.csv')\ntest_df = pd.read_csv('test.csv')\n\ntarget_col = 'Personality'\ncat_cols = ['Stage_fear', 'Drained_after_socializing']\nfeature_cols = [c for c in train_df.columns if c not in ['id', target_col]]\n\nX = train_df[feature_cols].copy()\ny = train_df[target_col].map({'Introvert': 0, 'Extrovert': 1})\nX_test = test_df[feature_cols].copy()\n\nfor c in cat_cols:\n    X[c] = X[c].astype('category')\n    X_test[c] = X_test[c].astype('category')\n\nX_train, X_valid, y_train, y_valid = train_test_split(\n    X, y, test_size=0.2, random_state=42, stratify=y\n)\n\nmodel = LGBMClassifier(\n    n_estimators=400,\n    learning_rate=0.05,\n    num_leaves=31,\n    subsample=0.9,\n    colsample_bytree=0.9,\n    random_state=42,\n    verbose=-1\n)\n\nmodel.fit(\n    X_train, y_train,\n    eval_set=[(X_valid, y_valid)],\n    eval_metric='binary_error',\n    categorical_feature=cat_cols\n)\n\nvalid_pred = model.predict(X_valid)\nprint('valid_acc =', accuracy_score(y_valid, valid_pred))\n\ntest_pred = model.predict(X_test)\nsubmission = pd.DataFrame({\n    'id': test_df['id'],\n    'Personality': pd.Series(test_pred).map({0: 'Introvert', 1: 'Extrovert'})\n})\nsubmission.to_csv('submission.csv', index=False)"
+  },
+  "init_1_model_finish": true,
+  "model_eval_skip_data_leakage_check_1_1": true,
+  "init_code_1_1": "\nimport os\nimport warnings\n\nwarnings.filterwarnings(\"ignore\")\n\nimport numpy as np\nimport pandas as pd\nimport skrub\nfrom catboost import CatBoostClassifier\nfrom sklearn.metrics import accuracy_score\nfrom sklearn.model_selection import train_test_split\n\nrandom_state = 42\ntarget_col = \"Personality\"\n\ntrain_path = \"./input/train.csv\"\ntest_path = \"./input/test.csv\"\n\ntrain_df = pd.read_csv(train_path)\ntest_df = pd.read_csv(test_path)\n\ntrain_idx, valid_idx = train_test_split(\n    np.arange(len(train_df)),\n    test_size=0.2,\n    random_state=random_state,\n    stratify=train_df[target_col],\n)\ntrain_part = train_df.iloc[train_idx].copy()\nvalid_part = train_df.iloc[valid_idx].copy()\n\ndata_train = skrub.var(\"data\", train_part)\nX_train = data_train.drop(columns=target_col, errors=\"ignore\").skb.mark_as_X()\ny_train = data_train[target_col].skb.mark_as_y()\n\n# Smallest fix for the clone error: remove cat_features from the constructor so sklearn.clone works.\n# String categorical columns are already handled by the vectorizer before CatBoost sees the data.\nvectorizer = skrub.TableVectorizer()\npredictor = X_train.skb.apply(vectorizer).skb.apply(\n    CatBoostClassifier(\n        random_state=random_state,\n        verbose=0,\n    ),\n    y=y_train,\n)\n\nval_learner = predictor.skb.make_learner(fitted=True)\nvalid_pred = val_learner.predict({\"data\": valid_part})\nfinal_validation_score = accuracy_score(valid_part[target_col], valid_pred)\n\nprint(f\"Final Validation Performance: {final_validation_score}\")\n",
+  "init_code_exec_result_1_1": {
+    "returncode": 0,
+    "stdout": "Final Validation Performance: 0.9724696356275304\n",
+    "stderr": "",
+    "execution_time": 20.37989854812622,
+    "score": 0.9724696356275304
+  },
+  "_adk_activated_skill_model_eval_agent_1_1": [
+    "skrub-dataops-pipeline"
+  ],
+  "_adk_loaded_skill_resources_model_eval_agent_1_1": [
+    {
+      "skill_name": "skrub-dataops-pipeline",
+      "path": "references/dataops_api_quickmap.md"
+    }
+  ],
+  "debug_anchor_code_1_1": "\nimport warnings\nwarnings.filterwarnings(\"ignore\")\n\nimport numpy as np\nimport pandas as pd\nimport skrub\nfrom catboost import CatBoostClassifier\nfrom sklearn.metrics import accuracy_score\nfrom sklearn.model_selection import train_test_split\n\nrandom_state = 42\ntarget_col = \"Personality\"\ncat_cols = [\"Stage_fear\", \"Drained_after_socializing\"]\n\ntrain_df = pd.read_csv(\"./input/train.csv\")\n\ntrain_idx, valid_idx = train_test_split(\n    np.arange(len(train_df)),\n    test_size=0.2,\n    random_state=random_state,\n    stratify=train_df[target_col],\n)\n\ntrain_part = train_df.iloc[train_idx].copy()\nvalid_part = train_df.iloc[valid_idx].copy()\n\nfor c in cat_cols:\n    train_part[c] = train_part[c].astype(\"string\").fillna(\"missing\")\n    valid_part[c] = valid_part[c].astype(\"string\").fillna(\"missing\")\n\ntrain_part[target_col] = train_part[target_col].map({\"Introvert\": 0, \"Extrovert\": 1})\nvalid_part[target_col] = valid_part[target_col].map({\"Introvert\": 0, \"Extrovert\": 1})\n\ndata_train = skrub.var(\"data\", train_part)\nX_train = data_train.drop(columns=[\"id\", target_col], errors=\"ignore\").skb.mark_as_X()\ny_train = data_train[target_col].skb.mark_as_y()\n\nmodel = CatBoostClassifier(\n    iterations=500,\n    depth=6,\n    learning_rate=0.05,\n    loss_function=\"Logloss\",\n    eval_metric=\"Accuracy\",\n    verbose=0,\n    random_state=random_state,\n)\n\npredictor = X_train.skb.apply(model, y=y_train, cat_features=cat_cols)\nval_learner = predictor.skb.make_learner(fitted=True)\n\nvalid_features = valid_part.drop(columns=[\"id\", target_col], errors=\"ignore\")\nvalid_pred = val_learner.predict({\"data\": valid_features})\nvalid_pred = np.asarray(valid_pred).reshape(-1)\n\nfinal_validation_score = accuracy_score(valid_part[target_col], valid_pred)\nprint(f\"Final Validation Performance: {final_validation_score}\")\n",
+  "model_eval_bug_summary_1_1": "",
+  "_adk_activated_skill_model_eval_debug_agent_1_1": [
+    "skrub-dataops-pipeline"
+  ],
+  "_adk_loaded_skill_resources_model_eval_debug_agent_1_1": [
+    {
+      "skill_name": "skrub-dataops-pipeline",
+      "path": "references/dataops_api_quickmap.md"
+    },
+    {
+      "skill_name": "skrub-dataops-pipeline",
+      "path": "references/common_failure_fixes.md"
+    }
+  ],
+  "model_eval_skip_data_leakage_check_1_2": true,
+  "init_code_1_2": "\nimport warnings\n\nwarnings.filterwarnings(\"ignore\")\n\nimport numpy as np\nimport pandas as pd\nimport skrub\nfrom lightgbm import LGBMClassifier\nfrom sklearn.metrics import accuracy_score\nfrom sklearn.model_selection import train_test_split\n\nrandom_state = 42\ntarget_col = \"Personality\"\ncategorical_cols = [\"Stage_fear\", \"Drained_after_socializing\"]\n\ntrain_path = \"./input/train.csv\"\ntrain_df = pd.read_csv(train_path)\n\ntrain_idx, valid_idx = train_test_split(\n    np.arange(len(train_df)),\n    test_size=0.2,\n    random_state=random_state,\n    stratify=train_df[target_col],\n)\ntrain_part = train_df.iloc[train_idx].copy()\nvalid_part = train_df.iloc[valid_idx].copy()\n\ndata_train = skrub.var(\"data\", train_part)\nX_train = data_train.drop(columns=[target_col, \"id\"], errors=\"ignore\").skb.mark_as_X()\ny_train = data_train[target_col].replace({\"Introvert\": 0, \"Extrovert\": 1}).skb.mark_as_y()\n\nvectorizer = skrub.TableVectorizer()\npredictor = X_train.skb.apply(vectorizer).skb.apply(\n    LGBMClassifier(\n        n_estimators=400,\n        learning_rate=0.05,\n        num_leaves=31,\n        subsample=0.9,\n        colsample_bytree=0.9,\n        random_state=random_state,\n        verbose=-1,\n    ),\n    y=y_train,\n)\n\nval_learner = predictor.skb.make_learner(fitted=True)\nvalid_pred_num = val_learner.predict({\"data\": valid_part})\nvalid_pred = pd.Series(valid_pred_num).map({0: \"Introvert\", 1: \"Extrovert\"}).to_numpy()\n\nfinal_validation_score = accuracy_score(valid_part[target_col], valid_pred)\nprint(f\"Final Validation Performance: {final_validation_score}\")\n",
+  "init_code_exec_result_1_2": {
+    "returncode": 0,
+    "stdout": "Final Validation Performance: 0.97165991902834\n",
+    "stderr": "",
+    "execution_time": 6.004730939865112,
+    "score": 0.97165991902834
+  },
+  "_adk_activated_skill_model_eval_agent_1_2": [
+    "skrub-dataops-pipeline"
+  ],
+  "_adk_loaded_skill_resources_model_eval_agent_1_2": [
+    {
+      "skill_name": "skrub-dataops-pipeline",
+      "path": "references/dataops_api_quickmap.md"
+    }
+  ],
+  "model_eval_bug_summary_1_2": "",
+  "performance_results_1": [
+    [
+      0.9724696356275304,
+      "\nimport os\nimport warnings\n\nwarnings.filterwarnings(\"ignore\")\n\nimport numpy as np\nimport pandas as pd\nimport skrub\nfrom catboost import CatBoostClassifier\nfrom sklearn.metrics import accuracy_score\nfrom sklearn.model_selection import train_test_split\n\nrandom_state = 42\ntarget_col = \"Personality\"\n\ntrain_path = \"./input/train.csv\"\ntest_path = \"./input/test.csv\"\n\ntrain_df = pd.read_csv(train_path)\ntest_df = pd.read_csv(test_path)\n\ntrain_idx, valid_idx = train_test_split(\n    np.arange(len(train_df)),\n    test_size=0.2,\n    random_state=random_state,\n    stratify=train_df[target_col],\n)\ntrain_part = train_df.iloc[train_idx].copy()\nvalid_part = train_df.iloc[valid_idx].copy()\n\ndata_train = skrub.var(\"data\", train_part)\nX_train = data_train.drop(columns=target_col, errors=\"ignore\").skb.mark_as_X()\ny_train = data_train[target_col].skb.mark_as_y()\n\n# Smallest fix for the clone error: remove cat_features from the constructor so sklearn.clone works.\n# String categorical columns are already handled by the vectorizer before CatBoost sees the data.\nvectorizer = skrub.TableVectorizer()\npredictor = X_train.skb.apply(vectorizer).skb.apply(\n    CatBoostClassifier(\n        random_state=random_state,\n        verbose=0,\n    ),\n    y=y_train,\n)\n\nval_learner = predictor.skb.make_learner(fitted=True)\nvalid_pred = val_learner.predict({\"data\": valid_part})\nfinal_validation_score = accuracy_score(valid_part[target_col], valid_pred)\n\nprint(f\"Final Validation Performance: {final_validation_score}\")\n",
+      {
+        "returncode": 0,
+        "stdout": "Final Validation Performance: 0.9724696356275304\n",
+        "stderr": "",
+        "execution_time": 20.37989854812622,
+        "score": 0.9724696356275304
+      }
+    ],
+    [
+      0.97165991902834,
+      "\nimport warnings\n\nwarnings.filterwarnings(\"ignore\")\n\nimport numpy as np\nimport pandas as pd\nimport skrub\nfrom lightgbm import LGBMClassifier\nfrom sklearn.metrics import accuracy_score\nfrom sklearn.model_selection import train_test_split\n\nrandom_state = 42\ntarget_col = \"Personality\"\ncategorical_cols = [\"Stage_fear\", \"Drained_after_socializing\"]\n\ntrain_path = \"./input/train.csv\"\ntrain_df = pd.read_csv(train_path)\n\ntrain_idx, valid_idx = train_test_split(\n    np.arange(len(train_df)),\n    test_size=0.2,\n    random_state=random_state,\n    stratify=train_df[target_col],\n)\ntrain_part = train_df.iloc[train_idx].copy()\nvalid_part = train_df.iloc[valid_idx].copy()\n\ndata_train = skrub.var(\"data\", train_part)\nX_train = data_train.drop(columns=[target_col, \"id\"], errors=\"ignore\").skb.mark_as_X()\ny_train = data_train[target_col].replace({\"Introvert\": 0, \"Extrovert\": 1}).skb.mark_as_y()\n\nvectorizer = skrub.TableVectorizer()\npredictor = X_train.skb.apply(vectorizer).skb.apply(\n    LGBMClassifier(\n        n_estimators=400,\n        learning_rate=0.05,\n        num_leaves=31,\n        subsample=0.9,\n        colsample_bytree=0.9,\n        random_state=random_state,\n        verbose=-1,\n    ),\n    y=y_train,\n)\n\nval_learner = predictor.skb.make_learner(fitted=True)\nvalid_pred_num = val_learner.predict({\"data\": valid_part})\nvalid_pred = pd.Series(valid_pred_num).map({0: \"Introvert\", 1: \"Extrovert\"}).to_numpy()\n\nfinal_validation_score = accuracy_score(valid_part[target_col], valid_pred)\nprint(f\"Final Validation Performance: {final_validation_score}\")\n",
+      {
+        "returncode": 0,
+        "stdout": "Final Validation Performance: 0.97165991902834\n",
+        "stderr": "",
+        "execution_time": 6.004730939865112,
+        "score": 0.97165991902834
+      }
+    ]
+  ],
+  "best_score_1": 0.9724696356275304,
+  "base_solution_1": "\nimport os\nimport warnings\n\nwarnings.filterwarnings(\"ignore\")\n\nimport numpy as np\nimport pandas as pd\nimport skrub\nfrom catboost import CatBoostClassifier\nfrom sklearn.metrics import accuracy_score\nfrom sklearn.model_selection import train_test_split\n\nrandom_state = 42\ntarget_col = \"Personality\"\n\ntrain_path = \"./input/train.csv\"\ntest_path = \"./input/test.csv\"\n\ntrain_df = pd.read_csv(train_path)\ntest_df = pd.read_csv(test_path)\n\ntrain_idx, valid_idx = train_test_split(\n    np.arange(len(train_df)),\n    test_size=0.2,\n    random_state=random_state,\n    stratify=train_df[target_col],\n)\ntrain_part = train_df.iloc[train_idx].copy()\nvalid_part = train_df.iloc[valid_idx].copy()\n\ndata_train = skrub.var(\"data\", train_part)\nX_train = data_train.drop(columns=target_col, errors=\"ignore\").skb.mark_as_X()\ny_train = data_train[target_col].skb.mark_as_y()\n\n# Smallest fix for the clone error: remove cat_features from the constructor so sklearn.clone works.\n# String categorical columns are already handled by the vectorizer before CatBoost sees the data.\nvectorizer = skrub.TableVectorizer()\npredictor = X_train.skb.apply(vectorizer).skb.apply(\n    CatBoostClassifier(\n        random_state=random_state,\n        verbose=0,\n    ),\n    y=y_train,\n)\n\nval_learner = predictor.skb.make_learner(fitted=True)\nvalid_pred = val_learner.predict({\"data\": valid_part})\nfinal_validation_score = accuracy_score(valid_part[target_col], valid_pred)\n\nprint(f\"Final Validation Performance: {final_validation_score}\")\n",
+  "best_idx_1": 0,
+  "merger_code_1_0": "\nimport os\nimport warnings\n\nwarnings.filterwarnings(\"ignore\")\n\nimport numpy as np\nimport pandas as pd\nimport skrub\nfrom catboost import CatBoostClassifier\nfrom sklearn.metrics import accuracy_score\nfrom sklearn.model_selection import train_test_split\n\nrandom_state = 42\ntarget_col = \"Personality\"\n\ntrain_path = \"./input/train.csv\"\ntest_path = \"./input/test.csv\"\n\ntrain_df = pd.read_csv(train_path)\ntest_df = pd.read_csv(test_path)\n\ntrain_idx, valid_idx = train_test_split(\n    np.arange(len(train_df)),\n    test_size=0.2,\n    random_state=random_state,\n    stratify=train_df[target_col],\n)\ntrain_part = train_df.iloc[train_idx].copy()\nvalid_part = train_df.iloc[valid_idx].copy()\n\ndata_train = skrub.var(\"data\", train_part)\nX_train = data_train.drop(columns=target_col, errors=\"ignore\").skb.mark_as_X()\ny_train = data_train[target_col].skb.mark_as_y()\n\n# Smallest fix for the clone error: remove cat_features from the constructor so sklearn.clone works.\n# String categorical columns are already handled by the vectorizer before CatBoost sees the data.\nvectorizer = skrub.TableVectorizer()\npredictor = X_train.skb.apply(vectorizer).skb.apply(\n    CatBoostClassifier(\n        random_state=random_state,\n        verbose=0,\n    ),\n    y=y_train,\n)\n\nval_learner = predictor.skb.make_learner(fitted=True)\nvalid_pred = val_learner.predict({\"data\": valid_part})\nfinal_validation_score = accuracy_score(valid_part[target_col], valid_pred)\n\nprint(f\"Final Validation Performance: {final_validation_score}\")\n",
+  "merger_code_exec_result_1_0": {
+    "returncode": 0,
+    "stdout": "Final Validation Performance: 0.9724696356275304\n",
+    "stderr": "",
+    "execution_time": 20.37989854812622,
+    "score": 0.9724696356275304
+  },
+  "merger_skip_data_leakage_check_1_1": true,
+  "merger_code_1_1": "\nimport warnings\n\nwarnings.filterwarnings(\"ignore\")\n\nimport numpy as np\nimport pandas as pd\nimport skrub\nfrom catboost import CatBoostClassifier\nfrom lightgbm import LGBMClassifier\nfrom sklearn.metrics import accuracy_score\nfrom sklearn.model_selection import train_test_split\n\nrandom_state = 42\ntarget_col = \"Personality\"\n\ntrain_path = \"./input/train.csv\"\ntrain_df = pd.read_csv(train_path)\n\ntrain_idx, valid_idx = train_test_split(\n    np.arange(len(train_df)),\n    test_size=0.2,\n    random_state=random_state,\n    stratify=train_df[target_col],\n)\ntrain_part = train_df.iloc[train_idx].copy()\nvalid_part = train_df.iloc[valid_idx].copy()\n\ndata_train = skrub.var(\"data\", train_part)\n\nX_train_cat = data_train.drop(columns=target_col, errors=\"ignore\").skb.mark_as_X()\ny_train_cat = data_train[target_col].skb.mark_as_y()\n\nX_train_lgb = data_train.drop(columns=[target_col, \"id\"], errors=\"ignore\").skb.mark_as_X()\ny_train_lgb = (\n    data_train[target_col].replace({\"Introvert\": 0, \"Extrovert\": 1}).skb.mark_as_y()\n)\n\nvectorizer_cat = skrub.TableVectorizer()\nvectorizer_lgb = skrub.TableVectorizer()\n\npredictor_cat = X_train_cat.skb.apply(vectorizer_cat).skb.apply(\n    CatBoostClassifier(\n        random_state=random_state,\n        verbose=0,\n    ),\n    y=y_train_cat,\n)\n\npredictor_lgb = X_train_lgb.skb.apply(vectorizer_lgb).skb.apply(\n    LGBMClassifier(\n        n_estimators=400,\n        learning_rate=0.05,\n        num_leaves=31,\n        subsample=0.9,\n        colsample_bytree=0.9,\n        random_state=random_state,\n        verbose=-1,\n    ),\n    y=y_train_lgb,\n)\n\nlearner_cat = predictor_cat.skb.make_learner(fitted=True)\nlearner_lgb = predictor_lgb.skb.make_learner(fitted=True)\n\nvalid_pred_cat = learner_cat.predict({\"data\": valid_part})\nvalid_pred_lgb_num = learner_lgb.predict({\"data\": valid_part})\nvalid_pred_lgb = (\n    pd.Series(valid_pred_lgb_num).map({0: \"Introvert\", 1: \"Extrovert\"}).to_numpy()\n)\n\nvalid_pred_cat_num = pd.Series(valid_pred_cat).map({\"Introvert\": 0, \"Extrovert\": 1}).to_numpy()\nvalid_blend_num = ((valid_pred_cat_num + valid_pred_lgb_num) >= 1).astype(int)\nvalid_pred = pd.Series(valid_blend_num).map({0: \"Introvert\", 1: \"Extrovert\"}).to_numpy()\n\nfinal_validation_score = accuracy_score(valid_part[target_col], valid_pred)\nprint(f\"Final Validation Performance: {final_validation_score}\")\n",
+  "merger_code_exec_result_1_1": {
+    "returncode": 0,
+    "stdout": "Final Validation Performance: 0.9721997300944669\n",
+    "stderr": "",
+    "execution_time": 25.907492876052856,
+    "score": 0.9721997300944669
+  },
+  "_adk_activated_skill_merger_agent_1_1": [
+    "skrub-dataops-pipeline"
+  ],
+  "_adk_loaded_skill_resources_merger_agent_1_1": [
+    {
+      "skill_name": "skrub-dataops-pipeline",
+      "path": "references/ensemble_dataops_patterns.md"
+    }
+  ],
+  "merger_bug_summary_1_1": "",
+  "train_code_0_1": "\nimport os\nimport warnings\n\nwarnings.filterwarnings(\"ignore\")\n\nimport numpy as np\nimport pandas as pd\nimport skrub\nfrom catboost import CatBoostClassifier\nfrom sklearn.metrics import accuracy_score\nfrom sklearn.model_selection import train_test_split\n\nrandom_state = 42\ntarget_col = \"Personality\"\n\ntrain_path = \"./input/train.csv\"\ntest_path = \"./input/test.csv\"\n\ntrain_df = pd.read_csv(train_path)\ntest_df = pd.read_csv(test_path)\n\ntrain_idx, valid_idx = train_test_split(\n    np.arange(len(train_df)),\n    test_size=0.2,\n    random_state=random_state,\n    stratify=train_df[target_col],\n)\ntrain_part = train_df.iloc[train_idx].copy()\nvalid_part = train_df.iloc[valid_idx].copy()\n\ndata_train = skrub.var(\"data\", train_part)\nX_train = data_train.drop(columns=target_col, errors=\"ignore\").skb.mark_as_X()\ny_train = data_train[target_col].skb.mark_as_y()\n\n# Smallest fix for the clone error: remove cat_features from the constructor so sklearn.clone works.\n# String categorical columns are already handled by the vectorizer before CatBoost sees the data.\nvectorizer = skrub.TableVectorizer()\npredictor = X_train.skb.apply(vectorizer).skb.apply(\n    CatBoostClassifier(\n        random_state=random_state,\n        verbose=0,\n    ),\n    y=y_train,\n)\n\nval_learner = predictor.skb.make_learner(fitted=True)\nvalid_pred = val_learner.predict({\"data\": valid_part})\nfinal_validation_score = accuracy_score(valid_part[target_col], valid_pred)\n\nprint(f\"Final Validation Performance: {final_validation_score}\")\n",
+  "train_code_exec_result_0_1": {
+    "returncode": 0,
+    "stdout": "Final Validation Performance: 0.9724696356275304\n",
+    "stderr": "",
+    "execution_time": 20.37989854812622,
+    "score": 0.9724696356275304
+  },
+  "refine_step_1": 1,
+  "prev_ablations_1": [
+    "Ablation study summary:\n\n- **Baseline** achieved the best validation accuracy: **0.97247**\n- **Drop `id`**: accuracy = **0.97166**\n- **Drop categorical features** (`Stage_fear`, `Drained_after_socializing`): accuracy = **0.97166**\n- **Add ratio features + drop `id`**: accuracy = **0.97139**\n\nKey takeaways:\n\n- The **baseline model performed best**, so none of the tested changes improved accuracy.\n- Removing **`id`** caused a very small drop in performance (**-0.00081**), suggesting `id` has at most a minor contribution.\n- Removing the two categorical features caused the **same small drop** (**-0.00081**), so they provide slight predictive value.\n- Adding the engineered ratio features while removing `id` produced the **largest negative impact**: **-0.00108** versus baseline.\n- Overall, all differences are **very small** (around one tenth of a percentage point), indicating the model is fairly robust to these ablations.\n\nConclusion:\n\n- Keep the **baseline feature set**.\n- The tested feature engineering with social ratio variables did **not** help.\n- Neither dropping `id` nor removing the two categorical columns meaningfully improved generalization."
+  ],
+  "prev_code_blocks_1": [
+    "vectorizer = skrub.TableVectorizer()\npredictor = X_train.skb.apply(vectorizer).skb.apply(\n    CatBoostClassifier(\n        random_state=random_state,\n        verbose=0,\n    ),\n    y=y_train,\n)"
+  ],
+  "ablation_table_report_profile_1": "Dataset: 18524 rows, 9 columns (0 constant)\nTarget (from current solution): Personality\n\nColumns:\n- id: Int64DType, nulls=0.0% (ok), unique=18524, high_card=True\n- Time_spent_Alone: Float64DType, nulls=6.4% (warning), unique=12, high_card=False\n- Stage_fear: ObjectDType, nulls=10.2% (warning), unique=2, high_card=False\n- Social_event_attendance: Float64DType, nulls=6.4% (warning), unique=11, high_card=False\n- Going_outside: Float64DType, nulls=7.9% (warning), unique=8, high_card=False\n- Drained_after_socializing: ObjectDType, nulls=6.2% (warning), unique=2, high_card=False\n- Friends_circle_size: Float64DType, nulls=5.7% (warning), unique=16, high_card=False\n- Post_frequency: Float64DType, nulls=6.8% (warning), unique=11, high_card=False\n- Personality: ObjectDType, nulls=0.0% (ok), unique=2, high_card=False\n\nNumeric: 6 | String/Categorical: 3 | Missing columns: 7\n\nTop associations:\n- Drained_after_socializing <-> Personality: pearson=nan\n- Stage_fear <-> Personality: pearson=nan\n- Time_spent_Alone <-> Personality: pearson=nan\n- Going_outside <-> Personality: pearson=nan\n- Social_event_attendance <-> Personality: pearson=nan\n- Post_frequency <-> Personality: pearson=nan\n- Stage_fear <-> Drained_after_socializing: pearson=nan\n- Time_spent_Alone <-> Drained_after_socializing: pearson=nan",
+  "ablation_skip_data_leakage_check_1": true,
+  "ablation_code_0_1": "import warnings\n\nwarnings.filterwarnings(\"ignore\")\n\nimport numpy as np\nimport pandas as pd\nimport skrub\nfrom catboost import CatBoostClassifier\nfrom sklearn.metrics import accuracy_score\nfrom sklearn.model_selection import train_test_split\n\nrandom_state = 42\ntarget_col = \"Personality\"\nmetric_label = \"accuracy\"\n\ntrain_path = \"./input/train.csv\"\ntrain_df = pd.read_csv(train_path)\n\ntrain_idx, valid_idx = train_test_split(\n    np.arange(len(train_df)),\n    test_size=0.2,\n    random_state=random_state,\n    stratify=train_df[target_col],\n)\ntrain_part = train_df.iloc[train_idx].copy()\nvalid_part = train_df.iloc[valid_idx].copy()\n\n\ndef score_variant(variant_name, build_graph):\n    data_train = skrub.var(\"data\", train_part)\n    pred = build_graph(data_train)\n    learner = pred.skb.make_learner(fitted=True)\n    valid_pred = learner.predict({\"data\": valid_part})\n    score = accuracy_score(valid_part[target_col], valid_pred)\n    print(f\"Ablation[{variant_name}] {metric_label}: {score}\")\n    return score\n\n\ndef add_social_ratios(df):\n    out = df.copy()\n    ratio_specs = [\n        (\"Time_spent_Alone\", \"Going_outside\", \"alone_per_outside\"),\n        (\"Social_event_attendance\", \"Friends_circle_size\", \"events_per_friend\"),\n        (\"Post_frequency\", \"Social_event_attendance\", \"posts_per_event\"),\n    ]\n    for numer_col, denom_col, new_col in ratio_specs:\n        if numer_col in out.columns and denom_col in out.columns:\n            denom = out[denom_col].replace(0, np.nan)\n            out[new_col] = (\n                (out[numer_col] / denom)\n                .replace([np.inf, -np.inf], np.nan)\n                .fillna(0.0)\n            )\n    return out\n\n\ndef baseline_graph(data_train):\n    X_train = data_train.drop(columns=target_col, errors=\"ignore\").skb.mark_as_X()\n    y_train = data_train[target_col].skb.mark_as_y()\n    vectorizer = skrub.TableVectorizer()\n    return X_train.skb.apply(vectorizer).skb.apply(\n        CatBoostClassifier(\n            random_state=random_state,\n            verbose=0,\n        ),\n        y=y_train,\n    )\n\n\ndef drop_id_graph(data_train):\n    X_train = (\n        data_train.drop(columns=[target_col, \"id\"], errors=\"ignore\").skb.mark_as_X()\n    )\n    y_train = data_train[target_col].skb.mark_as_y()\n    vectorizer = skrub.TableVectorizer()\n    return X_train.skb.apply(vectorizer).skb.apply(\n        CatBoostClassifier(\n            random_state=random_state,\n            verbose=0,\n        ),\n        y=y_train,\n    )\n\n\ndef no_categorical_graph(data_train):\n    X_train = (\n        data_train.drop(columns=target_col, errors=\"ignore\")\n        .skb.apply(skrub.DropCols(cols=[\"Stage_fear\", \"Drained_after_socializing\"]))\n        .skb.mark_as_X()\n    )\n    y_train = data_train[target_col].skb.mark_as_y()\n    vectorizer = skrub.TableVectorizer()\n    return X_train.skb.apply(vectorizer).skb.apply(\n        CatBoostClassifier(\n            random_state=random_state,\n            verbose=0,\n        ),\n        y=y_train,\n    )\n\n\ndef ratio_features_no_id_graph(data_train):\n    data_fe = data_train.skb.apply_func(add_social_ratios)\n    X_train = (\n        data_fe.drop(columns=[target_col, \"id\"], errors=\"ignore\").skb.mark_as_X()\n    )\n    y_train = data_fe[target_col].skb.mark_as_y()\n    vectorizer = skrub.TableVectorizer()\n    return X_train.skb.apply(vectorizer).skb.apply(\n        CatBoostClassifier(\n            random_state=random_state,\n            verbose=0,\n        ),\n        y=y_train,\n    )\n\n\nscores = {}\nscores[\"baseline\"] = score_variant(\"baseline\", baseline_graph)\nscores[\"drop_id\"] = score_variant(\"drop_id\", drop_id_graph)\nscores[\"no_categorical\"] = score_variant(\"no_categorical\", no_categorical_graph)\nscores[\"ratio_features_no_id\"] = score_variant(\n    \"ratio_features_no_id\", ratio_features_no_id_graph\n)\n\nbaseline_score = scores[\"baseline\"]\nbest_variant = max(scores, key=scores.get)\nbest_score = scores[best_variant]\n\nlargest_impact_variant = max(scores, key=lambda k: abs(scores[k] - baseline_score))\nlargest_impact_delta = scores[largest_impact_variant] - baseline_score\n\nprint(\n    f\"Most impactful ablation vs baseline: {largest_impact_variant} | \"\n    f\"delta_{metric_label}: {largest_impact_delta}\"\n)",
+  "ablation_code_exec_result_0_1": {
+    "returncode": 0,
+    "stdout": "Ablation[baseline] accuracy: 0.9724696356275304\nAblation[drop_id] accuracy: 0.97165991902834\nAblation[no_categorical] accuracy: 0.97165991902834\nAblation[ratio_features_no_id] accuracy: 0.9713900134952766\nMost impactful ablation vs baseline: ratio_features_no_id | delta_accuracy: -0.0010796221322537658\n",
+    "stderr": "",
+    "execution_time": 78.47144269943237,
+    "ablation_result": "Ablation[baseline] accuracy: 0.9724696356275304\nAblation[drop_id] accuracy: 0.97165991902834\nAblation[no_categorical] accuracy: 0.97165991902834\nAblation[ratio_features_no_id] accuracy: 0.9713900134952766\nMost impactful ablation vs baseline: ratio_features_no_id | delta_accuracy: -0.0010796221322537658\n"
+  },
+  "_adk_activated_skill_ablation_agent_1": [
+    "skrub-dataops-pipeline"
+  ],
+  "_adk_loaded_skill_resources_ablation_agent_1": [
+    {
+      "skill_name": "skrub-dataops-pipeline",
+      "path": "references/ablation_dataops_template.md"
+    },
+    {
+      "skill_name": "skrub-dataops-pipeline",
+      "path": "references/encoding_skrub.md"
+    },
+    {
+      "skill_name": "skrub-dataops-pipeline",
+      "path": "references/selectors_routing_skrub.md"
+    },
+    {
+      "skill_name": "skrub-dataops-pipeline",
+      "path": "references/feature_engineering_skrub.md"
+    }
+  ],
+  "ablation_bug_summary_0_1": "",
+  "ablation_summary_0_1": "Ablation study summary:\n\n- **Baseline** achieved the best validation accuracy: **0.97247**\n- **Drop `id`**: accuracy = **0.97166**\n- **Drop categorical features** (`Stage_fear`, `Drained_after_socializing`): accuracy = **0.97166**\n- **Add ratio features + drop `id`**: accuracy = **0.97139**\n\nKey takeaways:\n\n- The **baseline model performed best**, so none of the tested changes improved accuracy.\n- Removing **`id`** caused a very small drop in performance (**-0.00081**), suggesting `id` has at most a minor contribution.\n- Removing the two categorical features caused the **same small drop** (**-0.00081**), so they provide slight predictive value.\n- Adding the engineered ratio features while removing `id` produced the **largest negative impact**: **-0.00108** versus baseline.\n- Overall, all differences are **very small** (around one tenth of a percentage point), indicating the model is fairly robust to these ablations.\n\nConclusion:\n\n- Keep the **baseline feature set**.\n- The tested feature engineering with social ratio variables did **not** help.\n- Neither dropping `id` nor removing the two categorical columns meaningfully improved generalization.",
+  "inner_iter_1": 2,
+  "refine_plans_0_1": [
+    "The ablations say the baseline feature set should stay intact, so the most promising next step is to improve the preprocessing block rather than drop columns or add new ratio features. I would keep all columns but make the encoding more explicit by routing low-cardinality string columns through categorical handling and preserving CatBoost-friendly structure, while also adding a lightweight missing-value treatment for numerics before the model. This is a small structural refinement targeted at the data profile: many columns contain nulls, and the two binary categorical features showed slight value, so better handling of missingness and categorical encoding is more justified than new feature engineering. Keep the model family unchanged and avoid broad hyperparameter search; focus only on this vectorization/preprocessing section.",
+    "A better next step is to treat this table as mostly ordinal/discrete survey data rather than fully generic tabular text: add a small `apply_func` that casts the 6 float survey columns to nullable integer/categorical-style values where appropriate, creates explicit missingness indicator columns for the 7 columns with nulls, and drops `id` since it is pure row identifier with maximal cardinality. Then keep the backbone unchanged but route preprocessing more deliberately: use `TableVectorizer(low_cardinality=skrub.ToCategorical(), high_cardinality=\"drop\")` so the two binary string columns and the newly cast low-cardinality survey fields are preserved as true categorical inputs instead of arbitrary dense encodings, while avoiding useless expansion of `id`. This is a novel structural refinement versus the prior plan because it changes the semantic typing of the existing columns and isolates missingness signal, not just generic preprocessing, and it should be both cheap and well matched to the profile of low-unique, partially-missing questionnaire variables."
+  ],
+  "refine_code_block_0_1": "vectorizer = skrub.TableVectorizer()\npredictor = X_train.skb.apply(vectorizer).skb.apply(\n    CatBoostClassifier(\n        random_state=random_state,\n        verbose=0,\n    ),\n    y=y_train,\n)",
+  "_adk_activated_skill_init_plan_agent_1": [
+    "skrub-dataops-pipeline"
+  ],
+  "_adk_loaded_skill_resources_init_plan_agent_1": [
+    {
+      "skill_name": "skrub-dataops-pipeline",
+      "path": "references/encoding_skrub.md"
+    },
+    {
+      "skill_name": "skrub-dataops-pipeline",
+      "path": "references/selectors_routing_skrub.md"
+    }
+  ],
+  "plan_implement_skip_data_leakage_check_0_0_1": true,
+  "_adk_activated_skill_plan_implement_initial_agent_1": [
+    "skrub-dataops-pipeline"
+  ],
+  "_adk_loaded_skill_resources_plan_implement_initial_agent_1": [
+    {
+      "skill_name": "skrub-dataops-pipeline",
+      "path": "references/encoding_skrub.md"
+    },
+    {
+      "skill_name": "skrub-dataops-pipeline",
+      "path": "references/selectors_routing_skrub.md"
+    },
+    {
+      "skill_name": "skrub-dataops-pipeline",
+      "path": "references/feature_engineering_skrub.md"
+    },
+    {
+      "skill_name": "skrub-dataops-pipeline",
+      "path": "references/ablation_dataops_template.md"
+    }
+  ],
+  "train_code_improve_0_0_1": "\nimport os\nimport warnings\n\nwarnings.filterwarnings(\"ignore\")\n\nimport numpy as np\nimport pandas as pd\nimport skrub\nfrom catboost import CatBoostClassifier\nfrom sklearn.metrics import accuracy_score\nfrom sklearn.model_selection import train_test_split\n\n\nrandom_state = 42\ntarget_col = \"Personality\"\n\ntrain_path = \"./input/train.csv\"\ntest_path = \"./input/test.csv\"\n\ntrain_df = pd.read_csv(train_path)\ntest_df = pd.read_csv(test_path)\n\ntrain_idx, valid_idx = train_test_split(\n    np.arange(len(train_df)),\n    test_size=0.2,\n    random_state=random_state,\n    stratify=train_df[target_col],\n)\ntrain_part = train_df.iloc[train_idx].copy()\nvalid_part = train_df.iloc[valid_idx].copy()\n\ndata_train = skrub.var(\"data\", train_part)\nX_train = data_train.drop(columns=target_col, errors=\"ignore\").skb.mark_as_X()\ny_train = data_train[target_col].skb.mark_as_y()\n\nvectorizer = skrub.TableVectorizer()\n\n# Smallest fix: remove cat_features so skrub/sklearn cloning works in make_learner(fitted=True).\n# CatBoost can still consume the vectorized numeric features produced by TableVectorizer.\npredictor = X_train.skb.apply(vectorizer).skb.apply(\n    CatBoostClassifier(\n        random_state=random_state,\n        verbose=0,\n    ),\n    y=y_train,\n)\n\nval_learner = predictor.skb.make_learner(fitted=True)\nvalid_pred = val_learner.predict({\"data\": valid_part})\n\nfinal_validation_score = accuracy_score(valid_part[target_col], valid_pred)\nprint(f\"Final Validation Performance: {final_validation_score}\")\n",
+  "train_code_improve_exec_result_0_0_1": {
+    "returncode": 0,
+    "stdout": "Final Validation Performance: 0.9724696356275304\n",
+    "stderr": "",
+    "execution_time": 17.90877604484558,
+    "score": 0.9724696356275304
+  },
+  "plan_implement_initial_bug_summary_0_0_1": "",
+  "_adk_activated_skill_plan_implement_initial_debug_agent_1": [
+    "skrub-dataops-pipeline"
+  ],
+  "_adk_loaded_skill_resources_plan_implement_initial_debug_agent_1": [
+    {
+      "skill_name": "skrub-dataops-pipeline",
+      "path": "references/dataops_api_quickmap.md"
+    },
+    {
+      "skill_name": "skrub-dataops-pipeline",
+      "path": "references/encoding_skrub.md"
+    },
+    {
+      "skill_name": "skrub-dataops-pipeline",
+      "path": "references/common_failure_fixes.md"
+    }
+  ],
+  "_adk_activated_skill_plan_refine_agent_1": [
+    "skrub-dataops-pipeline"
+  ],
+  "_adk_loaded_skill_resources_plan_refine_agent_1": [
+    {
+      "skill_name": "skrub-dataops-pipeline",
+      "path": "references/encoding_skrub.md"
+    },
+    {
+      "skill_name": "skrub-dataops-pipeline",
+      "path": "references/selectors_routing_skrub.md"
+    },
+    {
+      "skill_name": "skrub-dataops-pipeline",
+      "path": "references/feature_engineering_skrub.md"
+    },
+    {
+      "skill_name": "skrub-dataops-pipeline",
+      "path": "references/ablation_dataops_template.md"
+    }
+  ],
+  "plan_implement_skip_data_leakage_check_1_0_1": true,
+  "_adk_activated_skill_plan_implement_agent_1": [
+    "skrub-dataops-pipeline"
+  ],
+  "_adk_loaded_skill_resources_plan_implement_agent_1": [
+    {
+      "skill_name": "skrub-dataops-pipeline",
+      "path": "references/encoding_skrub.md"
+    },
+    {
+      "skill_name": "skrub-dataops-pipeline",
+      "path": "references/feature_engineering_skrub.md"
+    },
+    {
+      "skill_name": "skrub-dataops-pipeline",
+      "path": "references/selectors_routing_skrub.md"
+    }
+  ],
+  "train_code_improve_1_0_1": "\nimport os\nimport warnings\nimport numpy as np\nimport pandas as pd\nimport skrub\nfrom catboost import CatBoostClassifier\nfrom sklearn.metrics import accuracy_score\nfrom sklearn.model_selection import train_test_split\n\nwarnings.filterwarnings(\"ignore\")\n\nrandom_state = 42\ntarget_col = \"Personality\"\n\n\ndef refine_survey_table(df: pd.DataFrame) -> pd.DataFrame:\n    df = df.copy()\n\n    binary_cols = [\"Stage_fear\", \"Drained_after_socializing\"]\n    for col in binary_cols:\n        if col in df.columns:\n            df[col] = df[col].astype(\"category\")\n\n    return df\n\n\ndef cast_category_to_object(df: pd.DataFrame) -> pd.DataFrame:\n    df = df.copy()\n    cat_cols = df.select_dtypes(include=[\"category\"]).columns\n    for col in cat_cols:\n        df[col] = df[col].astype(\"object\")\n    return df\n\n\ndef convert_object_to_codes(df: pd.DataFrame) -> pd.DataFrame:\n    df = df.copy()\n    obj_cols = df.select_dtypes(include=[\"object\"]).columns\n    for col in obj_cols:\n        if col != target_col:\n            df[col] = pd.Categorical(df[col]).codes\n            df[col] = df[col].replace(-1, np.nan)\n    return df\n\n\ntrain_path = \"./input/train.csv\"\ntrain_df = pd.read_csv(train_path)\n\ntrain_idx, valid_idx = train_test_split(\n    np.arange(len(train_df)),\n    test_size=0.2,\n    random_state=random_state,\n    stratify=train_df[target_col],\n)\ntrain_part = train_df.iloc[train_idx].copy()\nvalid_part = train_df.iloc[valid_idx].copy()\n\ndata_train = skrub.var(\"data\", train_part)\nX_train = data_train.drop(columns=target_col, errors=\"ignore\").skb.mark_as_X()\ny_train = data_train[target_col].skb.mark_as_y()\n\nvectorizer = skrub.TableVectorizer(low_cardinality=skrub.ToCategorical())\n\npredictor = (\n    X_train\n    .skb.apply_func(refine_survey_table)\n    .skb.apply(vectorizer)\n    .skb.apply_func(cast_category_to_object)\n    .skb.apply_func(convert_object_to_codes)\n    .skb.apply(\n        CatBoostClassifier(\n            random_state=random_state,\n            verbose=0,\n        ),\n        y=y_train,\n    )\n)\n\nval_learner = predictor.skb.make_learner(fitted=True)\nvalid_pred = val_learner.predict({\"data\": valid_part})\nfinal_validation_score = accuracy_score(valid_part[target_col], valid_pred)\nprint(f\"Final Validation Performance: {final_validation_score}\")\n",
+  "train_code_improve_exec_result_1_0_1": {
+    "returncode": 0,
+    "stdout": "Final Validation Performance: 0.9724696356275304\n",
+    "stderr": "",
+    "execution_time": 15.638007879257202,
+    "score": 0.9724696356275304
+  },
+  "plan_implement_bug_summary_1_0_1": "",
+  "_adk_activated_skill_plan_implement_debug_agent_1": [
+    "skrub-dataops-pipeline"
+  ],
+  "_adk_loaded_skill_resources_plan_implement_debug_agent_1": [
+    {
+      "skill_name": "skrub-dataops-pipeline",
+      "path": "references/dataops_api_quickmap.md"
+    },
+    {
+      "skill_name": "skrub-dataops-pipeline",
+      "path": "references/common_failure_fixes.md"
+    }
+  ],
+  "train_code_1_1": "\nimport os\nimport warnings\n\nwarnings.filterwarnings(\"ignore\")\n\nimport numpy as np\nimport pandas as pd\nimport skrub\nfrom catboost import CatBoostClassifier\nfrom sklearn.metrics import accuracy_score\nfrom sklearn.model_selection import train_test_split\n\nrandom_state = 42\ntarget_col = \"Personality\"\n\ntrain_path = \"./input/train.csv\"\ntest_path = \"./input/test.csv\"\n\ntrain_df = pd.read_csv(train_path)\ntest_df = pd.read_csv(test_path)\n\ntrain_idx, valid_idx = train_test_split(\n    np.arange(len(train_df)),\n    test_size=0.2,\n    random_state=random_state,\n    stratify=train_df[target_col],\n)\ntrain_part = train_df.iloc[train_idx].copy()\nvalid_part = train_df.iloc[valid_idx].copy()\n\ndata_train = skrub.var(\"data\", train_part)\nX_train = data_train.drop(columns=target_col, errors=\"ignore\").skb.mark_as_X()\ny_train = data_train[target_col].skb.mark_as_y()\n\n# Smallest fix for the clone error: remove cat_features from the constructor so sklearn.clone works.\n# String categorical columns are already handled by the vectorizer before CatBoost sees the data.\nvectorizer = skrub.TableVectorizer()\npredictor = X_train.skb.apply(vectorizer).skb.apply(\n    CatBoostClassifier(\n        random_state=random_state,\n        verbose=0,\n    ),\n    y=y_train,\n)\n\nval_learner = predictor.skb.make_learner(fitted=True)\nvalid_pred = val_learner.predict({\"data\": valid_part})\nfinal_validation_score = accuracy_score(valid_part[target_col], valid_pred)\n\nprint(f\"Final Validation Performance: {final_validation_score}\")\n",
+  "train_code_exec_result_1_1": {
+    "returncode": 0,
+    "stdout": "Final Validation Performance: 0.9724696356275304\n",
+    "stderr": "",
+    "execution_time": 20.37989854812622,
+    "score": 0.9724696356275304
+  },
+  "tune_plan_1": {
+    "skip_tuning": true,
+    "skip_reason": "The ablations and two refinement attempts were flat at 0.00000 delta, so there is no clear single encoder/model lever worth spending the one-shot holdout search on.",
+    "focus_block": null,
+    "rationale": "Baseline already won the ablation study, dropping or retyping features did not help, and preprocessing-focused refinements showed no validation gain; with CatBoost wrapped after a generic TableVectorizer and no evidence of capacity mismatch or encoding sensitivity beyond tiny noise-level differences, terminal tuning is more likely to overfit the holdout than produce a reliable improvement.",
+    "tunable_params": [],
+    "frozen": [
+      "train_test_split(test_size=0.2, random_state=42, stratify=train_df[target_col])",
+      "baseline feature set with all original columns retained",
+      "skrub.TableVectorizer() preprocessing block",
+      "CatBoostClassifier(random_state=42, verbose=0) backbone",
+      "holdout-only evaluation protocol on train_part/valid_part"
+    ],
+    "n_iter": 5
+  },
+  "_adk_activated_skill_tune_plan_agent_1": [
+    "skrub-dataops-pipeline"
+  ],
+  "_adk_loaded_skill_resources_tune_plan_agent_1": [
+    {
+      "skill_name": "skrub-dataops-pipeline",
+      "path": "references/choices_hparam_pattern.md"
+    },
+    {
+      "skill_name": "skrub-dataops-pipeline",
+      "path": "references/encoding_skrub.md"
+    }
+  ],
+  "tune_stage_status_1": "skipped_plan",
+  "tune_skip_reason_1": "The ablations and two refinement attempts were flat at 0.00000 delta, so there is no clear single encoder/model lever worth spending the one-shot holdout search on.",
+  "tune_winner_source_1": "structural",
+  "tune_param_source_1": "skipped",
+  "train_code_tune_search_exec_result_1": {
+    "returncode": 0,
+    "skipped_plan": true
+  },
+  "train_code_tune_exec_result_1": {
+    "returncode": 0,
+    "skipped_plan": true
+  },
+  "tune_implement_bug_summary_1": "",
+  "tune_bake_skip_data_leakage_check_1": true,
+  "tune_bake_bug_summary_1": "",
+  "ensemble_iter": 2,
+  "_adk_activated_skill_init_ensemble_plan_agent": [
+    "skrub-dataops-pipeline"
+  ],
+  "_adk_loaded_skill_resources_init_ensemble_plan_agent": [
+    {
+      "skill_name": "skrub-dataops-pipeline",
+      "path": "references/ensemble_dataops_patterns.md"
+    }
+  ],
+  "ensemble_plans": [
+    "Use Pattern A as a very lightweight \u201cmulti-leg + blend\u201d layer, but since there is only one provided solution, create diversity by keeping the exact same skrub\u2192TableVectorizer\u2192CatBoost prediction chain intact and training 2\u20133 parallel legs that differ only in data slice or post-processing, then merge their predictions on the same validation split.\n\nThe easiest and safest version is:\n- Leg 1: the original solution exactly as-is.\n- Leg 2: same pipeline, trained on a bootstrap/resampled copy of `train_part` with replacement.\n- Optional Leg 3: same pipeline, trained on a class-balanced resample of `train_part` or a complementary subsample.\nThis preserves the existing DataOps structure for every leg and only adds a prediction-combining layer above fitted learners.\n\nFor the merge rule, use probability averaging if available:\n- Call `predict_proba({\"data\": valid_part})` for each fitted learner.\n- Average class probabilities across legs.\n- Convert the averaged probabilities back to class labels with `argmax`.\nIf `predict_proba` is awkward in the current wrapper, fall back to hard voting:\n- Collect `predict({\"data\": valid_part})` from each leg.\n- Take majority vote row-wise.\nThis is the lowest-risk ensemble because it does not alter preprocessing/model internals.\n\nA slightly stronger variant is a \u201cconfidence-weighted self-blend\u201d:\n- Measure each leg\u2019s validation accuracy on `valid_part`.\n- Convert accuracies into normalized weights.\n- Blend probabilities with those weights instead of equal averaging.\nBecause there is only one base recipe, this is a practical way to reward the most stable resample-trained leg without introducing a full stacking workflow.\n\nImplementation sketch:\n- Keep the current split exactly unchanged.\n- Build one `data_train = skrub.var(\"data\", <leg_train_df>)` per leg.\n- Reuse the same `TableVectorizer()` and `CatBoostClassifier(random_state=42, verbose=0)` structure for each leg.\n- Fit each leg with `.skb.make_learner(fitted=True)`.\n- On `valid_part`, gather predictions/probabilities from all learners.\n- Blend outside the DataOps graph with NumPy.\n- Compute final validation accuracy from the blended class prediction.\n\nRecommended default merge plan:\n- Start with 3 legs: original train_part, bootstrap(train_part), and 80\u201390% random subsample(train_part).\n- Use equal-weight probability averaging.\n- If probabilities are not convenient, use simple majority vote.\nThis is novel enough to create model diversity from one solution, effective for CatBoost-style learners, and requires only small top-layer changes with minimal execution risk.",
+    "Use Pattern A again, but switch from \u201csame-type resample averaging\u201d to an \u201cagreement-gated weighted blend,\u201d which is more novel and often stronger when all legs come from one recipe.\n\nSketch:\n- Keep the original leg exactly unchanged as the anchor model.\n- Add only 2 diversity legs that still preserve the same skrub \u2192 TableVectorizer \u2192 CatBoost chain:\n  - Leg 2: bootstrap-resampled `train_part`\n  - Leg 3: complementary subsample built from the rows *not* chosen by a random 85\u201390% subsample, so it is deliberately more different than the previous plain subsample leg\n- Fit each leg independently with the same `build_learner(...)` pattern and get `predict_proba({\"data\": valid_part})`.\n\nMerge logic:\n- Do not use equal averaging.\n- First compute each leg\u2019s validation accuracy on `valid_part`.\n- Convert those into blend weights, but sharpen them slightly so the best leg matters more:\n  - `w_i = acc_i ** 3`\n  - normalize `w = w / w.sum()`\n- Build the base soft blend:\n  - `blend = w1 * proba_1 + w2 * proba_2 + w3 * proba_3`\n\nThen add a lightweight agreement gate on top:\n- For each row, get each leg\u2019s predicted class and confidence (`max_proba`).\n- If at least 2 of 3 legs agree on the same class and both agreeing legs are confident, trust the agreement more than the global blend.\n- Practical rule:\n  - if 2-or-3 legs predict the same class and their confidences are both above something simple like `0.80`, output that agreed class directly\n  - otherwise fall back to the weighted probability blend `argmax(blend, axis=1)`\n\nWhy this should beat the previous plan:\n- Your last attempt only averaged highly similar legs, so the extra models may have diluted the strongest original model.\n- This plan still uses simple Pattern A blending, but adds two improvements:\n  - accuracy-based weighting so weaker resample legs do not hurt as much\n  - selective hard override only on high-confidence consensus cases, where ensembles are usually most reliable\n- It stays very easy to implement and does not alter the DataOps/model internals.\n\nImplementation outline:\n- Reuse the current `build_learner(...)` and `get_probabilities(...)`.\n- Add a helper to convert probabilities to labels using `classes = np.asarray(learner_1.classes_)`.\n- Compute per-leg validation accuracies from hard predictions on `valid_part`.\n- Form sharpened normalized weights from those accuracies.\n- Compute weighted blended probabilities.\n- Compute row-wise hard predictions from each leg plus row-wise confidences.\n- Apply the agreement gate:\n  - majority agreed + high confidence \u2192 use majority label\n  - else \u2192 use weighted soft-blend label\n- Score final predictions with `accuracy_score`.\n\nRecommended default:\n- 3 legs only\n- weights from `acc^3`\n- agreement threshold around `0.80`\n- majority-of-3 override, else weighted blend\n\nIf you want one more tiny refinement without changing the structure:\n- only allow the agreement override when the agreed class also matches the anchor/original leg, which makes the gate even safer and usually reduces bad overrides."
+  ],
+  "ensemble_plan_implement_skip_data_leakage_check_0": true,
+  "ensemble_code_0": "\nimport warnings\n\nwarnings.filterwarnings(\"ignore\")\n\nimport numpy as np\nimport pandas as pd\nimport skrub\nfrom catboost import CatBoostClassifier\nfrom sklearn.metrics import accuracy_score\nfrom sklearn.model_selection import train_test_split\n\nrandom_state = 42\ntarget_col = \"Personality\"\ntrain_path = \"./input/train.csv\"\n\ntrain_df = pd.read_csv(train_path)\n\ntrain_idx, valid_idx = train_test_split(\n    np.arange(len(train_df)),\n    test_size=0.2,\n    random_state=random_state,\n    stratify=train_df[target_col],\n)\ntrain_part = train_df.iloc[train_idx].copy()\nvalid_part = train_df.iloc[valid_idx].copy()\n\n\ndef build_learner(leg_train_df):\n    data_train = skrub.var(\"data\", leg_train_df)\n    X_train = data_train.drop(columns=target_col, errors=\"ignore\").skb.mark_as_X()\n    y_train = data_train[target_col].skb.mark_as_y()\n\n    vectorizer = skrub.TableVectorizer()\n    predictor = X_train.skb.apply(vectorizer).skb.apply(\n        CatBoostClassifier(\n            random_state=random_state,\n            verbose=0,\n        ),\n        y=y_train,\n    )\n    return predictor.skb.make_learner(fitted=True)\n\n\ndef get_probabilities(learner, df):\n    proba = np.asarray(learner.predict_proba({\"data\": df}))\n    if proba.ndim == 1:\n        proba = np.column_stack([1.0 - proba, proba])\n    return proba\n\n\n# Leg 1: original train_part exactly as-is\nleg1_train = train_part.copy()\n\n# Leg 2: bootstrap resample with replacement\nleg2_train = train_part.sample(\n    n=len(train_part),\n    replace=True,\n    random_state=random_state,\n).reset_index(drop=True)\n\n# Leg 3: 90% random subsample without replacement\nleg3_train = train_part.sample(\n    frac=0.9,\n    replace=False,\n    random_state=random_state + 1,\n).reset_index(drop=True)\n\nlearner_1 = build_learner(leg1_train)\nlearner_2 = build_learner(leg2_train)\nlearner_3 = build_learner(leg3_train)\n\nproba_1 = get_probabilities(learner_1, valid_part)\nproba_2 = get_probabilities(learner_2, valid_part)\nproba_3 = get_probabilities(learner_3, valid_part)\n\navg_proba = (proba_1 + proba_2 + proba_3) / 3.0\nclasses = np.asarray(learner_1.classes_)\nvalid_pred = classes[np.argmax(avg_proba, axis=1)]\n\nfinal_validation_score = accuracy_score(valid_part[target_col], valid_pred)\nprint(f\"Final Validation Performance: {final_validation_score}\")\n",
+  "ensemble_code_exec_result_0": {
+    "returncode": 0,
+    "stdout": "Final Validation Performance: 0.9724696356275304\n",
+    "stderr": "",
+    "execution_time": 55.29043889045715,
+    "score": 0.9724696356275304
+  },
+  "_adk_activated_skill_ensemble_plan_implement_initial_agent": [
+    "skrub-dataops-pipeline"
+  ],
+  "_adk_loaded_skill_resources_ensemble_plan_implement_initial_agent": [
+    {
+      "skill_name": "skrub-dataops-pipeline",
+      "path": "references/ensemble_dataops_patterns.md"
+    }
+  ],
+  "ensemble_plan_implement_initial_bug_summary_0": "",
+  "_adk_activated_skill_ensemble_plan_refine_agent": [
+    "skrub-dataops-pipeline"
+  ],
+  "_adk_loaded_skill_resources_ensemble_plan_refine_agent": [
+    {
+      "skill_name": "skrub-dataops-pipeline",
+      "path": "references/ensemble_dataops_patterns.md"
+    }
+  ],
+  "ensemble_plan_implement_skip_data_leakage_check_1": true,
+  "ensemble_code_1": "\nimport warnings\n\nwarnings.filterwarnings(\"ignore\")\n\nimport numpy as np\nimport pandas as pd\nimport skrub\nfrom catboost import CatBoostClassifier\nfrom sklearn.metrics import accuracy_score\nfrom sklearn.model_selection import train_test_split\n\nrandom_state = 42\ntarget_col = \"Personality\"\nagreement_threshold = 0.80\n\ntrain_path = \"./input/train.csv\"\ntrain_df = pd.read_csv(train_path)\n\ntrain_idx, valid_idx = train_test_split(\n    np.arange(len(train_df)),\n    test_size=0.2,\n    random_state=random_state,\n    stratify=train_df[target_col],\n)\ntrain_part = train_df.iloc[train_idx].copy()\nvalid_part = train_df.iloc[valid_idx].copy()\n\n\ndef build_learner(train_subset):\n    data_train = skrub.var(\"data\", train_subset)\n    X_train = data_train.drop(columns=target_col, errors=\"ignore\").skb.mark_as_X()\n    y_train = data_train[target_col].skb.mark_as_y()\n\n    vectorizer = skrub.TableVectorizer()\n    predictor = X_train.skb.apply(vectorizer).skb.apply(\n        CatBoostClassifier(\n            random_state=random_state,\n            verbose=0,\n        ),\n        y=y_train,\n    )\n    return predictor.skb.make_learner(fitted=True)\n\n\ndef get_probabilities(learner, df):\n    return np.asarray(learner.predict_proba({\"data\": df}))\n\n\n# Leg 1: original anchor model unchanged\nlearner_1 = build_learner(train_part)\n\n# Leg 2: bootstrap-resampled train_part\nrng_bootstrap = np.random.RandomState(random_state + 1)\nbootstrap_indices = rng_bootstrap.choice(len(train_part), size=len(train_part), replace=True)\ntrain_part_bootstrap = train_part.iloc[bootstrap_indices].copy().reset_index(drop=True)\nlearner_2 = build_learner(train_part_bootstrap)\n\n# Leg 3: complementary subsample from rows not chosen by a random 87.5% subsample\nrng_complement = np.random.RandomState(random_state + 2)\nsubsample_frac = 0.875\nchosen_size = max(1, int(len(train_part) * subsample_frac))\nchosen_indices = rng_complement.choice(len(train_part), size=chosen_size, replace=False)\nmask = np.ones(len(train_part), dtype=bool)\nmask[chosen_indices] = False\ncomplement_indices = np.where(mask)[0]\nif len(complement_indices) == 0:\n    complement_indices = np.arange(len(train_part))\ntrain_part_complement = train_part.iloc[complement_indices].copy().reset_index(drop=True)\nlearner_3 = build_learner(train_part_complement)\n\n# Validation probabilities\nproba_1 = get_probabilities(learner_1, valid_part)\nproba_2 = get_probabilities(learner_2, valid_part)\nproba_3 = get_probabilities(learner_3, valid_part)\n\nclasses = np.asarray(learner_1.classes_)\n\n# Per-leg predictions and accuracies\npred_1 = classes[np.argmax(proba_1, axis=1)]\npred_2 = classes[np.argmax(proba_2, axis=1)]\npred_3 = classes[np.argmax(proba_3, axis=1)]\n\nacc_1 = accuracy_score(valid_part[target_col], pred_1)\nacc_2 = accuracy_score(valid_part[target_col], pred_2)\nacc_3 = accuracy_score(valid_part[target_col], pred_3)\n\nweights = np.array([acc_1**3, acc_2**3, acc_3**3], dtype=float)\nif weights.sum() == 0:\n    weights = np.array([1.0, 1.0, 1.0], dtype=float)\nweights = weights / weights.sum()\n\n# Weighted soft blend\nblend = weights[0] * proba_1 + weights[1] * proba_2 + weights[2] * proba_3\nblend_pred = classes[np.argmax(blend, axis=1)]\n\n# Agreement gate\nconf_1 = np.max(proba_1, axis=1)\nconf_2 = np.max(proba_2, axis=1)\nconf_3 = np.max(proba_3, axis=1)\n\nfinal_pred = blend_pred.copy()\n\nfor i in range(len(valid_part)):\n    row_preds = [pred_1[i], pred_2[i], pred_3[i]]\n    row_confs = [conf_1[i], conf_2[i], conf_3[i]]\n\n    agreed_label = None\n\n    if (\n        row_preds[0] == row_preds[1]\n        and row_confs[0] >= agreement_threshold\n        and row_confs[1] >= agreement_threshold\n        and row_preds[0] == pred_1[i]\n    ):\n        agreed_label = row_preds[0]\n    elif (\n        row_preds[0] == row_preds[2]\n        and row_confs[0] >= agreement_threshold\n        and row_confs[2] >= agreement_threshold\n        and row_preds[0] == pred_1[i]\n    ):\n        agreed_label = row_preds[0]\n    elif (\n        row_preds[1] == row_preds[2]\n        and row_confs[1] >= agreement_threshold\n        and row_confs[2] >= agreement_threshold\n        and row_preds[1] == pred_1[i]\n    ):\n        agreed_label = row_preds[1]\n\n    if agreed_label is not None:\n        final_pred[i] = agreed_label\n\nfinal_validation_score = accuracy_score(valid_part[target_col], final_pred)\nprint(f\"Final Validation Performance: {final_validation_score}\")\n",
+  "ensemble_code_exec_result_1": {
+    "returncode": 0,
+    "stdout": "Final Validation Performance: 0.9721997300944669\n",
+    "stderr": "",
+    "execution_time": 69.22885847091675,
+    "score": 0.9721997300944669
+  },
+  "_adk_activated_skill_ensemble_plan_implement_agent": [
+    "skrub-dataops-pipeline"
+  ],
+  "_adk_loaded_skill_resources_ensemble_plan_implement_agent": [
+    {
+      "skill_name": "skrub-dataops-pipeline",
+      "path": "references/ensemble_dataops_patterns.md"
+    }
+  ],
+  "ensemble_plan_implement_bug_summary_1": "",
+  "submission_code": "\nimport warnings\n\nwarnings.filterwarnings(\"ignore\")\n\nimport os\nimport numpy as np\nimport pandas as pd\nimport skrub\nfrom catboost import CatBoostClassifier\nfrom sklearn.metrics import accuracy_score\nfrom sklearn.model_selection import train_test_split\n\nrandom_state = 42\ntarget_col = \"Personality\"\nagreement_threshold = 0.80\n\ntrain_path = \"./input/train.csv\"\ntrain_df = pd.read_csv(train_path)\n\ntrain_idx, valid_idx = train_test_split(\n    np.arange(len(train_df)),\n    test_size=0.2,\n    random_state=random_state,\n    stratify=train_df[target_col],\n)\ntrain_part = train_df.iloc[train_idx].copy()\nvalid_part = train_df.iloc[valid_idx].copy()\n\n\ndef build_learner(train_subset):\n    data_train = skrub.var(\"data\", train_subset)\n    X_train = data_train.drop(columns=target_col, errors=\"ignore\").skb.mark_as_X()\n    y_train = data_train[target_col].skb.mark_as_y()\n\n    vectorizer = skrub.TableVectorizer()\n    predictor = X_train.skb.apply(vectorizer).skb.apply(\n        CatBoostClassifier(\n            random_state=random_state,\n            verbose=0,\n        ),\n        y=y_train,\n    )\n    return predictor.skb.make_learner(fitted=True)\n\n\ndef get_probabilities(learner, df):\n    return np.asarray(learner.predict_proba({\"data\": df}))\n\n\n# Leg 1: original anchor model unchanged\nlearner_1 = build_learner(train_part)\n\n# Leg 2: bootstrap-resampled train_part\nrng_bootstrap = np.random.RandomState(random_state + 1)\nbootstrap_indices = rng_bootstrap.choice(len(train_part), size=len(train_part), replace=True)\ntrain_part_bootstrap = train_part.iloc[bootstrap_indices].copy().reset_index(drop=True)\nlearner_2 = build_learner(train_part_bootstrap)\n\n# Leg 3: complementary subsample from rows not chosen by a random 87.5% subsample\nrng_complement = np.random.RandomState(random_state + 2)\nsubsample_frac = 0.875\nchosen_size = max(1, int(len(train_part) * subsample_frac))\nchosen_indices = rng_complement.choice(len(train_part), size=chosen_size, replace=False)\nmask = np.ones(len(train_part), dtype=bool)\nmask[chosen_indices] = False\ncomplement_indices = np.where(mask)[0]\nif len(complement_indices) == 0:\n    complement_indices = np.arange(len(train_part))\ntrain_part_complement = train_part.iloc[complement_indices].copy().reset_index(drop=True)\nlearner_3 = build_learner(train_part_complement)\n\n# Validation probabilities\nproba_1 = get_probabilities(learner_1, valid_part)\nproba_2 = get_probabilities(learner_2, valid_part)\nproba_3 = get_probabilities(learner_3, valid_part)\n\nclasses = np.asarray(learner_1.classes_)\n\n# Per-leg predictions and accuracies\npred_1 = classes[np.argmax(proba_1, axis=1)]\npred_2 = classes[np.argmax(proba_2, axis=1)]\npred_3 = classes[np.argmax(proba_3, axis=1)]\n\nacc_1 = accuracy_score(valid_part[target_col], pred_1)\nacc_2 = accuracy_score(valid_part[target_col], pred_2)\nacc_3 = accuracy_score(valid_part[target_col], pred_3)\n\nweights = np.array([acc_1**3, acc_2**3, acc_3**3], dtype=float)\nif weights.sum() == 0:\n    weights = np.array([1.0, 1.0, 1.0], dtype=float)\nweights = weights / weights.sum()\n\n# Weighted soft blend\nblend = weights[0] * proba_1 + weights[1] * proba_2 + weights[2] * proba_3\nblend_pred = classes[np.argmax(blend, axis=1)]\n\n# Agreement gate\nconf_1 = np.max(proba_1, axis=1)\nconf_2 = np.max(proba_2, axis=1)\nconf_3 = np.max(proba_3, axis=1)\n\nfinal_pred = blend_pred.copy()\n\nfor i in range(len(valid_part)):\n    row_preds = [pred_1[i], pred_2[i], pred_3[i]]\n    row_confs = [conf_1[i], conf_2[i], conf_3[i]]\n\n    agreed_label = None\n\n    if (\n        row_preds[0] == row_preds[1]\n        and row_confs[0] >= agreement_threshold\n        and row_confs[1] >= agreement_threshold\n        and row_preds[0] == pred_1[i]\n    ):\n        agreed_label = row_preds[0]\n    elif (\n        row_preds[0] == row_preds[2]\n        and row_confs[0] >= agreement_threshold\n        and row_confs[2] >= agreement_threshold\n        and row_preds[0] == pred_1[i]\n    ):\n        agreed_label = row_preds[0]\n    elif (\n        row_preds[1] == row_preds[2]\n        and row_confs[1] >= agreement_threshold\n        and row_confs[2] >= agreement_threshold\n        and row_preds[1] == pred_1[i]\n    ):\n        agreed_label = row_preds[1]\n\n    if agreed_label is not None:\n        final_pred[i] = agreed_label\n\nfinal_validation_score = accuracy_score(valid_part[target_col], final_pred)\nprint(f\"Final Validation Performance: {final_validation_score}\")\n\ntest_path = \"./input/test.csv\"\ntest_df = pd.read_csv(test_path)\n\nfull_learner_1 = build_learner(train_df)\n\nrng_bootstrap_full = np.random.RandomState(random_state + 1)\nbootstrap_indices_full = rng_bootstrap_full.choice(len(train_df), size=len(train_df), replace=True)\ntrain_df_bootstrap = train_df.iloc[bootstrap_indices_full].copy().reset_index(drop=True)\nfull_learner_2 = build_learner(train_df_bootstrap)\n\nrng_complement_full = np.random.RandomState(random_state + 2)\nchosen_size_full = max(1, int(len(train_df) * subsample_frac))\nchosen_indices_full = rng_complement_full.choice(len(train_df), size=chosen_size_full, replace=False)\nmask_full = np.ones(len(train_df), dtype=bool)\nmask_full[chosen_indices_full] = False\ncomplement_indices_full = np.where(mask_full)[0]\nif len(complement_indices_full) == 0:\n    complement_indices_full = np.arange(len(train_df))\ntrain_df_complement = train_df.iloc[complement_indices_full].copy().reset_index(drop=True)\nfull_learner_3 = build_learner(train_df_complement)\n\ntest_proba_1 = get_probabilities(full_learner_1, test_df)\ntest_proba_2 = get_probabilities(full_learner_2, test_df)\ntest_proba_3 = get_probabilities(full_learner_3, test_df)\n\ntest_classes = np.asarray(full_learner_1.classes_)\n\ntest_pred_1 = test_classes[np.argmax(test_proba_1, axis=1)]\ntest_pred_2 = test_classes[np.argmax(test_proba_2, axis=1)]\ntest_pred_3 = test_classes[np.argmax(test_proba_3, axis=1)]\n\ntest_blend = weights[0] * test_proba_1 + weights[1] * test_proba_2 + weights[2] * test_proba_3\ntest_blend_pred = test_classes[np.argmax(test_blend, axis=1)]\n\ntest_conf_1 = np.max(test_proba_1, axis=1)\ntest_conf_2 = np.max(test_proba_2, axis=1)\ntest_conf_3 = np.max(test_proba_3, axis=1)\n\ntest_final_pred = test_blend_pred.copy()\n\nfor i in range(len(test_df)):\n    row_preds = [test_pred_1[i], test_pred_2[i], test_pred_3[i]]\n    row_confs = [test_conf_1[i], test_conf_2[i], test_conf_3[i]]\n\n    agreed_label = None\n\n    if (\n        row_preds[0] == row_preds[1]\n        and row_confs[0] >= agreement_threshold\n        and row_confs[1] >= agreement_threshold\n        and row_preds[0] == test_pred_1[i]\n    ):\n        agreed_label = row_preds[0]\n    elif (\n        row_preds[0] == row_preds[2]\n        and row_confs[0] >= agreement_threshold\n        and row_confs[2] >= agreement_threshold\n        and row_preds[0] == test_pred_1[i]\n    ):\n        agreed_label = row_preds[0]\n    elif (\n        row_preds[1] == row_preds[2]\n        and row_confs[1] >= agreement_threshold\n        and row_confs[2] >= agreement_threshold\n        and row_preds[1] == test_pred_1[i]\n    ):\n        agreed_label = row_preds[1]\n\n    if agreed_label is not None:\n        test_final_pred[i] = agreed_label\n\nos.makedirs(\"./final\", exist_ok=True)\nsubmission = pd.DataFrame(\n    {\n        \"id\": test_df[\"id\"],\n        target_col: test_final_pred,\n    }\n)\nsubmission.to_csv(\"./final/submission.csv\", index=False)\n",
+  "submission_code_exec_result": {
+    "returncode": 0,
+    "stdout": "Final Validation Performance: 0.9721997300944669\n",
+    "stderr": "",
+    "execution_time": 105.94969081878662,
+    "score": 0.9721997300944669
+  },
+  "_adk_activated_skill_submission_agent": [
+    "skrub-dataops-pipeline"
+  ],
+  "_adk_loaded_skill_resources_submission_agent": [
+    {
+      "skill_name": "skrub-dataops-pipeline",
+      "path": "references/submission_export.md"
+    }
+  ],
+  "submission_bug_summary": ""
+}

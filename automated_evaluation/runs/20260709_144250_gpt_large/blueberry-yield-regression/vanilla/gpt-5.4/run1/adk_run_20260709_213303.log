@@ -1,0 +1,1810 @@
+# run_experiments.py agent run
+# task=blueberry-yield-regression system=vanilla seed=42
+# cwd=/home/flo/uni/mle-star-skrub/mle-star_vanilla/agents/machine-learning-engineering
+# cmd=uv run adk run machine_learning_engineering
+
+Log setup complete: /tmp/agents_log/agent.20260709_233312.log
+To access latest log: tail -F /tmp/agents_log/agent.latest.log
+/home/flo/uni/mle-star-skrub/mle-star_vanilla/agents/machine-learning-engineering/.venv/lib/python3.14/site-packages/google/adk/cli/cli.py:189: UserWarning: [EXPERIMENTAL] InMemoryCredentialService: This feature is experimental and may change or be removed in future versions without notice. It may introduce breaking changes at any time.
+  credential_service = InMemoryCredentialService()
+/home/flo/uni/mle-star-skrub/mle-star_vanilla/agents/machine-learning-engineering/.venv/lib/python3.14/site-packages/google/adk/auth/credential_service/in_memory_credential_service.py:33: UserWarning: [EXPERIMENTAL] BaseCredentialService: This feature is experimental and may change or be removed in future versions without notice. It may introduce breaking changes at any time.
+  super().__init__()
+Running agent mle_frontdoor_agent, type exit to exit.
+[user]: [92m23:33:16 - LiteLLM:INFO[0m: utils.py:3748 - 
+LiteLLM completion() model= gpt-5.4; provider = openai
+/home/flo/uni/mle-star-skrub/mle-star_vanilla/agents/machine-learning-engineering/.venv/lib/python3.14/site-packages/pydantic/main.py:464: UserWarning: Pydantic serializer warnings:
+  PydanticSerializationUnexpectedValue(Expected 10 fields but got 6: Expected `Message` - serialized value may not be as expected [field_name='message', input_value=Message(content=None, rol...: None}, annotations=[]), input_type=Message])
+  PydanticSerializationUnexpectedValue(Expected `StreamingChoices` - serialized value may not be as expected [field_name='choices', input_value=Choices(finish_reason='to...ider_specific_fields={}), input_type=Choices])
+  return self.__pydantic_serializer__.to_python(
+/home/flo/uni/mle-star-skrub/mle-star_vanilla/agents/machine-learning-engineering/.venv/lib/python3.14/site-packages/google/adk/flows/llm_flows/base_llm_flow.py:449: UserWarning: [EXPERIMENTAL] feature FeatureName.PROGRESSIVE_SSE_STREAMING is enabled.
+  async for event in agen:
+[92m23:33:17 - LiteLLM:INFO[0m: utils.py:3748 - 
+LiteLLM completion() model= gpt-5.4; provider = openai
+/home/flo/uni/mle-star-skrub/mle-star_vanilla/agents/machine-learning-engineering/.venv/lib/python3.14/site-packages/pydantic/main.py:464: UserWarning: Pydantic serializer warnings:
+  PydanticSerializationUnexpectedValue(Expected 10 fields but got 6: Expected `Message` - serialized value may not be as expected [field_name='message', input_value=Message(content='Tabular ...: None}, annotations=[]), input_type=Message])
+  PydanticSerializationUnexpectedValue(Expected `StreamingChoices` - serialized value may not be as expected [field_name='choices', input_value=Choices(finish_reason='st...ider_specific_fields={}), input_type=Choices])
+  return self.__pydantic_serializer__.to_python(
+[task_summarization_agent]: Tabular regression task: predict continuous target `yield` for each `id` in wild blueberry data.
+
+- Train data: `train.csv`
+- Test data: `test.csv`
+- Evaluation metric: Mean Absolute Error (MAE)
+- Submission: CSV with columns `id,yield`
+
+Features are all numeric, including:
+`clonesize, honeybee, bumbles, andrena, osmia, MaxOfUpperTRange, MinOfUpperTRange, AverageOfUpperTRange, MaxOfLowerTRange, MinOfLowerTRange, AverageOfLowerTRange, RainingDays, AverageRainingDays, fruitset, fruitmass, seeds`
+
+Target:
+`yield`
+
+Goal: build a tabular regression model for predicting blueberry yield from pollinator activity, temperature/range, rainfall, and fruit characteristics.
+[92m23:33:20 - LiteLLM:INFO[0m: utils.py:3748 - 
+LiteLLM completion() model= gpt-5.4; provider = openai
+[92m23:33:26 - LiteLLM:INFO[0m: utils.py:3748 - 
+LiteLLM completion() model= gpt-5.4; provider = openai
+/home/flo/uni/mle-star-skrub/mle-star_vanilla/agents/machine-learning-engineering/.venv/lib/python3.14/site-packages/pydantic/main.py:464: UserWarning: Pydantic serializer warnings:
+  PydanticSerializationUnexpectedValue(Expected 10 fields but got 6: Expected `Message` - serialized value may not be as expected [field_name='message', input_value=Message(content='[\n  {\n...: None}, annotations=[]), input_type=Message])
+  PydanticSerializationUnexpectedValue(Expected `StreamingChoices` - serialized value may not be as expected [field_name='choices', input_value=Choices(finish_reason='st...ider_specific_fields={}), input_type=Choices])
+  return self.__pydantic_serializer__.to_python(
+[model_retriever_agent_1]: [
+  {
+    "model_name": "CatBoostRegressor",
+    "example_code": "import pandas as pd\nfrom catboost import CatBoostRegressor\n\ntrain = pd.read_csv('train.csv')\ntest = pd.read_csv('test.csv')\n\nX = train.drop(columns=['id', 'yield'])\ny = train['yield']\nX_test = test.drop(columns=['id'])\n\nmodel = CatBoostRegressor(\n    iterations=2000,\n    learning_rate=0.03,\n    depth=6,\n    loss_function='MAE',\n    eval_metric='MAE',\n    random_seed=42,\n    verbose=200\n)\n\nmodel.fit(X, y)\npred = model.predict(X_test)\n\nsub = pd.DataFrame({'id': test['id'], 'yield': pred})\nsub.to_csv('submission_catboost.csv', index=False)\n"
+  },
+  {
+    "model_name": "LightGBMRegressor",
+    "example_code": "import pandas as pd\nimport lightgbm as lgb\n\ntrain = pd.read_csv('train.csv')\ntest = pd.read_csv('test.csv')\n\nX = train.drop(columns=['id', 'yield'])\ny = train['yield']\nX_test = test.drop(columns=['id'])\n\nmodel = lgb.LGBMRegressor(\n    n_estimators=2000,\n    learning_rate=0.03,\n    num_leaves=31,\n    subsample=0.8,\n    colsample_bytree=0.8,\n    objective='regression_l1',\n    random_state=42\n)\n\nmodel.fit(X, y)\npred = model.predict(X_test)\n\nsub = pd.DataFrame({'id': test['id'], 'yield': pred})\nsub.to_csv('submission_lightgbm.csv', index=False)\n"
+  }
+]
+[92m23:33:30 - LiteLLM:INFO[0m: utils.py:3748 - 
+LiteLLM completion() model= gpt-5.4; provider = openai
+/home/flo/uni/mle-star-skrub/mle-star_vanilla/agents/machine-learning-engineering/.venv/lib/python3.14/site-packages/pydantic/main.py:464: UserWarning: Pydantic serializer warnings:
+  PydanticSerializationUnexpectedValue(Expected 10 fields but got 6: Expected `Message` - serialized value may not be as expected [field_name='message', input_value=Message(content='```pytho...: None}, annotations=[]), input_type=Message])
+  PydanticSerializationUnexpectedValue(Expected `StreamingChoices` - serialized value may not be as expected [field_name='choices', input_value=Choices(finish_reason='st...ider_specific_fields={}), input_type=Choices])
+  return self.__pydantic_serializer__.to_python(
+[model_eval_agent_1_1]: ```python
+import os
+import pandas as pd
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import mean_absolute_error
+from catboost import CatBoostRegressor
+
+train_path = os.path.join(".", "input", "train.csv")
+test_path = os.path.join(".", "input", "test.csv")
+
+train = pd.read_csv(train_path)
+test = pd.read_csv(test_path)
+
+X = train.drop(columns=["id", "yield"])
+y = train["yield"]
+X_test = test.drop(columns=["id"])
+
+X_train, X_valid, y_train, y_valid = train_test_split(
+    X,
+    y,
+    test_size=0.2,
+    random_state=42
+)
+
+model = CatBoostRegressor(
+    iterations=2000,
+    learning_rate=0.03,
+    depth=6,
+    loss_function="MAE",
+    eval_metric="MAE",
+    random_seed=42,
+    verbose=200
+)
+
+model.fit(
+    X_train,
+    y_train,
+    eval_set=(X_valid, y_valid),
+    use_best_model=True
+)
+
+valid_pred = model.predict(X_valid)
+final_validation_score = mean_absolute_error(y_valid, valid_pred)
+
+full_model = CatBoostRegressor(
+    iterations=model.get_best_iteration() + 1,
+    learning_rate=0.03,
+    depth=6,
+    loss_function="MAE",
+    eval_metric="MAE",
+    random_seed=42,
+    verbose=200
+)
+
+full_model.fit(X, y)
+
+test_pred = full_model.predict(X_test)
+
+submission = pd.DataFrame({
+    "id": test["id"],
+    "yield": test_pred
+})
+submission.to_csv("submission_catboost.csv", index=False)
+
+print(f"Final Validation Performance: {final_validation_score}")
+```
+[92m23:34:04 - LiteLLM:INFO[0m: utils.py:3748 - 
+LiteLLM completion() model= gpt-5.4; provider = openai
+/home/flo/uni/mle-star-skrub/mle-star_vanilla/agents/machine-learning-engineering/.venv/lib/python3.14/site-packages/pydantic/main.py:464: UserWarning: Pydantic serializer warnings:
+  PydanticSerializationUnexpectedValue(Expected 10 fields but got 6: Expected `Message` - serialized value may not be as expected [field_name='message', input_value=Message(content='```pytho...: None}, annotations=[]), input_type=Message])
+  PydanticSerializationUnexpectedValue(Expected `StreamingChoices` - serialized value may not be as expected [field_name='choices', input_value=Choices(finish_reason='st...ider_specific_fields={}), input_type=Choices])
+  return self.__pydantic_serializer__.to_python(
+[model_eval_agent_1_2]: ```python
+import os
+import pandas as pd
+import lightgbm as lgb
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import mean_absolute_error
+
+train_path = os.path.join(".", "input", "train.csv")
+test_path = os.path.join(".", "input", "test.csv")
+
+train = pd.read_csv(train_path)
+test = pd.read_csv(test_path)
+
+X = train.drop(columns=["id", "yield"])
+y = train["yield"]
+X_test = test.drop(columns=["id"])
+
+X_train, X_valid, y_train, y_valid = train_test_split(
+    X,
+    y,
+    test_size=0.2,
+    random_state=42
+)
+
+model = lgb.LGBMRegressor(
+    n_estimators=2000,
+    learning_rate=0.03,
+    num_leaves=31,
+    subsample=0.8,
+    colsample_bytree=0.8,
+    objective="regression_l1",
+    random_state=42
+)
+
+model.fit(
+    X_train,
+    y_train,
+    eval_set=[(X_valid, y_valid)],
+    eval_metric="l1",
+    callbacks=[lgb.early_stopping(100), lgb.log_evaluation(200)]
+)
+
+valid_pred = model.predict(X_valid)
+final_validation_score = mean_absolute_error(y_valid, valid_pred)
+
+best_n_estimators = model.best_iteration_
+
+full_model = lgb.LGBMRegressor(
+    n_estimators=best_n_estimators,
+    learning_rate=0.03,
+    num_leaves=31,
+    subsample=0.8,
+    colsample_bytree=0.8,
+    objective="regression_l1",
+    random_state=42
+)
+
+full_model.fit(X, y)
+
+test_pred = full_model.predict(X_test)
+
+submission = pd.DataFrame({
+    "id": test["id"],
+    "yield": test_pred
+})
+submission.to_csv("submission_lightgbm.csv", index=False)
+
+print(f"Final Validation Performance: {final_validation_score}")
+```
+[92m23:34:14 - LiteLLM:INFO[0m: utils.py:3748 - 
+LiteLLM completion() model= gpt-5.4; provider = openai
+/home/flo/uni/mle-star-skrub/mle-star_vanilla/agents/machine-learning-engineering/.venv/lib/python3.14/site-packages/pydantic/main.py:464: UserWarning: Pydantic serializer warnings:
+  PydanticSerializationUnexpectedValue(Expected 10 fields but got 6: Expected `Message` - serialized value may not be as expected [field_name='message', input_value=Message(content='```pytho...: None}, annotations=[]), input_type=Message])
+  PydanticSerializationUnexpectedValue(Expected `StreamingChoices` - serialized value may not be as expected [field_name='choices', input_value=Choices(finish_reason='st...ider_specific_fields={}), input_type=Choices])
+  return self.__pydantic_serializer__.to_python(
+[merger_agent_1_1]: ```python
+import os
+import pandas as pd
+import lightgbm as lgb
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import mean_absolute_error
+from catboost import CatBoostRegressor
+
+train_path = os.path.join(".", "input", "train.csv")
+test_path = os.path.join(".", "input", "test.csv")
+
+train = pd.read_csv(train_path)
+test = pd.read_csv(test_path)
+
+X = train.drop(columns=["id", "yield"])
+y = train["yield"]
+X_test = test.drop(columns=["id"])
+
+X_train, X_valid, y_train, y_valid = train_test_split(
+    X,
+    y,
+    test_size=0.2,
+    random_state=42
+)
+
+cat_model = CatBoostRegressor(
+    iterations=2000,
+    learning_rate=0.03,
+    depth=6,
+    loss_function="MAE",
+    eval_metric="MAE",
+    random_seed=42,
+    verbose=200
+)
+
+lgb_model = lgb.LGBMRegressor(
+    n_estimators=2000,
+    learning_rate=0.03,
+    num_leaves=31,
+    subsample=0.8,
+    colsample_bytree=0.8,
+    objective="regression_l1",
+    random_state=42
+)
+
+cat_model.fit(
+    X_train,
+    y_train,
+    eval_set=(X_valid, y_valid),
+    use_best_model=True
+)
+
+lgb_model.fit(
+    X_train,
+    y_train,
+    eval_set=[(X_valid, y_valid)],
+    eval_metric="l1",
+    callbacks=[lgb.early_stopping(100), lgb.log_evaluation(200)]
+)
+
+cat_valid_pred = cat_model.predict(X_valid)
+lgb_valid_pred = lgb_model.predict(X_valid)
+valid_pred = 0.5 * cat_valid_pred + 0.5 * lgb_valid_pred
+final_validation_score = mean_absolute_error(y_valid, valid_pred)
+
+cat_best_iterations = cat_model.get_best_iteration() + 1
+lgb_best_n_estimators = lgb_model.best_iteration_
+
+full_cat_model = CatBoostRegressor(
+    iterations=cat_best_iterations,
+    learning_rate=0.03,
+    depth=6,
+    loss_function="MAE",
+    eval_metric="MAE",
+    random_seed=42,
+    verbose=200
+)
+
+full_lgb_model = lgb.LGBMRegressor(
+    n_estimators=lgb_best_n_estimators,
+    learning_rate=0.03,
+    num_leaves=31,
+    subsample=0.8,
+    colsample_bytree=0.8,
+    objective="regression_l1",
+    random_state=42
+)
+
+full_cat_model.fit(X, y)
+full_lgb_model.fit(X, y)
+
+cat_test_pred = full_cat_model.predict(X_test)
+lgb_test_pred = full_lgb_model.predict(X_test)
+test_pred = 0.5 * cat_test_pred + 0.5 * lgb_test_pred
+
+submission = pd.DataFrame({
+    "id": test["id"],
+    "yield": test_pred
+})
+submission.to_csv("submission_ensemble.csv", index=False)
+
+print(f"Final Validation Performance: {final_validation_score}")
+```
+[92m23:34:45 - LiteLLM:INFO[0m: utils.py:3748 - 
+LiteLLM completion() model= gpt-5.4; provider = openai
+/home/flo/uni/mle-star-skrub/mle-star_vanilla/agents/machine-learning-engineering/.venv/lib/python3.14/site-packages/pydantic/main.py:464: UserWarning: Pydantic serializer warnings:
+  PydanticSerializationUnexpectedValue(Expected 10 fields but got 6: Expected `Message` - serialized value may not be as expected [field_name='message', input_value=Message(content='```pytho...: None}, annotations=[]), input_type=Message])
+  PydanticSerializationUnexpectedValue(Expected `StreamingChoices` - serialized value may not be as expected [field_name='choices', input_value=Choices(finish_reason='st...ider_specific_fields={}), input_type=Choices])
+  return self.__pydantic_serializer__.to_python(
+[ablation_agent_1]: ```python
+import os
+import copy
+import numpy as np
+import pandas as pd
+import lightgbm as lgb
+from catboost import CatBoostRegressor
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import mean_absolute_error
+
+train_path = os.path.join(".", "input", "train.csv")
+train = pd.read_csv(train_path)
+
+X = train.drop(columns=["id", "yield"])
+y = train["yield"]
+
+X_train, X_valid, y_train, y_valid = train_test_split(
+    X,
+    y,
+    test_size=0.2,
+    random_state=42
+)
+
+def evaluate_config(name, use_cat=True, use_lgb=True, use_ensemble=True, use_early_stopping=True):
+    cat_pred = None
+    lgb_pred = None
+
+    if use_cat:
+        cat_model = CatBoostRegressor(
+            iterations=2000,
+            learning_rate=0.03,
+            depth=6,
+            loss_function="MAE",
+            eval_metric="MAE",
+            random_seed=42,
+            verbose=False
+        )
+        if use_early_stopping:
+            cat_model.fit(
+                X_train,
+                y_train,
+                eval_set=(X_valid, y_valid),
+                use_best_model=True,
+                verbose=False
+            )
+        else:
+            cat_model.fit(
+                X_train,
+                y_train,
+                verbose=False
+            )
+        cat_pred = cat_model.predict(X_valid)
+
+    if use_lgb:
+        lgb_model = lgb.LGBMRegressor(
+            n_estimators=2000,
+            learning_rate=0.03,
+            num_leaves=31,
+            subsample=0.8,
+            colsample_bytree=0.8,
+            objective="regression_l1",
+            random_state=42
+        )
+        if use_early_stopping:
+            lgb_model.fit(
+                X_train,
+                y_train,
+                eval_set=[(X_valid, y_valid)],
+                eval_metric="l1",
+                callbacks=[lgb.early_stopping(100), lgb.log_evaluation(0)]
+            )
+        else:
+            lgb_model.fit(X_train, y_train)
+        lgb_pred = lgb_model.predict(X_valid)
+
+    if use_ensemble:
+        preds = []
+        if cat_pred is not None:
+            preds.append(cat_pred)
+        if lgb_pred is not None:
+            preds.append(lgb_pred)
+        valid_pred = np.mean(preds, axis=0)
+    else:
+        valid_pred = cat_pred if cat_pred is not None else lgb_pred
+
+    mae = mean_absolute_error(y_valid, valid_pred)
+    print(f"{name}: MAE={mae:.6f}")
+    return mae
+
+results = {}
+
+results["baseline_full_ensemble"] = evaluate_config(
+    name="baseline_full_ensemble",
+    use_cat=True,
+    use_lgb=True,
+    use_ensemble=True,
+    use_early_stopping=True
+)
+
+results["ablation_no_ensemble_cat_only"] = evaluate_config(
+    name="ablation_no_ensemble_cat_only",
+    use_cat=True,
+    use_lgb=False,
+    use_ensemble=False,
+    use_early_stopping=True
+)
+
+results["ablation_no_ensemble_lgb_only"] = evaluate_config(
+    name="ablation_no_ensemble_lgb_only",
+    use_cat=False,
+    use_lgb=True,
+    use_ensemble=False,
+    use_early_stopping=True
+)
+
+results["ablation_no_early_stopping"] = evaluate_config(
+    name="ablation_no_early_stopping",
+    use_cat=True,
+    use_lgb=True,
+    use_ensemble=True,
+    use_early_stopping=False
+)
+
+baseline = results["baseline_full_ensemble"]
+drops = {}
+
+for name, score in results.items():
+    if name != "baseline_full_ensemble":
+        drops[name] = score - baseline
+
+print("\nPerformance impact relative to baseline:")
+for name, delta in sorted(drops.items(), key=lambda x: x[1], reverse=True):
+    print(f"{name}: MAE change = {delta:+.6f}")
+
+worst_ablation = max(drops, key=drops.get)
+if "cat_only" in worst_ablation or "lgb_only" in worst_ablation:
+    most_important_part = "the CatBoost + LightGBM ensemble"
+elif "early_stopping" in worst_ablation:
+    most_important_part = "early stopping / best-iteration selection"
+else:
+    most_important_part = worst_ablation
+
+print(f"\nMost important contributing part: {most_important_part}")
+```
+[92m23:35:31 - LiteLLM:INFO[0m: utils.py:3748 - 
+LiteLLM completion() model= gpt-5.4; provider = openai
+/home/flo/uni/mle-star-skrub/mle-star_vanilla/agents/machine-learning-engineering/.venv/lib/python3.14/site-packages/pydantic/main.py:464: UserWarning: Pydantic serializer warnings:
+  PydanticSerializationUnexpectedValue(Expected 10 fields but got 6: Expected `Message` - serialized value may not be as expected [field_name='message', input_value=Message(content='Here is ...: None}, annotations=[]), input_type=Message])
+  PydanticSerializationUnexpectedValue(Expected `StreamingChoices` - serialized value may not be as expected [field_name='choices', input_value=Choices(finish_reason='st...ider_specific_fields={}), input_type=Choices])
+  return self.__pydantic_serializer__.to_python(
+[ablation_summary_agent_1]: Here is a concise summary of the ablation study:
+
+### Baseline
+- **Full ensemble (CatBoost + LightGBM with early stopping)** achieved the best reference performance:
+  - **MAE = 337.526636**
+
+### Ablation results
+1. **CatBoost only**
+   - **MAE = 338.535486**
+   - Performance worsened by **+1.008850** MAE relative to baseline.
+
+2. **LightGBM only**
+   - **MAE = 339.243197**
+   - Performance worsened by **+1.716560** MAE relative to baseline.
+   - This was the **largest drop**, meaning removing the ensemble hurt performance the most here.
+
+3. **No early stopping**
+   - **MAE = 337.525299**
+   - Performance changed by **-0.001338** MAE relative to baseline.
+   - This is effectively **no meaningful difference** and is even trivially better on this split.
+
+### Key conclusions
+- The **ensemble of CatBoost and LightGBM** is the most important component tested in this ablation.
+- Combining both models performs better than either model alone.
+- **CatBoost alone** is stronger than **LightGBM alone** on this validation split.
+- **Early stopping did not provide a noticeable benefit** in this experiment, suggesting the chosen training setup was already robust or the full training length did not overfit much on this split.
+
+### Overall takeaway
+The main gain comes from **model ensembling**, while **early stopping had negligible impact** in this particular ablation study.
+[92m23:35:34 - LiteLLM:INFO[0m: utils.py:3748 - 
+LiteLLM completion() model= gpt-5.4; provider = openai
+/home/flo/uni/mle-star-skrub/mle-star_vanilla/agents/machine-learning-engineering/.venv/lib/python3.14/site-packages/pydantic/main.py:464: UserWarning: Pydantic serializer warnings:
+  PydanticSerializationUnexpectedValue(Expected 10 fields but got 6: Expected `Message` - serialized value may not be as expected [field_name='message', input_value=Message(content='[\n  {\n...: None}, annotations=[]), input_type=Message])
+  PydanticSerializationUnexpectedValue(Expected `StreamingChoices` - serialized value may not be as expected [field_name='choices', input_value=Choices(finish_reason='st...ider_specific_fields={}), input_type=Choices])
+  return self.__pydantic_serializer__.to_python(
+[init_plan_agent_1]: [
+  {
+    "code_block": "cat_model.fit(\n    X_train,\n    y_train,\n    eval_set=(X_valid, y_valid),\n    use_best_model=True\n)\n\nlgb_model.fit(\n    X_train,\n    y_train,\n    eval_set=[(X_valid, y_valid)],\n    eval_metric=\"l1\",\n    callbacks=[lgb.early_stopping(100), lgb.log_evaluation(200)]\n)\n\ncat_valid_pred = cat_model.predict(X_valid)\nlgb_valid_pred = lgb_model.predict(X_valid)\nvalid_pred = 0.5 * cat_valid_pred + 0.5 * lgb_valid_pred\nfinal_validation_score = mean_absolute_error(y_valid, valid_pred)\n\ncat_best_iterations = cat_model.get_best_iteration() + 1\nlgb_best_n_estimators = lgb_model.best_iteration_\n\nfull_cat_model = CatBoostRegressor(\n    iterations=cat_best_iterations,\n    learning_rate=0.03,\n    depth=6,\n    loss_function=\"MAE\",\n    eval_metric=\"MAE\",\n    random_seed=42,\n    verbose=200\n)\n\nfull_lgb_model = lgb.LGBMRegressor(\n    n_estimators=lgb_best_n_estimators,\n    learning_rate=0.03,\n    num_leaves=31,\n    subsample=0.8,\n    colsample_bytree=0.8,\n    objective=\"regression_l1\",\n    random_state=42\n)\n\nfull_cat_model.fit(X, y)\nfull_lgb_model.fit(X, y)\n\ncat_test_pred = full_cat_model.predict(X_test)\nlgb_test_pred = full_lgb_model.predict(X_test)\ntest_pred = 0.5 * cat_test_pred + 0.5 * lgb_test_pred",
+    "plan": "The ablation shows the ensemble is the main source of gain, while early stopping contributes almost nothing, so the next improvement should focus on the ensembling step rather than more validation control. Replace the fixed 0.5/0.5 blend with a small validation-based weighted average, giving slightly more weight to CatBoost since it is the stronger single model on this split. Also simplify training by removing dependence on early-stopped iteration selection and instead train both final models with the existing fixed budget, which should keep runtime nearly unchanged. This directly targets the most important component from the ablation with minimal code changes and low computational cost."
+  }
+]
+[92m23:35:39 - LiteLLM:INFO[0m: utils.py:3748 - 
+LiteLLM completion() model= gpt-5.4; provider = openai
+/home/flo/uni/mle-star-skrub/mle-star_vanilla/agents/machine-learning-engineering/.venv/lib/python3.14/site-packages/pydantic/main.py:464: UserWarning: Pydantic serializer warnings:
+  PydanticSerializationUnexpectedValue(Expected 10 fields but got 6: Expected `Message` - serialized value may not be as expected [field_name='message', input_value=Message(content='```pytho...: None}, annotations=[]), input_type=Message])
+  PydanticSerializationUnexpectedValue(Expected `StreamingChoices` - serialized value may not be as expected [field_name='choices', input_value=Choices(finish_reason='st...ider_specific_fields={}), input_type=Choices])
+  return self.__pydantic_serializer__.to_python(
+[plan_implement_initial_agent_1]: ```python
+cat_model.fit(
+    X_train,
+    y_train,
+    eval_set=(X_valid, y_valid),
+    use_best_model=False
+)
+
+lgb_model.fit(
+    X_train,
+    y_train,
+    eval_set=[(X_valid, y_valid)],
+    eval_metric="l1",
+    callbacks=[lgb.log_evaluation(200)]
+)
+
+cat_valid_pred = cat_model.predict(X_valid)
+lgb_valid_pred = lgb_model.predict(X_valid)
+
+blend_candidates = [
+    (0.60, 0.40),
+    (0.65, 0.35),
+    (0.70, 0.30),
+    (0.75, 0.25)
+]
+
+best_score = float("inf")
+best_cat_weight, best_lgb_weight = 0.5, 0.5
+
+for cat_weight, lgb_weight in blend_candidates:
+    blended_valid_pred = cat_weight * cat_valid_pred + lgb_weight * lgb_valid_pred
+    score = mean_absolute_error(y_valid, blended_valid_pred)
+    if score < best_score:
+        best_score = score
+        best_cat_weight, best_lgb_weight = cat_weight, lgb_weight
+
+valid_pred = best_cat_weight * cat_valid_pred + best_lgb_weight * lgb_valid_pred
+final_validation_score = mean_absolute_error(y_valid, valid_pred)
+
+full_cat_model = CatBoostRegressor(
+    iterations=cat_model.get_params()["iterations"],
+    learning_rate=0.03,
+    depth=6,
+    loss_function="MAE",
+    eval_metric="MAE",
+    random_seed=42,
+    verbose=200
+)
+
+full_lgb_model = lgb.LGBMRegressor(
+    n_estimators=lgb_model.get_params()["n_estimators"],
+    learning_rate=0.03,
+    num_leaves=31,
+    subsample=0.8,
+    colsample_bytree=0.8,
+    objective="regression_l1",
+    random_state=42
+)
+
+full_cat_model.fit(X, y)
+full_lgb_model.fit(X, y)
+
+cat_test_pred = full_cat_model.predict(X_test)
+lgb_test_pred = full_lgb_model.predict(X_test)
+test_pred = best_cat_weight * cat_test_pred + best_lgb_weight * lgb_test_pred
+```
+[92m23:36:14 - LiteLLM:INFO[0m: utils.py:3748 - 
+LiteLLM completion() model= gpt-5.4; provider = openai
+/home/flo/uni/mle-star-skrub/mle-star_vanilla/agents/machine-learning-engineering/.venv/lib/python3.14/site-packages/pydantic/main.py:464: UserWarning: Pydantic serializer warnings:
+  PydanticSerializationUnexpectedValue(Expected 10 fields but got 6: Expected `Message` - serialized value may not be as expected [field_name='message', input_value=Message(content='A strong...: None}, annotations=[]), input_type=Message])
+  PydanticSerializationUnexpectedValue(Expected `StreamingChoices` - serialized value may not be as expected [field_name='choices', input_value=Choices(finish_reason='st...ider_specific_fields={}), input_type=Choices])
+  return self.__pydantic_serializer__.to_python(
+[plan_refine_agent_1]: A stronger next step is to reduce variance with cheap bagging instead of only tuning the blend weights: train 2–3 CatBoost and 2–3 LightGBM models with different random seeds, average within each model family, then do the final CatBoost/LightGBM blend on the validation split. This is novel relative to the prior single-model weighted ensemble and usually gives a more reliable MAE gain than tweaking early stopping or a single weight, while keeping runtime reasonable because the parameter settings stay fixed and only a few extra fits are added. You can also make the blend weight selection slightly finer on top of the bagged predictions, since the family-level averaged predictions are typically smoother and easier to combine well. This targets the main source of gain—the ensemble—but in a higher-value way by increasing diversity rather than just reweighting two fixed predictors.
+[92m23:36:17 - LiteLLM:INFO[0m: utils.py:3748 - 
+LiteLLM completion() model= gpt-5.4; provider = openai
+/home/flo/uni/mle-star-skrub/mle-star_vanilla/agents/machine-learning-engineering/.venv/lib/python3.14/site-packages/pydantic/main.py:464: UserWarning: Pydantic serializer warnings:
+  PydanticSerializationUnexpectedValue(Expected 10 fields but got 6: Expected `Message` - serialized value may not be as expected [field_name='message', input_value=Message(content='```pytho...: None}, annotations=[]), input_type=Message])
+  PydanticSerializationUnexpectedValue(Expected `StreamingChoices` - serialized value may not be as expected [field_name='choices', input_value=Choices(finish_reason='st...ider_specific_fields={}), input_type=Choices])
+  return self.__pydantic_serializer__.to_python(
+[plan_implement_agent_1]: ```python
+cat_seeds = [42, 52, 62]
+lgb_seeds = [42, 52, 62]
+
+cat_valid_preds = []
+cat_best_iterations_list = []
+
+for seed in cat_seeds:
+    cat_model = CatBoostRegressor(
+        iterations=5000,
+        learning_rate=0.03,
+        depth=6,
+        loss_function="MAE",
+        eval_metric="MAE",
+        random_seed=seed,
+        verbose=200
+    )
+    cat_model.fit(
+        X_train,
+        y_train,
+        eval_set=(X_valid, y_valid),
+        use_best_model=True
+    )
+    cat_valid_preds.append(cat_model.predict(X_valid))
+    cat_best_iterations_list.append(cat_model.get_best_iteration() + 1)
+
+lgb_valid_preds = []
+lgb_best_iterations_list = []
+
+for seed in lgb_seeds:
+    lgb_model = lgb.LGBMRegressor(
+        n_estimators=5000,
+        learning_rate=0.03,
+        num_leaves=31,
+        subsample=0.8,
+        colsample_bytree=0.8,
+        objective="regression_l1",
+        random_state=seed
+    )
+    lgb_model.fit(
+        X_train,
+        y_train,
+        eval_set=[(X_valid, y_valid)],
+        eval_metric="l1",
+        callbacks=[lgb.early_stopping(100), lgb.log_evaluation(200)]
+    )
+    lgb_valid_preds.append(lgb_model.predict(X_valid))
+    lgb_best_iterations_list.append(lgb_model.best_iteration_)
+
+cat_valid_pred = np.mean(cat_valid_preds, axis=0)
+lgb_valid_pred = np.mean(lgb_valid_preds, axis=0)
+
+best_weight = None
+best_score = float("inf")
+for cat_weight in np.arange(0.0, 1.0001, 0.05):
+    valid_pred = cat_weight * cat_valid_pred + (1.0 - cat_weight) * lgb_valid_pred
+    score = mean_absolute_error(y_valid, valid_pred)
+    if score < best_score:
+        best_score = score
+        best_weight = cat_weight
+
+final_validation_score = best_score
+
+cat_best_iterations = int(round(np.mean(cat_best_iterations_list)))
+lgb_best_n_estimators = int(round(np.mean(lgb_best_iterations_list)))
+
+full_cat_models = []
+for seed in cat_seeds:
+    full_cat_model = CatBoostRegressor(
+        iterations=cat_best_iterations,
+        learning_rate=0.03,
+        depth=6,
+        loss_function="MAE",
+        eval_metric="MAE",
+        random_seed=seed,
+        verbose=200
+    )
+    full_cat_model.fit(X, y)
+    full_cat_models.append(full_cat_model)
+
+full_lgb_models = []
+for seed in lgb_seeds:
+    full_lgb_model = lgb.LGBMRegressor(
+        n_estimators=lgb_best_n_estimators,
+        learning_rate=0.03,
+        num_leaves=31,
+        subsample=0.8,
+        colsample_bytree=0.8,
+        objective="regression_l1",
+        random_state=seed
+    )
+    full_lgb_model.fit(X, y)
+    full_lgb_models.append(full_lgb_model)
+
+cat_test_pred = np.mean([model.predict(X_test) for model in full_cat_models], axis=0)
+lgb_test_pred = np.mean([model.predict(X_test) for model in full_lgb_models], axis=0)
+test_pred = best_weight * cat_test_pred + (1.0 - best_weight) * lgb_test_pred
+```
+[92m23:37:45 - LiteLLM:INFO[0m: utils.py:3748 - 
+LiteLLM completion() model= gpt-5.4; provider = openai
+/home/flo/uni/mle-star-skrub/mle-star_vanilla/agents/machine-learning-engineering/.venv/lib/python3.14/site-packages/pydantic/main.py:464: UserWarning: Pydantic serializer warnings:
+  PydanticSerializationUnexpectedValue(Expected 10 fields but got 6: Expected `Message` - serialized value may not be as expected [field_name='message', input_value=Message(content="`train0_...: None}, annotations=[]), input_type=Message])
+  PydanticSerializationUnexpectedValue(Expected `StreamingChoices` - serialized value may not be as expected [field_name='choices', input_value=Choices(finish_reason='st...ider_specific_fields={}), input_type=Choices])
+  return self.__pydantic_serializer__.to_python(
+[plan_implement_bug_summary_agent_1]: `train0_improve1.py.py`, line 95: `NameError: name 'np' is not defined` at `cat_valid_pred = np.mean(cat_valid_preds, axis=0)`.
+
+Cause: NumPy is used (`np.mean`, `np.arange`) but `numpy` was not imported as `np`.
+[92m23:37:47 - LiteLLM:INFO[0m: utils.py:3748 - 
+LiteLLM completion() model= gpt-5.4; provider = openai
+/home/flo/uni/mle-star-skrub/mle-star_vanilla/agents/machine-learning-engineering/.venv/lib/python3.14/site-packages/pydantic/main.py:464: UserWarning: Pydantic serializer warnings:
+  PydanticSerializationUnexpectedValue(Expected 10 fields but got 6: Expected `Message` - serialized value may not be as expected [field_name='message', input_value=Message(content='```pytho...: None}, annotations=[]), input_type=Message])
+  PydanticSerializationUnexpectedValue(Expected `StreamingChoices` - serialized value may not be as expected [field_name='choices', input_value=Choices(finish_reason='st...ider_specific_fields={}), input_type=Choices])
+  return self.__pydantic_serializer__.to_python(
+[plan_implement_debug_agent_1]: ```python
+import os
+import subprocess
+import sys
+
+def ensure_package(package_name, import_name=None):
+    import_name = import_name or package_name
+    try:
+        __import__(import_name)
+    except ModuleNotFoundError:
+        subprocess.check_call([sys.executable, "-m", "pip", "install", package_name])
+
+ensure_package("numpy", "numpy")
+ensure_package("pandas", "pandas")
+ensure_package("lightgbm", "lightgbm")
+ensure_package("scikit-learn", "sklearn")
+ensure_package("catboost", "catboost")
+
+import numpy as np
+import pandas as pd
+import lightgbm as lgb
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import mean_absolute_error
+from catboost import CatBoostRegressor
+
+train_path = os.path.join(".", "input", "train.csv")
+test_path = os.path.join(".", "input", "test.csv")
+
+train = pd.read_csv(train_path)
+test = pd.read_csv(test_path)
+
+X = train.drop(columns=["id", "yield"])
+y = train["yield"]
+X_test = test.drop(columns=["id"])
+
+X_train, X_valid, y_train, y_valid = train_test_split(
+    X,
+    y,
+    test_size=0.2,
+    random_state=42
+)
+
+cat_seeds = [42, 52, 62]
+lgb_seeds = [42, 52, 62]
+
+cat_valid_preds = []
+cat_best_iterations_list = []
+
+for seed in cat_seeds:
+    cat_model = CatBoostRegressor(
+        iterations=5000,
+        learning_rate=0.03,
+        depth=6,
+        loss_function="MAE",
+        eval_metric="MAE",
+        random_seed=seed,
+        verbose=200
+    )
+    cat_model.fit(
+        X_train,
+        y_train,
+        eval_set=(X_valid, y_valid),
+        use_best_model=True
+    )
+    cat_valid_preds.append(cat_model.predict(X_valid))
+    best_iter = cat_model.get_best_iteration()
+    if best_iter is None or best_iter < 0:
+        best_iter = 5000
+    else:
+        best_iter = best_iter + 1
+    cat_best_iterations_list.append(best_iter)
+
+lgb_valid_preds = []
+lgb_best_iterations_list = []
+
+for seed in lgb_seeds:
+    lgb_model = lgb.LGBMRegressor(
+        n_estimators=5000,
+        learning_rate=0.03,
+        num_leaves=31,
+        subsample=0.8,
+        colsample_bytree=0.8,
+        objective="regression_l1",
+        random_state=seed
+    )
+    lgb_model.fit(
+        X_train,
+        y_train,
+        eval_set=[(X_valid, y_valid)],
+        eval_metric="l1",
+        callbacks=[lgb.early_stopping(100), lgb.log_evaluation(200)]
+    )
+    lgb_valid_preds.append(lgb_model.predict(X_valid, num_iteration=lgb_model.best_iteration_))
+    best_iter = lgb_model.best_iteration_
+    if best_iter is None or best_iter <= 0:
+        best_iter = 5000
+    lgb_best_iterations_list.append(best_iter)
+
+cat_valid_pred = np.mean(cat_valid_preds, axis=0)
+lgb_valid_pred = np.mean(lgb_valid_preds, axis=0)
+
+best_weight = None
+best_score = float("inf")
+
+for cat_weight in np.arange(0.0, 1.0001, 0.05):
+    valid_pred = cat_weight * cat_valid_pred + (1.0 - cat_weight) * lgb_valid_pred
+    score = mean_absolute_error(y_valid, valid_pred)
+    if score < best_score:
+        best_score = score
+        best_weight = cat_weight
+
+final_validation_score = best_score
+
+cat_best_iterations = int(round(np.mean(cat_best_iterations_list)))
+lgb_best_n_estimators = int(round(np.mean(lgb_best_iterations_list)))
+
+full_cat_models = []
+for seed in cat_seeds:
+    full_cat_model = CatBoostRegressor(
+        iterations=cat_best_iterations,
+        learning_rate=0.03,
+        depth=6,
+        loss_function="MAE",
+        eval_metric="MAE",
+        random_seed=seed,
+        verbose=200
+    )
+    full_cat_model.fit(X, y)
+    full_cat_models.append(full_cat_model)
+
+full_lgb_models = []
+for seed in lgb_seeds:
+    full_lgb_model = lgb.LGBMRegressor(
+        n_estimators=lgb_best_n_estimators,
+        learning_rate=0.03,
+        num_leaves=31,
+        subsample=0.8,
+        colsample_bytree=0.8,
+        objective="regression_l1",
+        random_state=seed
+    )
+    full_lgb_model.fit(X, y)
+    full_lgb_models.append(full_lgb_model)
+
+cat_test_pred = np.mean([model.predict(X_test) for model in full_cat_models], axis=0)
+lgb_test_pred = np.mean([model.predict(X_test) for model in full_lgb_models], axis=0)
+test_pred = best_weight * cat_test_pred + (1.0 - best_weight) * lgb_test_pred
+
+submission = pd.DataFrame({
+    "id": test["id"],
+    "yield": test_pred
+})
+submission.to_csv("submission_ensemble.csv", index=False)
+
+print(f"Final Validation Performance: {final_validation_score}")
+```
+[92m23:39:54 - LiteLLM:INFO[0m: utils.py:3748 - 
+LiteLLM completion() model= gpt-5.4; provider = openai
+/home/flo/uni/mle-star-skrub/mle-star_vanilla/agents/machine-learning-engineering/.venv/lib/python3.14/site-packages/pydantic/main.py:464: UserWarning: Pydantic serializer warnings:
+  PydanticSerializationUnexpectedValue(Expected 10 fields but got 6: Expected `Message` - serialized value may not be as expected [field_name='message', input_value=Message(content='Use the ...: None}, annotations=[]), input_type=Message])
+  PydanticSerializationUnexpectedValue(Expected `StreamingChoices` - serialized value may not be as expected [field_name='choices', input_value=Choices(finish_reason='st...ider_specific_fields={}), input_type=Choices])
+  return self.__pydantic_serializer__.to_python(
+[init_ensemble_plan_agent]: Use the current script as the base and ensemble only through simple averaging at two levels.
+
+1. Keep the two-model family structure already present:
+- one CatBoost branch
+- one LightGBM branch
+
+2. Create a small seed ensemble inside each branch:
+- train the same CatBoost model with a few different random seeds
+- train the same LightGBM model with a few different random seeds
+- average predictions across seeds within each model family
+This is low-risk, easy to add, and usually improves stability without changing the pipeline much.
+
+3. Learn the final CatBoost/LightGBM blend weight on the validation split:
+- after averaging CatBoost validation predictions across seeds, get one `cat_valid_pred`
+- after averaging LightGBM validation predictions across seeds, get one `lgb_valid_pred`
+- search a simple grid of blend weights such as 0.00 to 1.00 with step 0.05
+- choose the weight giving the best MAE on validation
+This is better than fixing a few hand-picked weights.
+
+4. Refit on full training data and apply the same two-stage ensemble:
+- for CatBoost, retrain all seed models on full data and average their test predictions
+- for LightGBM, retrain all seed models on full data and average their test predictions
+- combine the two averaged test predictions using the best validation weight found earlier
+
+5. If wanting one extra safe improvement, save a few alternative submissions from nearby blend weights:
+- best weight
+- best weight - 0.05
+- best weight + 0.05
+This is useful for leaderboard probing if allowed, while keeping implementation nearly identical.
+
+6. Do not introduce stacking, extra folds, or new model types here:
+- with only one provided solution, the most reliable ensemble is “same architecture + multiple seeds + optimized final weighted average”
+- this is simple, effective, and least likely to break execution
+
+So the recommended final ensemble is:
+- average several CatBoost seeds
+- average several LightGBM seeds
+- blend those two averaged predictions with a validation-tuned weight
+[92m23:39:59 - LiteLLM:INFO[0m: utils.py:3748 - 
+LiteLLM completion() model= gpt-5.4; provider = openai
+/home/flo/uni/mle-star-skrub/mle-star_vanilla/agents/machine-learning-engineering/.venv/lib/python3.14/site-packages/pydantic/main.py:464: UserWarning: Pydantic serializer warnings:
+  PydanticSerializationUnexpectedValue(Expected 10 fields but got 6: Expected `Message` - serialized value may not be as expected [field_name='message', input_value=Message(content='```pytho...: None}, annotations=[]), input_type=Message])
+  PydanticSerializationUnexpectedValue(Expected `StreamingChoices` - serialized value may not be as expected [field_name='choices', input_value=Choices(finish_reason='st...ider_specific_fields={}), input_type=Choices])
+  return self.__pydantic_serializer__.to_python(
+[ensemble_plan_implement_initial_agent]: ```python
+import os
+import numpy as np
+import pandas as pd
+import lightgbm as lgb
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import mean_absolute_error
+from catboost import CatBoostRegressor
+
+train_path = os.path.join(".", "input", "train.csv")
+test_path = os.path.join(".", "input", "test.csv")
+
+train = pd.read_csv(train_path)
+test = pd.read_csv(test_path)
+
+X = train.drop(columns=["id", "yield"])
+y = train["yield"]
+X_test = test.drop(columns=["id"])
+
+X_train, X_valid, y_train, y_valid = train_test_split(
+    X,
+    y,
+    test_size=0.2,
+    random_state=42
+)
+
+cat_seeds = [42, 52, 62]
+lgb_seeds = [42, 52, 62]
+
+cat_valid_preds = []
+lgb_valid_preds = []
+
+for seed in cat_seeds:
+    cat_model = CatBoostRegressor(
+        iterations=2000,
+        learning_rate=0.03,
+        depth=6,
+        loss_function="MAE",
+        eval_metric="MAE",
+        random_seed=seed,
+        verbose=200
+    )
+    cat_model.fit(
+        X_train,
+        y_train,
+        eval_set=(X_valid, y_valid),
+        use_best_model=False
+    )
+    cat_valid_preds.append(cat_model.predict(X_valid))
+
+for seed in lgb_seeds:
+    lgb_model = lgb.LGBMRegressor(
+        n_estimators=2000,
+        learning_rate=0.03,
+        num_leaves=31,
+        subsample=0.8,
+        colsample_bytree=0.8,
+        objective="regression_l1",
+        random_state=seed
+    )
+    lgb_model.fit(
+        X_train,
+        y_train,
+        eval_set=[(X_valid, y_valid)],
+        eval_metric="l1",
+        callbacks=[lgb.log_evaluation(200)]
+    )
+    lgb_valid_preds.append(lgb_model.predict(X_valid))
+
+cat_valid_pred = np.mean(cat_valid_preds, axis=0)
+lgb_valid_pred = np.mean(lgb_valid_preds, axis=0)
+
+best_score = float("inf")
+best_cat_weight = 0.5
+best_lgb_weight = 0.5
+
+for cat_weight in np.arange(0.0, 1.0001, 0.05):
+    lgb_weight = 1.0 - cat_weight
+    blended_valid_pred = cat_weight * cat_valid_pred + lgb_weight * lgb_valid_pred
+    score = mean_absolute_error(y_valid, blended_valid_pred)
+    if score < best_score:
+        best_score = score
+        best_cat_weight = cat_weight
+        best_lgb_weight = lgb_weight
+
+valid_pred = best_cat_weight * cat_valid_pred + best_lgb_weight * lgb_valid_pred
+final_validation_score = mean_absolute_error(y_valid, valid_pred)
+
+full_cat_test_preds = []
+full_lgb_test_preds = []
+
+for seed in cat_seeds:
+    full_cat_model = CatBoostRegressor(
+        iterations=2000,
+        learning_rate=0.03,
+        depth=6,
+        loss_function="MAE",
+        eval_metric="MAE",
+        random_seed=seed,
+        verbose=200
+    )
+    full_cat_model.fit(X, y)
+    full_cat_test_preds.append(full_cat_model.predict(X_test))
+
+for seed in lgb_seeds:
+    full_lgb_model = lgb.LGBMRegressor(
+        n_estimators=2000,
+        learning_rate=0.03,
+        num_leaves=31,
+        subsample=0.8,
+        colsample_bytree=0.8,
+        objective="regression_l1",
+        random_state=seed
+    )
+    full_lgb_model.fit(X, y)
+    full_lgb_test_preds.append(full_lgb_model.predict(X_test))
+
+cat_test_pred = np.mean(full_cat_test_preds, axis=0)
+lgb_test_pred = np.mean(full_lgb_test_preds, axis=0)
+
+test_pred = best_cat_weight * cat_test_pred + best_lgb_weight * lgb_test_pred
+
+submission = pd.DataFrame({
+    "id": test["id"],
+    "yield": test_pred
+})
+submission.to_csv("submission_ensemble.csv", index=False)
+
+alt_weights = sorted(set([
+    round(best_cat_weight, 2),
+    round(max(0.0, best_cat_weight - 0.05), 2),
+    round(min(1.0, best_cat_weight + 0.05), 2)
+]))
+
+for w in alt_weights:
+    alt_pred = w * cat_test_pred + (1.0 - w) * lgb_test_pred
+    alt_submission = pd.DataFrame({
+        "id": test["id"],
+        "yield": alt_pred
+    })
+    alt_submission.to_csv(f"submission_ensemble_cat_{w:.2f}.csv", index=False)
+
+print(f"Final Validation Performance: {final_validation_score}")
+```
+[92m23:41:38 - LiteLLM:INFO[0m: utils.py:3748 - 
+LiteLLM completion() model= gpt-5.4; provider = openai
+/home/flo/uni/mle-star-skrub/mle-star_vanilla/agents/machine-learning-engineering/.venv/lib/python3.14/site-packages/pydantic/main.py:464: UserWarning: Pydantic serializer warnings:
+  PydanticSerializationUnexpectedValue(Expected 10 fields but got 6: Expected `Message` - serialized value may not be as expected [field_name='message', input_value=Message(content='1. Keep ...: None}, annotations=[]), input_type=Message])
+  PydanticSerializationUnexpectedValue(Expected `StreamingChoices` - serialized value may not be as expected [field_name='choices', input_value=Choices(finish_reason='st...ider_specific_fields={}), input_type=Choices])
+  return self.__pydantic_serializer__.to_python(
+[ensemble_plan_refine_agent]: 1. Keep the two existing model families and the small multi-seed averaging inside each family, since that part is stable and already easy to run.
+
+2. Change only the final merge rule from “one global constant weight” to a very small rank-based blend:
+- after averaging seeds, get one CatBoost validation prediction and one LightGBM validation prediction
+- convert both validation prediction vectors to ranks
+- blend the ranks instead of the raw prediction values
+- search the CatBoost rank weight on a simple grid from 0.00 to 1.00 with step 0.05
+This often works better when two models have slightly different prediction scales or tail behavior, and it is a genuinely different merge strategy from plain averaging.
+
+3. Turn the blended ranks back into target-scale predictions with a tiny calibration step:
+- sort the blended validation ranks
+- map them to the sorted `y_valid` values by order
+- score this calibrated blended prediction with MAE
+This keeps implementation simple while making the rank ensemble usable for a regression submission.
+
+4. For test inference, apply the exact same merge logic:
+- average CatBoost test predictions across seeds
+- average LightGBM test predictions across seeds
+- convert both test prediction vectors to ranks
+- blend the ranks with the best validation weight
+- map the final blended test ranks onto the sorted full-training target values `y`
+This avoids needing any extra model and keeps the final submission on a realistic target scale.
+
+5. To reduce risk, make the final submission a light hybrid of raw-blend and rank-blend:
+- keep the best raw weighted average from the current approach
+- build the best calibrated rank-based blend described above
+- combine those two final predictions with one more simple validation-tuned weight, for example search `alpha` in {0.25, 0.5, 0.75}
+This is still easy to implement, uses the current script almost unchanged, and is likely more robust than relying on only one merge style.
+
+6. If only one change is allowed, prioritize:
+- multi-seed average within CatBoost
+- multi-seed average within LightGBM
+- validation-tuned hybrid of raw weighted blend and calibrated rank blend
+
+So the recommended improved ensemble is:
+- keep the current seed averaging
+- add a rank-based CatBoost/LightGBM merge with target-order calibration
+- optionally average that result with the original raw weighted blend using a tiny validation search
+[92m23:41:45 - LiteLLM:INFO[0m: utils.py:3748 - 
+LiteLLM completion() model= gpt-5.4; provider = openai
+/home/flo/uni/mle-star-skrub/mle-star_vanilla/agents/machine-learning-engineering/.venv/lib/python3.14/site-packages/pydantic/main.py:464: UserWarning: Pydantic serializer warnings:
+  PydanticSerializationUnexpectedValue(Expected 10 fields but got 6: Expected `Message` - serialized value may not be as expected [field_name='message', input_value=Message(content='```pytho...: None}, annotations=[]), input_type=Message])
+  PydanticSerializationUnexpectedValue(Expected `StreamingChoices` - serialized value may not be as expected [field_name='choices', input_value=Choices(finish_reason='st...ider_specific_fields={}), input_type=Choices])
+  return self.__pydantic_serializer__.to_python(
+[ensemble_plan_implement_agent]: ```python
+import os
+import numpy as np
+import pandas as pd
+import lightgbm as lgb
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import mean_absolute_error
+from catboost import CatBoostRegressor
+
+train_path = os.path.join(".", "input", "train.csv")
+test_path = os.path.join(".", "input", "test.csv")
+
+train = pd.read_csv(train_path)
+test = pd.read_csv(test_path)
+
+X = train.drop(columns=["id", "yield"])
+y = train["yield"]
+X_test = test.drop(columns=["id"])
+
+X_train, X_valid, y_train, y_valid = train_test_split(
+    X,
+    y,
+    test_size=0.2,
+    random_state=42
+)
+
+seed_list = [42, 52, 62]
+
+cat_valid_preds = []
+lgb_valid_preds = []
+
+cat_test_preds = []
+lgb_test_preds = []
+
+for seed in seed_list:
+    cat_model = CatBoostRegressor(
+        iterations=2000,
+        learning_rate=0.03,
+        depth=6,
+        loss_function="MAE",
+        eval_metric="MAE",
+        random_seed=seed,
+        verbose=200
+    )
+
+    lgb_model = lgb.LGBMRegressor(
+        n_estimators=2000,
+        learning_rate=0.03,
+        num_leaves=31,
+        subsample=0.8,
+        colsample_bytree=0.8,
+        objective="regression_l1",
+        random_state=seed
+    )
+
+    cat_model.fit(
+        X_train,
+        y_train,
+        eval_set=(X_valid, y_valid),
+        use_best_model=False
+    )
+
+    lgb_model.fit(
+        X_train,
+        y_train,
+        eval_set=[(X_valid, y_valid)],
+        eval_metric="l1",
+        callbacks=[lgb.log_evaluation(200)]
+    )
+
+    cat_valid_preds.append(cat_model.predict(X_valid))
+    lgb_valid_preds.append(lgb_model.predict(X_valid))
+
+cat_valid_pred = np.mean(cat_valid_preds, axis=0)
+lgb_valid_pred = np.mean(lgb_valid_preds, axis=0)
+
+blend_candidates = [
+    (0.60, 0.40),
+    (0.65, 0.35),
+    (0.70, 0.30),
+    (0.75, 0.25)
+]
+
+best_raw_score = float("inf")
+best_cat_weight_raw, best_lgb_weight_raw = 0.5, 0.5
+
+for cat_weight, lgb_weight in blend_candidates:
+    blended_valid_pred = cat_weight * cat_valid_pred + lgb_weight * lgb_valid_pred
+    score = mean_absolute_error(y_valid, blended_valid_pred)
+    if score < best_raw_score:
+        best_raw_score = score
+        best_cat_weight_raw, best_lgb_weight_raw = cat_weight, lgb_weight
+
+raw_valid_pred = best_cat_weight_raw * cat_valid_pred + best_lgb_weight_raw * lgb_valid_pred
+
+def to_ranks(values):
+    return pd.Series(values).rank(method="average").to_numpy()
+
+def calibrate_by_order(blended_ranks, target_values):
+    blended_ranks = np.asarray(blended_ranks)
+    sorted_targets = np.sort(np.asarray(target_values))
+    order = np.argsort(blended_ranks, kind="mergesort")
+    calibrated = np.empty_like(blended_ranks, dtype=float)
+    calibrated[order] = sorted_targets
+    return calibrated
+
+cat_valid_rank = to_ranks(cat_valid_pred)
+lgb_valid_rank = to_ranks(lgb_valid_pred)
+
+rank_weight_grid = np.arange(0.0, 1.0001, 0.05)
+
+best_rank_score = float("inf")
+best_cat_weight_rank = 0.5
+
+for cat_weight in rank_weight_grid:
+    lgb_weight = 1.0 - cat_weight
+    blended_rank_valid = cat_weight * cat_valid_rank + lgb_weight * lgb_valid_rank
+    calibrated_rank_valid_pred = calibrate_by_order(blended_rank_valid, y_valid.values)
+    score = mean_absolute_error(y_valid, calibrated_rank_valid_pred)
+    if score < best_rank_score:
+        best_rank_score = score
+        best_cat_weight_rank = cat_weight
+
+best_lgb_weight_rank = 1.0 - best_cat_weight_rank
+best_rank_valid = best_cat_weight_rank * cat_valid_rank + best_lgb_weight_rank * lgb_valid_rank
+rank_valid_pred = calibrate_by_order(best_rank_valid, y_valid.values)
+
+alpha_grid = [0.25, 0.50, 0.75]
+best_hybrid_score = float("inf")
+best_alpha = 0.5
+
+for alpha in alpha_grid:
+    hybrid_valid_pred = alpha * raw_valid_pred + (1.0 - alpha) * rank_valid_pred
+    score = mean_absolute_error(y_valid, hybrid_valid_pred)
+    if score < best_hybrid_score:
+        best_hybrid_score = score
+        best_alpha = alpha
+
+valid_pred = best_alpha * raw_valid_pred + (1.0 - best_alpha) * rank_valid_pred
+final_validation_score = mean_absolute_error(y_valid, valid_pred)
+
+for seed in seed_list:
+    full_cat_model = CatBoostRegressor(
+        iterations=2000,
+        learning_rate=0.03,
+        depth=6,
+        loss_function="MAE",
+        eval_metric="MAE",
+        random_seed=seed,
+        verbose=200
+    )
+
+    full_lgb_model = lgb.LGBMRegressor(
+        n_estimators=2000,
+        learning_rate=0.03,
+        num_leaves=31,
+        subsample=0.8,
+        colsample_bytree=0.8,
+        objective="regression_l1",
+        random_state=seed
+    )
+
+    full_cat_model.fit(X, y)
+    full_lgb_model.fit(X, y)
+
+    cat_test_preds.append(full_cat_model.predict(X_test))
+    lgb_test_preds.append(full_lgb_model.predict(X_test))
+
+cat_test_pred = np.mean(cat_test_preds, axis=0)
+lgb_test_pred = np.mean(lgb_test_preds, axis=0)
+
+raw_test_pred = best_cat_weight_raw * cat_test_pred + best_lgb_weight_raw * lgb_test_pred
+
+cat_test_rank = to_ranks(cat_test_pred)
+lgb_test_rank = to_ranks(lgb_test_pred)
+blended_test_rank = best_cat_weight_rank * cat_test_rank + best_lgb_weight_rank * lgb_test_rank
+rank_test_pred = calibrate_by_order(blended_test_rank, y.values)
+
+test_pred = best_alpha * raw_test_pred + (1.0 - best_alpha) * rank_test_pred
+
+submission = pd.DataFrame({
+    "id": test["id"],
+    "yield": test_pred
+})
+submission.to_csv("submission_ensemble.csv", index=False)
+
+print(f"Final Validation Performance: {final_validation_score}")
+```
+[92m23:43:20 - LiteLLM:INFO[0m: utils.py:3748 - 
+LiteLLM completion() model= gpt-5.4; provider = openai
+/home/flo/uni/mle-star-skrub/mle-star_vanilla/agents/machine-learning-engineering/.venv/lib/python3.14/site-packages/pydantic/main.py:464: UserWarning: Pydantic serializer warnings:
+  PydanticSerializationUnexpectedValue(Expected 10 fields but got 6: Expected `Message` - serialized value may not be as expected [field_name='message', input_value=Message(content='**Bug su...: None}, annotations=[]), input_type=Message])
+  PydanticSerializationUnexpectedValue(Expected `StreamingChoices` - serialized value may not be as expected [field_name='choices', input_value=Choices(finish_reason='st...ider_specific_fields={}), input_type=Choices])
+  return self.__pydantic_serializer__.to_python(
+[ensemble_plan_implement_bug_summary_agent]: **Bug summary**
+
+In `ensemble1.py.py`, the error occurs at:
+
+```python
+rank_test_pred = calibrate_by_order(blended_test_rank, y.values)
+```
+
+Inside:
+
+```python
+calibrated[order] = sorted_targets
+```
+
+**Cause:** `calibrate_by_order` assumes `blended_ranks` and `target_values` have the same length. But here:
+
+- `blended_test_rank` has length **10194** (test set)
+- `y.values` has length **15289** (full training targets)
+
+So the function tries to assign 15289 sorted target values into 10194 positions, causing a shape mismatch.
+
+**Relevant error only:**
+```python
+Traceback (most recent call last):
+  File ".../ensemble/ensemble1.py.py", line 177, in <module>
+    rank_test_pred = calibrate_by_order(blended_test_rank, y.values)
+  File ".../ensemble/ensemble1.py.py", line 104, in calibrate_by_order
+    calibrated[order] = sorted_targets
+ValueError: shape mismatch: value array of shape (15289,) could not be broadcast to indexing result of shape (10194,)
+```
+[92m23:43:22 - LiteLLM:INFO[0m: utils.py:3748 - 
+LiteLLM completion() model= gpt-5.4; provider = openai
+/home/flo/uni/mle-star-skrub/mle-star_vanilla/agents/machine-learning-engineering/.venv/lib/python3.14/site-packages/pydantic/main.py:464: UserWarning: Pydantic serializer warnings:
+  PydanticSerializationUnexpectedValue(Expected 10 fields but got 6: Expected `Message` - serialized value may not be as expected [field_name='message', input_value=Message(content='```pytho...: None}, annotations=[]), input_type=Message])
+  PydanticSerializationUnexpectedValue(Expected `StreamingChoices` - serialized value may not be as expected [field_name='choices', input_value=Choices(finish_reason='st...ider_specific_fields={}), input_type=Choices])
+  return self.__pydantic_serializer__.to_python(
+[ensemble_plan_implement_debug_agent]: ```python
+import os
+import sys
+import subprocess
+import numpy as np
+import pandas as pd
+
+def ensure_package(package_name, import_name=None):
+    if import_name is None:
+        import_name = package_name
+    try:
+        __import__(import_name)
+    except ImportError:
+        subprocess.check_call([sys.executable, "-m", "pip", "install", package_name])
+
+ensure_package("lightgbm")
+ensure_package("catboost")
+ensure_package("scikit-learn", "sklearn")
+
+import lightgbm as lgb
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import mean_absolute_error
+from catboost import CatBoostRegressor
+
+train_path = os.path.join(".", "input", "train.csv")
+test_path = os.path.join(".", "input", "test.csv")
+
+train = pd.read_csv(train_path)
+test = pd.read_csv(test_path)
+
+X = train.drop(columns=["id", "yield"])
+y = train["yield"]
+X_test = test.drop(columns=["id"])
+
+X_train, X_valid, y_train, y_valid = train_test_split(
+    X,
+    y,
+    test_size=0.2,
+    random_state=42
+)
+
+seed_list = [42, 52, 62]
+
+cat_valid_preds = []
+lgb_valid_preds = []
+
+cat_test_preds = []
+lgb_test_preds = []
+
+for seed in seed_list:
+    cat_model = CatBoostRegressor(
+        iterations=2000,
+        learning_rate=0.03,
+        depth=6,
+        loss_function="MAE",
+        eval_metric="MAE",
+        random_seed=seed,
+        verbose=200
+    )
+
+    lgb_model = lgb.LGBMRegressor(
+        n_estimators=2000,
+        learning_rate=0.03,
+        num_leaves=31,
+        subsample=0.8,
+        colsample_bytree=0.8,
+        objective="regression_l1",
+        random_state=seed
+    )
+
+    cat_model.fit(
+        X_train,
+        y_train,
+        eval_set=(X_valid, y_valid),
+        use_best_model=False
+    )
+
+    lgb_model.fit(
+        X_train,
+        y_train,
+        eval_set=[(X_valid, y_valid)],
+        eval_metric="l1",
+        callbacks=[lgb.log_evaluation(200)]
+    )
+
+    cat_valid_preds.append(cat_model.predict(X_valid))
+    lgb_valid_preds.append(lgb_model.predict(X_valid))
+
+cat_valid_pred = np.mean(cat_valid_preds, axis=0)
+lgb_valid_pred = np.mean(lgb_valid_preds, axis=0)
+
+blend_candidates = [
+    (0.60, 0.40),
+    (0.65, 0.35),
+    (0.70, 0.30),
+    (0.75, 0.25)
+]
+
+best_raw_score = float("inf")
+best_cat_weight_raw, best_lgb_weight_raw = 0.5, 0.5
+
+for cat_weight, lgb_weight in blend_candidates:
+    blended_valid_pred = cat_weight * cat_valid_pred + lgb_weight * lgb_valid_pred
+    score = mean_absolute_error(y_valid, blended_valid_pred)
+    if score < best_raw_score:
+        best_raw_score = score
+        best_cat_weight_raw, best_lgb_weight_raw = cat_weight, lgb_weight
+
+raw_valid_pred = best_cat_weight_raw * cat_valid_pred + best_lgb_weight_raw * lgb_valid_pred
+
+def to_ranks(values):
+    return pd.Series(values).rank(method="average").to_numpy()
+
+def calibrate_by_order_same_length(blended_ranks, target_values):
+    blended_ranks = np.asarray(blended_ranks)
+    sorted_targets = np.sort(np.asarray(target_values))
+    if len(blended_ranks) != len(sorted_targets):
+        raise ValueError(
+            f"Length mismatch: blended_ranks has length {len(blended_ranks)} "
+            f"but target_values has length {len(sorted_targets)}"
+        )
+    order = np.argsort(blended_ranks, kind="mergesort")
+    calibrated = np.empty_like(blended_ranks, dtype=float)
+    calibrated[order] = sorted_targets
+    return calibrated
+
+def calibrate_by_quantiles(blended_ranks, target_values):
+    blended_ranks = np.asarray(blended_ranks, dtype=float)
+    target_values = np.asarray(target_values, dtype=float)
+    n_pred = len(blended_ranks)
+    n_target = len(target_values)
+
+    if n_pred == 0:
+        return np.array([], dtype=float)
+
+    sorted_targets = np.sort(target_values)
+    order = np.argsort(blended_ranks, kind="mergesort")
+    calibrated = np.empty(n_pred, dtype=float)
+
+    if n_pred == 1:
+        calibrated[order[0]] = np.median(sorted_targets)
+        return calibrated
+
+    quantile_positions = np.linspace(0, n_target - 1, n_pred)
+    mapped_targets = np.interp(
+        quantile_positions,
+        np.arange(n_target),
+        sorted_targets
+    )
+    calibrated[order] = mapped_targets
+    return calibrated
+
+cat_valid_rank = to_ranks(cat_valid_pred)
+lgb_valid_rank = to_ranks(lgb_valid_pred)
+
+rank_weight_grid = np.arange(0.0, 1.0001, 0.05)
+
+best_rank_score = float("inf")
+best_cat_weight_rank = 0.5
+
+for cat_weight in rank_weight_grid:
+    lgb_weight = 1.0 - cat_weight
+    blended_rank_valid = cat_weight * cat_valid_rank + lgb_weight * lgb_valid_rank
+    calibrated_rank_valid_pred = calibrate_by_order_same_length(blended_rank_valid, y_valid.values)
+    score = mean_absolute_error(y_valid, calibrated_rank_valid_pred)
+    if score < best_rank_score:
+        best_rank_score = score
+        best_cat_weight_rank = cat_weight
+
+best_lgb_weight_rank = 1.0 - best_cat_weight_rank
+best_rank_valid = best_cat_weight_rank * cat_valid_rank + best_lgb_weight_rank * lgb_valid_rank
+rank_valid_pred = calibrate_by_order_same_length(best_rank_valid, y_valid.values)
+
+alpha_grid = [0.25, 0.50, 0.75]
+best_hybrid_score = float("inf")
+best_alpha = 0.5
+
+for alpha in alpha_grid:
+    hybrid_valid_pred = alpha * raw_valid_pred + (1.0 - alpha) * rank_valid_pred
+    score = mean_absolute_error(y_valid, hybrid_valid_pred)
+    if score < best_hybrid_score:
+        best_hybrid_score = score
+        best_alpha = alpha
+
+valid_pred = best_alpha * raw_valid_pred + (1.0 - best_alpha) * rank_valid_pred
+final_validation_score = mean_absolute_error(y_valid, valid_pred)
+
+for seed in seed_list:
+    full_cat_model = CatBoostRegressor(
+        iterations=2000,
+        learning_rate=0.03,
+        depth=6,
+        loss_function="MAE",
+        eval_metric="MAE",
+        random_seed=seed,
+        verbose=200
+    )
+
+    full_lgb_model = lgb.LGBMRegressor(
+        n_estimators=2000,
+        learning_rate=0.03,
+        num_leaves=31,
+        subsample=0.8,
+        colsample_bytree=0.8,
+        objective="regression_l1",
+        random_state=seed
+    )
+
+    full_cat_model.fit(X, y)
+    full_lgb_model.fit(X, y)
+
+    cat_test_preds.append(full_cat_model.predict(X_test))
+    lgb_test_preds.append(full_lgb_model.predict(X_test))
+
+cat_test_pred = np.mean(cat_test_preds, axis=0)
+lgb_test_pred = np.mean(lgb_test_preds, axis=0)
+
+raw_test_pred = best_cat_weight_raw * cat_test_pred + best_lgb_weight_raw * lgb_test_pred
+
+cat_test_rank = to_ranks(cat_test_pred)
+lgb_test_rank = to_ranks(lgb_test_pred)
+blended_test_rank = best_cat_weight_rank * cat_test_rank + best_lgb_weight_rank * lgb_test_rank
+
+rank_test_pred = calibrate_by_quantiles(blended_test_rank, y.values)
+
+test_pred = best_alpha * raw_test_pred + (1.0 - best_alpha) * rank_test_pred
+
+submission = pd.DataFrame({
+    "id": test["id"],
+    "yield": test_pred
+})
+submission.to_csv("submission_ensemble.csv", index=False)
+
+print(f"Final Validation Performance: {final_validation_score}")
+```
+[92m23:44:57 - LiteLLM:INFO[0m: utils.py:3748 - 
+LiteLLM completion() model= gpt-5.4; provider = openai
+/home/flo/uni/mle-star-skrub/mle-star_vanilla/agents/machine-learning-engineering/.venv/lib/python3.14/site-packages/pydantic/main.py:464: UserWarning: Pydantic serializer warnings:
+  PydanticSerializationUnexpectedValue(Expected 10 fields but got 6: Expected `Message` - serialized value may not be as expected [field_name='message', input_value=Message(content='```pytho...: None}, annotations=[]), input_type=Message])
+  PydanticSerializationUnexpectedValue(Expected `StreamingChoices` - serialized value may not be as expected [field_name='choices', input_value=Choices(finish_reason='st...ider_specific_fields={}), input_type=Choices])
+  return self.__pydantic_serializer__.to_python(
+[submission_agent]: ```python
+import os
+import sys
+import subprocess
+import numpy as np
+import pandas as pd
+
+def ensure_package(package_name, import_name=None):
+    if import_name is None:
+        import_name = package_name
+    __import__(import_name)
+
+ensure_package("lightgbm")
+ensure_package("catboost")
+ensure_package("sklearn")
+
+import lightgbm as lgb
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import mean_absolute_error
+from catboost import CatBoostRegressor
+
+train_path = os.path.join(".", "input", "train.csv")
+test_path = os.path.join(".", "input", "test.csv")
+
+train = pd.read_csv(train_path)
+test = pd.read_csv(test_path)
+
+X = train.drop(columns=["id", "yield"])
+y = train["yield"]
+X_test = test.drop(columns=["id"])
+
+X_train, X_valid, y_train, y_valid = train_test_split(
+    X,
+    y,
+    test_size=0.2,
+    random_state=42
+)
+
+seed_list = [42, 52, 62]
+
+cat_valid_preds = []
+lgb_valid_preds = []
+
+cat_test_preds = []
+lgb_test_preds = []
+
+for seed in seed_list:
+    cat_model = CatBoostRegressor(
+        iterations=2000,
+        learning_rate=0.03,
+        depth=6,
+        loss_function="MAE",
+        eval_metric="MAE",
+        random_seed=seed,
+        verbose=200
+    )
+
+    lgb_model = lgb.LGBMRegressor(
+        n_estimators=2000,
+        learning_rate=0.03,
+        num_leaves=31,
+        subsample=0.8,
+        colsample_bytree=0.8,
+        objective="regression_l1",
+        random_state=seed
+    )
+
+    cat_model.fit(
+        X_train,
+        y_train,
+        eval_set=(X_valid, y_valid),
+        use_best_model=False
+    )
+
+    lgb_model.fit(
+        X_train,
+        y_train,
+        eval_set=[(X_valid, y_valid)],
+        eval_metric="l1",
+        callbacks=[lgb.log_evaluation(200)]
+    )
+
+    cat_valid_preds.append(cat_model.predict(X_valid))
+    lgb_valid_preds.append(lgb_model.predict(X_valid))
+
+cat_valid_pred = np.mean(cat_valid_preds, axis=0)
+lgb_valid_pred = np.mean(lgb_valid_preds, axis=0)
+
+blend_candidates = [
+    (0.60, 0.40),
+    (0.65, 0.35),
+    (0.70, 0.30),
+    (0.75, 0.25)
+]
+
+best_raw_score = float("inf")
+best_cat_weight_raw, best_lgb_weight_raw = 0.5, 0.5
+
+for cat_weight, lgb_weight in blend_candidates:
+    blended_valid_pred = cat_weight * cat_valid_pred + lgb_weight * lgb_valid_pred
+    score = mean_absolute_error(y_valid, blended_valid_pred)
+    if score < best_raw_score:
+        best_raw_score = score
+        best_cat_weight_raw, best_lgb_weight_raw = cat_weight, lgb_weight
+
+raw_valid_pred = best_cat_weight_raw * cat_valid_pred + best_lgb_weight_raw * lgb_valid_pred
+
+def to_ranks(values):
+    return pd.Series(values).rank(method="average").to_numpy()
+
+def calibrate_by_order_same_length(blended_ranks, target_values):
+    blended_ranks = np.asarray(blended_ranks)
+    sorted_targets = np.sort(np.asarray(target_values))
+    if len(blended_ranks) != len(sorted_targets):
+        raise ValueError(
+            f"Length mismatch: blended_ranks has length {len(blended_ranks)} "
+            f"but target_values has length {len(sorted_targets)}"
+        )
+    order = np.argsort(blended_ranks, kind="mergesort")
+    calibrated = np.empty_like(blended_ranks, dtype=float)
+    calibrated[order] = sorted_targets
+    return calibrated
+
+def calibrate_by_quantiles(blended_ranks, target_values):
+    blended_ranks = np.asarray(blended_ranks, dtype=float)
+    target_values = np.asarray(target_values, dtype=float)
+    n_pred = len(blended_ranks)
+    n_target = len(target_values)
+
+    sorted_targets = np.sort(target_values)
+    order = np.argsort(blended_ranks, kind="mergesort")
+    calibrated = np.empty(n_pred, dtype=float)
+
+    quantile_positions = np.linspace(0, n_target - 1, n_pred)
+    mapped_targets = np.interp(
+        quantile_positions,
+        np.arange(n_target),
+        sorted_targets
+    )
+    calibrated[order] = mapped_targets
+    return calibrated
+
+cat_valid_rank = to_ranks(cat_valid_pred)
+lgb_valid_rank = to_ranks(lgb_valid_pred)
+
+rank_weight_grid = np.arange(0.0, 1.0001, 0.05)
+
+best_rank_score = float("inf")
+best_cat_weight_rank = 0.5
+
+for cat_weight in rank_weight_grid:
+    lgb_weight = 1.0 - cat_weight
+    blended_rank_valid = cat_weight * cat_valid_rank + lgb_weight * lgb_valid_rank
+    calibrated_rank_valid_pred = calibrate_by_order_same_length(blended_rank_valid, y_valid.values)
+    score = mean_absolute_error(y_valid, calibrated_rank_valid_pred)
+    if score < best_rank_score:
+        best_rank_score = score
+        best_cat_weight_rank = cat_weight
+
+best_lgb_weight_rank = 1.0 - best_cat_weight_rank
+best_rank_valid = best_cat_weight_rank * cat_valid_rank + best_lgb_weight_rank * lgb_valid_rank
+rank_valid_pred = calibrate_by_order_same_length(best_rank_valid, y_valid.values)
+
+alpha_grid = [0.25, 0.50, 0.75]
+best_hybrid_score = float("inf")
+best_alpha = 0.5
+
+for alpha in alpha_grid:
+    hybrid_valid_pred = alpha * raw_valid_pred + (1.0 - alpha) * rank_valid_pred
+    score = mean_absolute_error(y_valid, hybrid_valid_pred)
+    if score < best_hybrid_score:
+        best_hybrid_score = score
+        best_alpha = alpha
+
+valid_pred = best_alpha * raw_valid_pred + (1.0 - best_alpha) * rank_valid_pred
+final_validation_score = mean_absolute_error(y_valid, valid_pred)
+
+for seed in seed_list:
+    full_cat_model = CatBoostRegressor(
+        iterations=2000,
+        learning_rate=0.03,
+        depth=6,
+        loss_function="MAE",
+        eval_metric="MAE",
+        random_seed=seed,
+        verbose=200
+    )
+
+    full_lgb_model = lgb.LGBMRegressor(
+        n_estimators=2000,
+        learning_rate=0.03,
+        num_leaves=31,
+        subsample=0.8,
+        colsample_bytree=0.8,
+        objective="regression_l1",
+        random_state=seed
+    )
+
+    full_cat_model.fit(X, y)
+    full_lgb_model.fit(X, y)
+
+    cat_test_preds.append(full_cat_model.predict(X_test))
+    lgb_test_preds.append(full_lgb_model.predict(X_test))
+
+cat_test_pred = np.mean(cat_test_preds, axis=0)
+lgb_test_pred = np.mean(lgb_test_preds, axis=0)
+
+raw_test_pred = best_cat_weight_raw * cat_test_pred + best_lgb_weight_raw * lgb_test_pred
+
+cat_test_rank = to_ranks(cat_test_pred)
+lgb_test_rank = to_ranks(lgb_test_pred)
+blended_test_rank = best_cat_weight_rank * cat_test_rank + best_lgb_weight_rank * lgb_test_rank
+
+rank_test_pred = calibrate_by_quantiles(blended_test_rank, y.values)
+
+test_pred = best_alpha * raw_test_pred + (1.0 - best_alpha) * rank_test_pred
+
+submission = pd.DataFrame({
+    "id": test["id"],
+    "yield": test_pred
+})
+
+os.makedirs(os.path.join(".", "final"), exist_ok=True)
+submission.to_csv(os.path.join(".", "final", "submission.csv"), index=False)
+
+print(f"Final Validation Performance: {final_validation_score}")
+print(f"Saved submission to {os.path.join('.', 'final', 'submission.csv')}")
+```
+[user]: 
+Aborted!

@@ -1,0 +1,50 @@
+## Model name
+CatBoostRegressor
+
+## Example Python code
+import pandas as pd
+import numpy as np
+from catboost import CatBoostRegressor
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import mean_squared_log_error
+
+train = pd.read_csv('train.csv')
+test = pd.read_csv('test.csv')
+
+def rmsle(y_true, y_pred):
+    y_pred = np.clip(y_pred, 0, None)
+    return mean_squared_log_error(y_true, y_pred) ** 0.5
+
+X = train.drop(columns=['Rings'])
+y = train['Rings']
+X_test = test.drop(columns=['id'])
+
+X_tr, X_va, y_tr, y_va = train_test_split(X, y, test_size=0.2, random_state=42)
+cat_features = ['Sex']
+
+model = CatBoostRegressor(
+    loss_function='RMSE',
+    eval_metric='MSLE',
+    iterations=2000,
+    learning_rate=0.03,
+    depth=6,
+    l2_leaf_reg=3,
+    subsample=0.8,
+    random_seed=42,
+    verbose=0
+)
+
+model.fit(
+    X_tr, y_tr,
+    cat_features=cat_features,
+    eval_set=(X_va, y_va),
+    use_best_model=True
+)
+
+val_pred = np.clip(model.predict(X_va), 0, None)
+print('RMSLE:', rmsle(y_va, val_pred))
+
+model.fit(X, y, cat_features=cat_features, verbose=0)
+test_pred = np.clip(model.predict(X_test), 0, None)
+submission = pd.DataFrame({'id': test['id'], 'Rings': test_pred})
+submission.to_csv('submission_catboost.csv', index=False)

@@ -1,0 +1,1793 @@
+# run_experiments.py agent run
+# task=introverts-extroverts-classification system=vanilla seed=42
+# cwd=/home/flo/uni/mle-star-skrub/mle-star_vanilla/agents/machine-learning-engineering
+# cmd=uv run adk run machine_learning_engineering
+
+Log setup complete: /tmp/agents_log/agent.20260710_001654.log
+To access latest log: tail -F /tmp/agents_log/agent.latest.log
+/home/flo/uni/mle-star-skrub/mle-star_vanilla/agents/machine-learning-engineering/.venv/lib/python3.14/site-packages/google/adk/cli/cli.py:189: UserWarning: [EXPERIMENTAL] InMemoryCredentialService: This feature is experimental and may change or be removed in future versions without notice. It may introduce breaking changes at any time.
+  credential_service = InMemoryCredentialService()
+/home/flo/uni/mle-star-skrub/mle-star_vanilla/agents/machine-learning-engineering/.venv/lib/python3.14/site-packages/google/adk/auth/credential_service/in_memory_credential_service.py:33: UserWarning: [EXPERIMENTAL] BaseCredentialService: This feature is experimental and may change or be removed in future versions without notice. It may introduce breaking changes at any time.
+  super().__init__()
+Running agent mle_frontdoor_agent, type exit to exit.
+[user]: [92m00:16:57 - LiteLLM:INFO[0m: utils.py:3748 - 
+LiteLLM completion() model= gpt-5.4; provider = openai
+/home/flo/uni/mle-star-skrub/mle-star_vanilla/agents/machine-learning-engineering/.venv/lib/python3.14/site-packages/pydantic/main.py:464: UserWarning: Pydantic serializer warnings:
+  PydanticSerializationUnexpectedValue(Expected 10 fields but got 6: Expected `Message` - serialized value may not be as expected [field_name='message', input_value=Message(content=None, rol...: None}, annotations=[]), input_type=Message])
+  PydanticSerializationUnexpectedValue(Expected `StreamingChoices` - serialized value may not be as expected [field_name='choices', input_value=Choices(finish_reason='to...ider_specific_fields={}), input_type=Choices])
+  return self.__pydantic_serializer__.to_python(
+/home/flo/uni/mle-star-skrub/mle-star_vanilla/agents/machine-learning-engineering/.venv/lib/python3.14/site-packages/google/adk/flows/llm_flows/base_llm_flow.py:449: UserWarning: [EXPERIMENTAL] feature FeatureName.PROGRESSIVE_SSE_STREAMING is enabled.
+  async for event in agen:
+[92m00:16:59 - LiteLLM:INFO[0m: utils.py:3748 - 
+LiteLLM completion() model= gpt-5.4; provider = openai
+/home/flo/uni/mle-star-skrub/mle-star_vanilla/agents/machine-learning-engineering/.venv/lib/python3.14/site-packages/pydantic/main.py:464: UserWarning: Pydantic serializer warnings:
+  PydanticSerializationUnexpectedValue(Expected 10 fields but got 6: Expected `Message` - serialized value may not be as expected [field_name='message', input_value=Message(content='Tabular ...: None}, annotations=[]), input_type=Message])
+  PydanticSerializationUnexpectedValue(Expected `StreamingChoices` - serialized value may not be as expected [field_name='choices', input_value=Choices(finish_reason='st...ider_specific_fields={}), input_type=Choices])
+  return self.__pydantic_serializer__.to_python(
+[task_summarization_agent]: Tabular binary classification task: predict `Personality` (`Introvert` or `Extrovert`) for each `id` using mixed numerical and categorical social-behavior features from `train.csv` and `test.csv`. Features include `Time_spent_Alone`, `Stage_fear`, `Social_event_attendance`, `Going_outside`, `Drained_after_socializing`, `Friends_circle_size`, and `Post_frequency`, with some missing values. Evaluation metric: `accuracy_score`. Output format: CSV with columns `id,Personality`.
+[92m00:17:01 - LiteLLM:INFO[0m: utils.py:3748 - 
+LiteLLM completion() model= gpt-5.4; provider = openai
+[92m00:17:06 - LiteLLM:INFO[0m: utils.py:3748 - 
+LiteLLM completion() model= gpt-5.4; provider = openai
+/home/flo/uni/mle-star-skrub/mle-star_vanilla/agents/machine-learning-engineering/.venv/lib/python3.14/site-packages/pydantic/main.py:464: UserWarning: Pydantic serializer warnings:
+  PydanticSerializationUnexpectedValue(Expected 10 fields but got 6: Expected `Message` - serialized value may not be as expected [field_name='message', input_value=Message(content='[\n  {\n...: None}, annotations=[]), input_type=Message])
+  PydanticSerializationUnexpectedValue(Expected `StreamingChoices` - serialized value may not be as expected [field_name='choices', input_value=Choices(finish_reason='st...ider_specific_fields={}), input_type=Choices])
+  return self.__pydantic_serializer__.to_python(
+[model_retriever_agent_1]: [
+  {
+    "model_name": "CatBoostClassifier",
+    "example_code": "import pandas as pd\nfrom catboost import CatBoostClassifier\n\ntrain = pd.read_csv('train.csv')\ntest = pd.read_csv('test.csv')\n\ny = (train['Personality'] == 'Extrovert').astype(int)\nX = train.drop(columns=['Personality'])\nX_test = test.copy()\n\ncat_cols = X.select_dtypes(include='object').columns.tolist()\nfor c in cat_cols:\n    X[c] = X[c].fillna('Missing').astype(str)\n    X_test[c] = X_test[c].fillna('Missing').astype(str)\n\nmodel = CatBoostClassifier(\n    iterations=500,\n    depth=6,\n    learning_rate=0.05,\n    loss_function='Logloss',\n    eval_metric='Accuracy',\n    verbose=0,\n    random_state=42\n)\n\nmodel.fit(X, y, cat_features=cat_cols)\npred = model.predict(X_test).astype(int).ravel()\n\nsub = pd.DataFrame({\n    'id': test['id'],\n    'Personality': ['Extrovert' if p == 1 else 'Introvert' for p in pred]\n})\nsub.to_csv('submission.csv', index=False)\n"
+  },
+  {
+    "model_name": "LightGBMClassifier",
+    "example_code": "import pandas as pd\nfrom lightgbm import LGBMClassifier\n\ntrain = pd.read_csv('train.csv')\ntest = pd.read_csv('test.csv')\n\ny = (train['Personality'] == 'Extrovert').astype(int)\nX = train.drop(columns=['Personality'])\nX_test = test.copy()\n\nfor df in [X, X_test]:\n    for c in df.select_dtypes(include='object').columns:\n        df[c] = df[c].fillna('Missing').astype('category')\n\nnum_cols = X.select_dtypes(exclude='category').columns\nX[num_cols] = X[num_cols].fillna(X[num_cols].median())\nX_test[num_cols] = X_test[num_cols].fillna(X[num_cols].median())\n\nmodel = LGBMClassifier(\n    n_estimators=500,\n    learning_rate=0.05,\n    num_leaves=31,\n    subsample=0.9,\n    colsample_bytree=0.9,\n    random_state=42\n)\n\nmodel.fit(X, y)\npred = model.predict(X_test)\n\nsub = pd.DataFrame({\n    'id': test['id'],\n    'Personality': ['Extrovert' if p == 1 else 'Introvert' for p in pred]\n})\nsub.to_csv('submission.csv', index=False)\n"
+  }
+]
+[92m00:17:10 - LiteLLM:INFO[0m: utils.py:3748 - 
+LiteLLM completion() model= gpt-5.4; provider = openai
+/home/flo/uni/mle-star-skrub/mle-star_vanilla/agents/machine-learning-engineering/.venv/lib/python3.14/site-packages/pydantic/main.py:464: UserWarning: Pydantic serializer warnings:
+  PydanticSerializationUnexpectedValue(Expected 10 fields but got 6: Expected `Message` - serialized value may not be as expected [field_name='message', input_value=Message(content="```pytho...: None}, annotations=[]), input_type=Message])
+  PydanticSerializationUnexpectedValue(Expected `StreamingChoices` - serialized value may not be as expected [field_name='choices', input_value=Choices(finish_reason='st...ider_specific_fields={}), input_type=Choices])
+  return self.__pydantic_serializer__.to_python(
+[model_eval_agent_1_1]: ```python
+import os
+import numpy as np
+import pandas as pd
+from catboost import CatBoostClassifier
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import accuracy_score
+
+RANDOM_STATE = 42
+
+train_path = os.path.join('.', 'input', 'train.csv')
+test_path = os.path.join('.', 'input', 'test.csv')
+
+train = pd.read_csv(train_path)
+test = pd.read_csv(test_path)
+
+y = (train['Personality'] == 'Extrovert').astype(int)
+X = train.drop(columns=['Personality']).copy()
+X_test = test.copy()
+
+cat_cols = X.select_dtypes(include=['object']).columns.tolist()
+num_cols = [c for c in X.columns if c not in cat_cols]
+
+for c in cat_cols:
+    X[c] = X[c].fillna('Missing').astype(str)
+    X_test[c] = X_test[c].fillna('Missing').astype(str)
+
+for c in num_cols:
+    median_value = X[c].median()
+    X[c] = X[c].fillna(median_value)
+    X_test[c] = X_test[c].fillna(median_value)
+
+X_train, X_valid, y_train, y_valid = train_test_split(
+    X,
+    y,
+    test_size=0.2,
+    random_state=RANDOM_STATE,
+    stratify=y
+)
+
+model = CatBoostClassifier(
+    iterations=500,
+    depth=6,
+    learning_rate=0.05,
+    loss_function='Logloss',
+    eval_metric='Accuracy',
+    verbose=0,
+    random_state=RANDOM_STATE
+)
+
+model.fit(
+    X_train,
+    y_train,
+    cat_features=cat_cols,
+    eval_set=(X_valid, y_valid),
+    use_best_model=True
+)
+
+valid_pred = model.predict(X_valid).astype(int).ravel()
+final_validation_score = accuracy_score(y_valid, valid_pred)
+
+final_model = CatBoostClassifier(
+    iterations=500,
+    depth=6,
+    learning_rate=0.05,
+    loss_function='Logloss',
+    eval_metric='Accuracy',
+    verbose=0,
+    random_state=RANDOM_STATE
+)
+
+final_model.fit(X, y, cat_features=cat_cols)
+
+test_pred = final_model.predict(X_test).astype(int).ravel()
+
+submission = pd.DataFrame({
+    'id': test['id'],
+    'Personality': np.where(test_pred == 1, 'Extrovert', 'Introvert')
+})
+submission.to_csv('submission.csv', index=False)
+
+print(f'Final Validation Performance: {final_validation_score:.6f}')
+```
+[92m00:17:53 - LiteLLM:INFO[0m: utils.py:3748 - 
+LiteLLM completion() model= gpt-5.4; provider = openai
+/home/flo/uni/mle-star-skrub/mle-star_vanilla/agents/machine-learning-engineering/.venv/lib/python3.14/site-packages/pydantic/main.py:464: UserWarning: Pydantic serializer warnings:
+  PydanticSerializationUnexpectedValue(Expected 10 fields but got 6: Expected `Message` - serialized value may not be as expected [field_name='message', input_value=Message(content="```pytho...: None}, annotations=[]), input_type=Message])
+  PydanticSerializationUnexpectedValue(Expected `StreamingChoices` - serialized value may not be as expected [field_name='choices', input_value=Choices(finish_reason='st...ider_specific_fields={}), input_type=Choices])
+  return self.__pydantic_serializer__.to_python(
+[model_eval_agent_1_2]: ```python
+import os
+import numpy as np
+import pandas as pd
+from lightgbm import LGBMClassifier
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import accuracy_score
+
+RANDOM_STATE = 42
+
+train_path = os.path.join('.', 'input', 'train.csv')
+test_path = os.path.join('.', 'input', 'test.csv')
+
+train = pd.read_csv(train_path)
+test = pd.read_csv(test_path)
+
+y = (train['Personality'] == 'Extrovert').astype(int)
+X = train.drop(columns=['Personality']).copy()
+X_test = test.copy()
+
+cat_cols = X.select_dtypes(include='object').columns.tolist()
+
+for df in [X, X_test]:
+    for c in cat_cols:
+        df[c] = df[c].fillna('Missing').astype('category')
+
+num_cols = X.select_dtypes(exclude='category').columns.tolist()
+num_cols = [c for c in num_cols if c != 'id']
+
+for c in num_cols:
+    median_value = X[c].median()
+    X[c] = X[c].fillna(median_value)
+    X_test[c] = X_test[c].fillna(median_value)
+
+X_train, X_valid, y_train, y_valid = train_test_split(
+    X,
+    y,
+    test_size=0.2,
+    random_state=RANDOM_STATE,
+    stratify=y
+)
+
+model = LGBMClassifier(
+    n_estimators=500,
+    learning_rate=0.05,
+    num_leaves=31,
+    subsample=0.9,
+    colsample_bytree=0.9,
+    random_state=RANDOM_STATE
+)
+
+model.fit(X_train, y_train)
+
+valid_pred = model.predict(X_valid)
+final_validation_score = accuracy_score(y_valid, valid_pred)
+
+final_model = LGBMClassifier(
+    n_estimators=500,
+    learning_rate=0.05,
+    num_leaves=31,
+    subsample=0.9,
+    colsample_bytree=0.9,
+    random_state=RANDOM_STATE
+)
+
+final_model.fit(X, y)
+test_pred = final_model.predict(X_test)
+
+submission = pd.DataFrame({
+    'id': test['id'],
+    'Personality': np.where(test_pred == 1, 'Extrovert', 'Introvert')
+})
+submission.to_csv('submission.csv', index=False)
+
+print(f'Final Validation Performance: {final_validation_score:.6f}')
+```
+[92m00:18:02 - LiteLLM:INFO[0m: utils.py:3748 - 
+LiteLLM completion() model= gpt-5.4; provider = openai
+/home/flo/uni/mle-star-skrub/mle-star_vanilla/agents/machine-learning-engineering/.venv/lib/python3.14/site-packages/pydantic/main.py:464: UserWarning: Pydantic serializer warnings:
+  PydanticSerializationUnexpectedValue(Expected 10 fields but got 6: Expected `Message` - serialized value may not be as expected [field_name='message', input_value=Message(content="```pytho...: None}, annotations=[]), input_type=Message])
+  PydanticSerializationUnexpectedValue(Expected `StreamingChoices` - serialized value may not be as expected [field_name='choices', input_value=Choices(finish_reason='st...ider_specific_fields={}), input_type=Choices])
+  return self.__pydantic_serializer__.to_python(
+[merger_agent_1_1]: ```python
+import os
+import numpy as np
+import pandas as pd
+from catboost import CatBoostClassifier
+from lightgbm import LGBMClassifier
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import accuracy_score
+
+RANDOM_STATE = 42
+
+train_path = os.path.join('.', 'input', 'train.csv')
+test_path = os.path.join('.', 'input', 'test.csv')
+
+train = pd.read_csv(train_path)
+test = pd.read_csv(test_path)
+
+y = (train['Personality'] == 'Extrovert').astype(int)
+X = train.drop(columns=['Personality']).copy()
+X_test = test.copy()
+
+cat_cols = X.select_dtypes(include=['object']).columns.tolist()
+num_cols = [c for c in X.columns if c not in cat_cols and c != 'id']
+
+X_cb = X.copy()
+X_test_cb = X_test.copy()
+for c in cat_cols:
+    X_cb[c] = X_cb[c].fillna('Missing').astype(str)
+    X_test_cb[c] = X_test_cb[c].fillna('Missing').astype(str)
+
+for c in num_cols:
+    median_value = X_cb[c].median()
+    X_cb[c] = X_cb[c].fillna(median_value)
+    X_test_cb[c] = X_test_cb[c].fillna(median_value)
+
+X_lgb = X.copy()
+X_test_lgb = X_test.copy()
+for df in [X_lgb, X_test_lgb]:
+    for c in cat_cols:
+        df[c] = df[c].fillna('Missing').astype('category')
+
+for c in num_cols:
+    median_value = X_lgb[c].median()
+    X_lgb[c] = X_lgb[c].fillna(median_value)
+    X_test_lgb[c] = X_test_lgb[c].fillna(median_value)
+
+train_idx, valid_idx = train_test_split(
+    np.arange(len(X)),
+    test_size=0.2,
+    random_state=RANDOM_STATE,
+    stratify=y
+)
+
+X_train_cb = X_cb.iloc[train_idx]
+X_valid_cb = X_cb.iloc[valid_idx]
+X_train_lgb = X_lgb.iloc[train_idx]
+X_valid_lgb = X_lgb.iloc[valid_idx]
+y_train = y.iloc[train_idx]
+y_valid = y.iloc[valid_idx]
+
+cat_model = CatBoostClassifier(
+    iterations=500,
+    depth=6,
+    learning_rate=0.05,
+    loss_function='Logloss',
+    eval_metric='Accuracy',
+    verbose=0,
+    random_state=RANDOM_STATE
+)
+
+lgb_model = LGBMClassifier(
+    n_estimators=500,
+    learning_rate=0.05,
+    num_leaves=31,
+    subsample=0.9,
+    colsample_bytree=0.9,
+    random_state=RANDOM_STATE
+)
+
+cat_model.fit(
+    X_train_cb,
+    y_train,
+    cat_features=cat_cols,
+    eval_set=(X_valid_cb, y_valid),
+    use_best_model=True
+)
+
+lgb_model.fit(X_train_lgb, y_train)
+
+cat_valid_proba = cat_model.predict_proba(X_valid_cb)[:, 1]
+lgb_valid_proba = lgb_model.predict_proba(X_valid_lgb)[:, 1]
+ensemble_valid_proba = 0.5 * cat_valid_proba + 0.5 * lgb_valid_proba
+valid_pred = (ensemble_valid_proba >= 0.5).astype(int)
+final_validation_score = accuracy_score(y_valid, valid_pred)
+
+final_cat_model = CatBoostClassifier(
+    iterations=500,
+    depth=6,
+    learning_rate=0.05,
+    loss_function='Logloss',
+    eval_metric='Accuracy',
+    verbose=0,
+    random_state=RANDOM_STATE
+)
+
+final_lgb_model = LGBMClassifier(
+    n_estimators=500,
+    learning_rate=0.05,
+    num_leaves=31,
+    subsample=0.9,
+    colsample_bytree=0.9,
+    random_state=RANDOM_STATE
+)
+
+final_cat_model.fit(X_cb, y, cat_features=cat_cols)
+final_lgb_model.fit(X_lgb, y)
+
+cat_test_proba = final_cat_model.predict_proba(X_test_cb)[:, 1]
+lgb_test_proba = final_lgb_model.predict_proba(X_test_lgb)[:, 1]
+ensemble_test_proba = 0.5 * cat_test_proba + 0.5 * lgb_test_proba
+test_pred = (ensemble_test_proba >= 0.5).astype(int)
+
+submission = pd.DataFrame({
+    'id': test['id'],
+    'Personality': np.where(test_pred == 1, 'Extrovert', 'Introvert')
+})
+submission.to_csv('submission.csv', index=False)
+
+print(f'Final Validation Performance: {final_validation_score:.6f}')
+```
+[92m00:18:39 - LiteLLM:INFO[0m: utils.py:3748 - 
+LiteLLM completion() model= gpt-5.4; provider = openai
+/home/flo/uni/mle-star-skrub/mle-star_vanilla/agents/machine-learning-engineering/.venv/lib/python3.14/site-packages/pydantic/main.py:464: UserWarning: Pydantic serializer warnings:
+  PydanticSerializationUnexpectedValue(Expected 10 fields but got 6: Expected `Message` - serialized value may not be as expected [field_name='message', input_value=Message(content='```pytho...: None}, annotations=[]), input_type=Message])
+  PydanticSerializationUnexpectedValue(Expected `StreamingChoices` - serialized value may not be as expected [field_name='choices', input_value=Choices(finish_reason='st...ider_specific_fields={}), input_type=Choices])
+  return self.__pydantic_serializer__.to_python(
+[ablation_agent_1]: ```python
+import os
+import numpy as np
+import pandas as pd
+from catboost import CatBoostClassifier
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import accuracy_score
+
+RANDOM_STATE = 42
+
+train_path = os.path.join('.', 'input', 'train.csv')
+train = pd.read_csv(train_path)
+
+y = (train['Personality'] == 'Extrovert').astype(int)
+X_raw = train.drop(columns=['Personality']).copy()
+
+X_train_raw, X_valid_raw, y_train, y_valid = train_test_split(
+    X_raw,
+    y,
+    test_size=0.2,
+    random_state=RANDOM_STATE,
+    stratify=y
+)
+
+cat_cols = X_train_raw.select_dtypes(include=['object']).columns.tolist()
+num_cols = [c for c in X_train_raw.columns if c not in cat_cols]
+
+def preprocess(train_df, valid_df, fill_cat=True, fill_num=True):
+    train_df = train_df.copy()
+    valid_df = valid_df.copy()
+
+    if fill_cat:
+        for c in cat_cols:
+            train_df[c] = train_df[c].fillna('Missing').astype(str)
+            valid_df[c] = valid_df[c].fillna('Missing').astype(str)
+
+    if fill_num:
+        for c in num_cols:
+            median_value = train_df[c].median()
+            train_df[c] = train_df[c].fillna(median_value)
+            valid_df[c] = valid_df[c].fillna(median_value)
+
+    return train_df, valid_df
+
+def evaluate_ablation(name, fill_cat=True, fill_num=True, use_best_model=True):
+    X_train, X_valid = preprocess(
+        X_train_raw,
+        X_valid_raw,
+        fill_cat=fill_cat,
+        fill_num=fill_num
+    )
+
+    model = CatBoostClassifier(
+        iterations=500,
+        depth=6,
+        learning_rate=0.05,
+        loss_function='Logloss',
+        eval_metric='Accuracy',
+        verbose=0,
+        random_state=RANDOM_STATE
+    )
+
+    fit_kwargs = {
+        "X": X_train,
+        "y": y_train,
+        "cat_features": cat_cols,
+        "eval_set": (X_valid, y_valid)
+    }
+
+    if use_best_model:
+        fit_kwargs["use_best_model"] = True
+
+    model.fit(**fit_kwargs)
+
+    pred = model.predict(X_valid).astype(int).ravel()
+    score = accuracy_score(y_valid, pred)
+    print(f"{name}: accuracy={score:.6f}")
+    return score
+
+results = {}
+
+results["baseline"] = evaluate_ablation(
+    "baseline",
+    fill_cat=True,
+    fill_num=True,
+    use_best_model=True
+)
+
+results["no_categorical_missing_fill"] = evaluate_ablation(
+    "no_categorical_missing_fill",
+    fill_cat=False,
+    fill_num=True,
+    use_best_model=True
+)
+
+results["no_numeric_missing_fill"] = evaluate_ablation(
+    "no_numeric_missing_fill",
+    fill_cat=True,
+    fill_num=False,
+    use_best_model=True
+)
+
+results["no_best_model_selection"] = evaluate_ablation(
+    "no_best_model_selection",
+    fill_cat=True,
+    fill_num=True,
+    use_best_model=False
+)
+
+baseline_score = results["baseline"]
+drops = {k: baseline_score - v for k, v in results.items() if k != "baseline"}
+most_important_part = max(drops, key=drops.get)
+
+print(f"baseline_accuracy={baseline_score:.6f}")
+for name, drop in drops.items():
+    print(f"impact_of_{name}={drop:+.6f}")
+
+print(f"largest_contributor={most_important_part}")
+```
+[92m00:19:00 - LiteLLM:INFO[0m: utils.py:3748 - 
+LiteLLM completion() model= gpt-5.4; provider = openai
+/home/flo/uni/mle-star-skrub/mle-star_vanilla/agents/machine-learning-engineering/.venv/lib/python3.14/site-packages/pydantic/main.py:464: UserWarning: Pydantic serializer warnings:
+  PydanticSerializationUnexpectedValue(Expected 10 fields but got 6: Expected `Message` - serialized value may not be as expected [field_name='message', input_value=Message(content='`ablatio...: None}, annotations=[]), input_type=Message])
+  PydanticSerializationUnexpectedValue(Expected `StreamingChoices` - serialized value may not be as expected [field_name='choices', input_value=Choices(finish_reason='st...ider_specific_fields={}), input_type=Choices])
+  return self.__pydantic_serializer__.to_python(
+[ablation_bug_summary_agent_1]: `ablation_0.py.py` fails in `evaluate_ablation()` at:
+
+```python
+model.fit(**fit_kwargs)
+```
+
+when running:
+
+```python
+results["no_categorical_missing_fill"] = evaluate_ablation(
+    "no_categorical_missing_fill",
+    fill_cat=False,
+    fill_num=True,
+    use_best_model=True
+)
+```
+
+Relevant error:
+
+```python
+_catboost.CatBoostError: Invalid type for cat_feature[non-default value idx=7,feature_idx=2]=nan : cat_features must be integer or string, real number values and NaN values should be converted to string.
+```
+
+Bug summary:
+- In the `no_categorical_missing_fill` ablation, `fill_cat=False` leaves missing values (`NaN`) in categorical columns.
+- Those columns are still passed to CatBoost via `cat_features=cat_cols`.
+- CatBoost does not accept raw `NaN` values in categorical features; categorical values must be strings or integers.
+- So the crash is caused by skipping categorical missing-value filling while still treating those columns as categorical.
+[92m00:19:02 - LiteLLM:INFO[0m: utils.py:3748 - 
+LiteLLM completion() model= gpt-5.4; provider = openai
+/home/flo/uni/mle-star-skrub/mle-star_vanilla/agents/machine-learning-engineering/.venv/lib/python3.14/site-packages/pydantic/main.py:464: UserWarning: Pydantic serializer warnings:
+  PydanticSerializationUnexpectedValue(Expected 10 fields but got 6: Expected `Message` - serialized value may not be as expected [field_name='message', input_value=Message(content='```pytho...: None}, annotations=[]), input_type=Message])
+  PydanticSerializationUnexpectedValue(Expected `StreamingChoices` - serialized value may not be as expected [field_name='choices', input_value=Choices(finish_reason='st...ider_specific_fields={}), input_type=Choices])
+  return self.__pydantic_serializer__.to_python(
+[ablation_debug_agent_1]: ```python
+import os
+import sys
+import subprocess
+import numpy as np
+import pandas as pd
+
+try:
+    from catboost import CatBoostClassifier
+except ModuleNotFoundError:
+    subprocess.check_call([sys.executable, "-m", "pip", "install", "catboost", "-q"])
+    from catboost import CatBoostClassifier
+
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import accuracy_score
+
+RANDOM_STATE = 42
+
+train_path = os.path.join(".", "input", "train.csv")
+test_path = os.path.join(".", "input", "test.csv")
+
+train = pd.read_csv(train_path)
+test = pd.read_csv(test_path)
+
+y = (train["Personality"] == "Extrovert").astype(int)
+X_raw = train.drop(columns=["Personality"]).copy()
+
+X_train_raw, X_valid_raw, y_train, y_valid = train_test_split(
+    X_raw,
+    y,
+    test_size=0.2,
+    random_state=RANDOM_STATE,
+    stratify=y
+)
+
+cat_cols = X_train_raw.select_dtypes(include=["object"]).columns.tolist()
+num_cols = [c for c in X_train_raw.columns if c not in cat_cols]
+
+def preprocess(train_df, valid_df, fill_cat=True, fill_num=True):
+    train_df = train_df.copy()
+    valid_df = valid_df.copy()
+
+    # CatBoost requires categorical columns to contain only strings or integers.
+    # Even when we do not want to "fill" categorical missing values for the ablation,
+    # we still need to convert NaN to a valid string token to avoid runtime failure.
+    for c in cat_cols:
+        if fill_cat:
+            train_df[c] = train_df[c].fillna("Missing")
+            valid_df[c] = valid_df[c].fillna("Missing")
+        else:
+            train_df[c] = train_df[c].where(~train_df[c].isna(), "__NaN__")
+            valid_df[c] = valid_df[c].where(~valid_df[c].isna(), "__NaN__")
+        train_df[c] = train_df[c].astype(str)
+        valid_df[c] = valid_df[c].astype(str)
+
+    if fill_num:
+        for c in num_cols:
+            median_value = train_df[c].median()
+            train_df[c] = train_df[c].fillna(median_value)
+            valid_df[c] = valid_df[c].fillna(median_value)
+
+    return train_df, valid_df
+
+def evaluate_ablation(name, fill_cat=True, fill_num=True, use_best_model=True):
+    X_train, X_valid = preprocess(
+        X_train_raw,
+        X_valid_raw,
+        fill_cat=fill_cat,
+        fill_num=fill_num
+    )
+
+    model = CatBoostClassifier(
+        iterations=500,
+        depth=6,
+        learning_rate=0.05,
+        loss_function="Logloss",
+        eval_metric="Accuracy",
+        verbose=0,
+        random_state=RANDOM_STATE
+    )
+
+    fit_kwargs = {
+        "X": X_train,
+        "y": y_train,
+        "cat_features": cat_cols,
+        "eval_set": (X_valid, y_valid)
+    }
+
+    if use_best_model:
+        fit_kwargs["use_best_model"] = True
+
+    model.fit(**fit_kwargs)
+
+    pred = model.predict(X_valid)
+    pred = np.array(pred).astype(int).ravel()
+    score = accuracy_score(y_valid, pred)
+    print(f"{name}: accuracy={score:.6f}")
+    return score
+
+results = {}
+
+results["baseline"] = evaluate_ablation(
+    "baseline",
+    fill_cat=True,
+    fill_num=True,
+    use_best_model=True
+)
+
+results["no_categorical_missing_fill"] = evaluate_ablation(
+    "no_categorical_missing_fill",
+    fill_cat=False,
+    fill_num=True,
+    use_best_model=True
+)
+
+results["no_numeric_missing_fill"] = evaluate_ablation(
+    "no_numeric_missing_fill",
+    fill_cat=True,
+    fill_num=False,
+    use_best_model=True
+)
+
+results["no_best_model_selection"] = evaluate_ablation(
+    "no_best_model_selection",
+    fill_cat=True,
+    fill_num=True,
+    use_best_model=False
+)
+
+baseline_score = results["baseline"]
+drops = {k: baseline_score - v for k, v in results.items() if k != "baseline"}
+most_important_part = max(drops, key=drops.get)
+
+print(f"baseline_accuracy={baseline_score:.6f}")
+for name, drop in drops.items():
+    print(f"impact_of_{name}={drop:+.6f}")
+print(f"largest_contributor={most_important_part}")
+
+final_validation_score = baseline_score
+print(f"Final Validation Performance: {final_validation_score}")
+
+# Train final model on full training data using baseline preprocessing
+def preprocess_full(train_df, test_df, fill_cat=True, fill_num=True):
+    train_df = train_df.copy()
+    test_df = test_df.copy()
+
+    for c in cat_cols:
+        if fill_cat:
+            train_df[c] = train_df[c].fillna("Missing")
+            test_df[c] = test_df[c].fillna("Missing")
+        else:
+            train_df[c] = train_df[c].where(~train_df[c].isna(), "__NaN__")
+            test_df[c] = test_df[c].where(~test_df[c].isna(), "__NaN__")
+        train_df[c] = train_df[c].astype(str)
+        test_df[c] = test_df[c].astype(str)
+
+    if fill_num:
+        for c in num_cols:
+            median_value = train_df[c].median()
+            train_df[c] = train_df[c].fillna(median_value)
+            test_df[c] = test_df[c].fillna(median_value)
+
+    return train_df, test_df
+
+X_full = train.drop(columns=["Personality"]).copy()
+X_test = test.copy()
+
+X_full_proc, X_test_proc = preprocess_full(
+    X_full,
+    X_test,
+    fill_cat=True,
+    fill_num=True
+)
+
+final_model = CatBoostClassifier(
+    iterations=500,
+    depth=6,
+    learning_rate=0.05,
+    loss_function="Logloss",
+    eval_metric="Accuracy",
+    verbose=0,
+    random_state=RANDOM_STATE
+)
+
+final_model.fit(X_full_proc, y, cat_features=cat_cols)
+
+test_pred = final_model.predict(X_test_proc)
+test_pred = np.array(test_pred).astype(int).ravel()
+test_labels = np.where(test_pred == 1, "Extrovert", "Introvert")
+
+submission = pd.DataFrame({
+    "id": test["id"],
+    "Personality": test_labels
+})
+
+submission.to_csv("submission.csv", index=False)
+print("Saved submission to submission.csv")
+```
+[92m00:20:35 - LiteLLM:INFO[0m: utils.py:3748 - 
+LiteLLM completion() model= gpt-5.4; provider = openai
+/home/flo/uni/mle-star-skrub/mle-star_vanilla/agents/machine-learning-engineering/.venv/lib/python3.14/site-packages/pydantic/main.py:464: UserWarning: Pydantic serializer warnings:
+  PydanticSerializationUnexpectedValue(Expected 10 fields but got 6: Expected `Message` - serialized value may not be as expected [field_name='message', input_value=Message(content='Here is ...: None}, annotations=[]), input_type=Message])
+  PydanticSerializationUnexpectedValue(Expected `StreamingChoices` - serialized value may not be as expected [field_name='choices', input_value=Choices(finish_reason='st...ider_specific_fields={}), input_type=Choices])
+  return self.__pydantic_serializer__.to_python(
+[ablation_summary_agent_1]: Here is a concise summary of the ablation study:
+
+### Baseline
+- **Baseline validation accuracy:** **0.965992**
+- This setup used:
+  - categorical missing value fill
+  - numeric missing value fill
+  - best model selection (`use_best_model=True`)
+
+### Ablation results
+1. **No categorical missing fill**
+   - Accuracy: **0.965992**
+   - Impact vs baseline: **0.000000**
+   - Interpretation: categorical missing-value handling had **no measurable effect** on validation accuracy.
+
+2. **No numeric missing fill**
+   - Accuracy: **0.965452**
+   - Impact vs baseline: **-0.000540** accuracy
+   - Interpretation: numeric missing-value imputation provided a **small but real benefit**.
+
+3. **No best model selection**
+   - Accuracy: **0.965992**
+   - Impact vs baseline: **0.000000**
+   - Interpretation: enabling/disabling CatBoost’s best-model selection made **no difference** in this experiment.
+
+### Main conclusion
+- The **most important component** among the tested choices was **numeric missing-value filling**, though its contribution was **very small**.
+- The other two components—categorical missing fill and best model selection—did **not affect performance** on this validation split.
+
+### Final takeaway
+- **Final validation performance:** **0.965991902834008**
+- The baseline pipeline is reasonable, but the ablation suggests that **only numeric missing-value imputation meaningfully contributed**, and even then the gain was marginal.
+[92m00:20:39 - LiteLLM:INFO[0m: utils.py:3748 - 
+LiteLLM completion() model= gpt-5.4; provider = openai
+/home/flo/uni/mle-star-skrub/mle-star_vanilla/agents/machine-learning-engineering/.venv/lib/python3.14/site-packages/pydantic/main.py:464: UserWarning: Pydantic serializer warnings:
+  PydanticSerializationUnexpectedValue(Expected 10 fields but got 6: Expected `Message` - serialized value may not be as expected [field_name='message', input_value=Message(content='[\n  {\n...: None}, annotations=[]), input_type=Message])
+  PydanticSerializationUnexpectedValue(Expected `StreamingChoices` - serialized value may not be as expected [field_name='choices', input_value=Choices(finish_reason='st...ider_specific_fields={}), input_type=Choices])
+  return self.__pydantic_serializer__.to_python(
+[init_plan_agent_1]: [
+  {
+    "code_block": "for c in cat_cols:\n    X[c] = X[c].fillna('Missing').astype(str)\n    X_test[c] = X_test[c].fillna('Missing').astype(str)\n\nfor c in num_cols:\n    median_value = X[c].median()\n    X[c] = X[c].fillna(median_value)\n    X_test[c] = X_test[c].fillna(median_value)\n\nX_train, X_valid, y_train, y_valid = train_test_split(\n    X,\n    y,\n    test_size=0.2,\n    random_state=RANDOM_STATE,\n    stratify=y\n)\n\nmodel = CatBoostClassifier(\n    iterations=500,\n    depth=6,\n    learning_rate=0.05,\n    loss_function='Logloss',\n    eval_metric='Accuracy',\n    verbose=0,\n    random_state=RANDOM_STATE\n)\n\nmodel.fit(\n    X_train,\n    y_train,\n    cat_features=cat_cols,\n    eval_set=(X_valid, y_valid),\n    use_best_model=True\n)\n\nvalid_pred = model.predict(X_valid).astype(int).ravel()\nfinal_validation_score = accuracy_score(y_valid, valid_pred)\n\nfinal_model = CatBoostClassifier(\n    iterations=500,\n    depth=6,\n    learning_rate=0.05,\n    loss_function='Logloss',\n    eval_metric='Accuracy',\n    verbose=0,\n    random_state=RANDOM_STATE\n)\n\nfinal_model.fit(X, y, cat_features=cat_cols)\n\ntest_pred = final_model.predict(X_test).astype(int).ravel()",
+    "plan": "The ablation suggests preprocessing is already near-minimal, so the best next step is to improve the training block rather than spend effort on categorical missing handling or best-model selection. Keep numeric median imputation, but replace the single holdout evaluation with a small stratified cross-validation loop and average test predictions to reduce split variance and usually gain a bit of leaderboard stability. Within that same block, try a slightly stronger but still cheap CatBoost setup such as a modest increase in iterations with early stopping and possibly tuning depth/l2_leaf_reg over a very small hand-picked set. This focuses compute on the only part likely to matter now: model fitting robustness rather than unused preprocessing choices."
+  }
+]
+[92m00:20:43 - LiteLLM:INFO[0m: utils.py:3748 - 
+LiteLLM completion() model= gpt-5.4; provider = openai
+/home/flo/uni/mle-star-skrub/mle-star_vanilla/agents/machine-learning-engineering/.venv/lib/python3.14/site-packages/pydantic/main.py:464: UserWarning: Pydantic serializer warnings:
+  PydanticSerializationUnexpectedValue(Expected 10 fields but got 6: Expected `Message` - serialized value may not be as expected [field_name='message', input_value=Message(content='```pytho...: None}, annotations=[]), input_type=Message])
+  PydanticSerializationUnexpectedValue(Expected `StreamingChoices` - serialized value may not be as expected [field_name='choices', input_value=Choices(finish_reason='st...ider_specific_fields={}), input_type=Choices])
+  return self.__pydantic_serializer__.to_python(
+[plan_implement_initial_agent_1]: ```python
+for c in cat_cols:
+    X[c] = X[c].fillna('Missing').astype(str)
+    X_test[c] = X_test[c].fillna('Missing').astype(str)
+
+for c in num_cols:
+    median_value = X[c].median()
+    X[c] = X[c].fillna(median_value)
+    X_test[c] = X_test[c].fillna(median_value)
+
+from sklearn.model_selection import StratifiedKFold
+import numpy as np
+
+cv = StratifiedKFold(n_splits=5, shuffle=True, random_state=RANDOM_STATE)
+
+param_grid = [
+    {"depth": 6, "l2_leaf_reg": 3},
+    {"depth": 8, "l2_leaf_reg": 5},
+]
+
+best_cv_score = -np.inf
+best_params = None
+
+for params in param_grid:
+    fold_scores = []
+
+    for fold_idx, (train_idx, valid_idx) in enumerate(cv.split(X, y)):
+        X_train, X_valid = X.iloc[train_idx], X.iloc[valid_idx]
+        y_train, y_valid = y.iloc[train_idx], y.iloc[valid_idx]
+
+        model = CatBoostClassifier(
+            iterations=1200,
+            depth=params["depth"],
+            l2_leaf_reg=params["l2_leaf_reg"],
+            learning_rate=0.05,
+            loss_function='Logloss',
+            eval_metric='Accuracy',
+            verbose=0,
+            random_state=RANDOM_STATE + fold_idx
+        )
+
+        model.fit(
+            X_train,
+            y_train,
+            cat_features=cat_cols,
+            eval_set=(X_valid, y_valid),
+            use_best_model=True,
+            early_stopping_rounds=100
+        )
+
+        valid_pred = model.predict(X_valid).astype(int).ravel()
+        fold_scores.append(accuracy_score(y_valid, valid_pred))
+
+    mean_score = np.mean(fold_scores)
+    if mean_score > best_cv_score:
+        best_cv_score = mean_score
+        best_params = params
+
+final_validation_score = best_cv_score
+
+oof_pred = np.zeros(len(X), dtype=int)
+test_pred_proba = np.zeros(len(X_test), dtype=float)
+
+for fold_idx, (train_idx, valid_idx) in enumerate(cv.split(X, y)):
+    X_train, X_valid = X.iloc[train_idx], X.iloc[valid_idx]
+    y_train, y_valid = y.iloc[train_idx], y.iloc[valid_idx]
+
+    final_model = CatBoostClassifier(
+        iterations=1200,
+        depth=best_params["depth"],
+        l2_leaf_reg=best_params["l2_leaf_reg"],
+        learning_rate=0.05,
+        loss_function='Logloss',
+        eval_metric='Accuracy',
+        verbose=0,
+        random_state=RANDOM_STATE + fold_idx
+    )
+
+    final_model.fit(
+        X_train,
+        y_train,
+        cat_features=cat_cols,
+        eval_set=(X_valid, y_valid),
+        use_best_model=True,
+        early_stopping_rounds=100
+    )
+
+    oof_pred[valid_idx] = final_model.predict(X_valid).astype(int).ravel()
+    test_pred_proba += final_model.predict_proba(X_test)[:, 1] / cv.n_splits
+
+final_validation_score = accuracy_score(y, oof_pred)
+test_pred = (test_pred_proba >= 0.5).astype(int)
+```
+[92m00:22:32 - LiteLLM:INFO[0m: utils.py:3748 - 
+LiteLLM completion() model= gpt-5.4; provider = openai
+/home/flo/uni/mle-star-skrub/mle-star_vanilla/agents/machine-learning-engineering/.venv/lib/python3.14/site-packages/pydantic/main.py:464: UserWarning: Pydantic serializer warnings:
+  PydanticSerializationUnexpectedValue(Expected 10 fields but got 6: Expected `Message` - serialized value may not be as expected [field_name='message', input_value=Message(content="A better...: None}, annotations=[]), input_type=Message])
+  PydanticSerializationUnexpectedValue(Expected `StreamingChoices` - serialized value may not be as expected [field_name='choices', input_value=Choices(finish_reason='st...ider_specific_fields={}), input_type=Choices])
+  return self.__pydantic_serializer__.to_python(
+[plan_refine_agent_1]: A better next step is to exploit CatBoost’s native missing-value handling instead of forcing numeric median imputation, and to add lightweight feature engineering that CatBoost can use well: cast low-cardinality numeric/discrete columns to categorical, and add simple row-wise missing-count indicators. Rather than more CV or grid search, use a single validation split but optimize the decision threshold on validation probabilities (instead of fixed 0.5), since the metric is accuracy and threshold tuning is often a cheap win. Also switch the model selection signal from `eval_metric='Accuracy'` to probability-focused training/early stopping (`Logloss` or `AUC`) while still choosing the final classification threshold by validation accuracy; this often yields better-calibrated predictions without much extra runtime. Finally, train the final model once on full data with the same enriched feature set and apply the tuned threshold to test probabilities.
+[92m00:22:35 - LiteLLM:INFO[0m: utils.py:3748 - 
+LiteLLM completion() model= gpt-5.4; provider = openai
+/home/flo/uni/mle-star-skrub/mle-star_vanilla/agents/machine-learning-engineering/.venv/lib/python3.14/site-packages/pydantic/main.py:464: UserWarning: Pydantic serializer warnings:
+  PydanticSerializationUnexpectedValue(Expected 10 fields but got 6: Expected `Message` - serialized value may not be as expected [field_name='message', input_value=Message(content="```pytho...: None}, annotations=[]), input_type=Message])
+  PydanticSerializationUnexpectedValue(Expected `StreamingChoices` - serialized value may not be as expected [field_name='choices', input_value=Choices(finish_reason='st...ider_specific_fields={}), input_type=Choices])
+  return self.__pydantic_serializer__.to_python(
+[plan_implement_agent_1]: ```python
+X = X.copy()
+X_test = X_test.copy()
+
+# Preserve native numeric missing handling in CatBoost; only normalize categorical missing values.
+for c in cat_cols:
+    X[c] = X[c].fillna('Missing').astype(str)
+    X_test[c] = X_test[c].fillna('Missing').astype(str)
+
+# Lightweight feature engineering: row-wise missing counts.
+X['row_missing_count'] = X.isna().sum(axis=1)
+X_test['row_missing_count'] = X_test.isna().sum(axis=1)
+
+# Cast low-cardinality numeric/discrete columns to categorical so CatBoost can model them better.
+low_card_num_as_cat = []
+for c in num_cols:
+    nunique = X[c].nunique(dropna=True)
+    if nunique <= 20:
+        low_card_num_as_cat.append(c)
+        X[c] = X[c].astype('object').where(X[c].notna(), 'Missing').astype(str)
+        X_test[c] = X_test[c].astype('object').where(X_test[c].notna(), 'Missing').astype(str)
+
+# Missing-count feature can also be useful as categorical if it has low cardinality.
+engineered_cat_cols = []
+if X['row_missing_count'].nunique(dropna=True) <= 20:
+    X['row_missing_count'] = X['row_missing_count'].astype(str)
+    X_test['row_missing_count'] = X_test['row_missing_count'].astype(str)
+    engineered_cat_cols.append('row_missing_count')
+
+cat_features_final = list(dict.fromkeys(list(cat_cols) + low_card_num_as_cat + engineered_cat_cols))
+
+X_train, X_valid, y_train, y_valid = train_test_split(
+    X,
+    y,
+    test_size=0.2,
+    random_state=RANDOM_STATE,
+    stratify=y
+)
+
+model = CatBoostClassifier(
+    iterations=500,
+    depth=6,
+    learning_rate=0.05,
+    loss_function='Logloss',
+    eval_metric='Logloss',
+    verbose=0,
+    random_state=RANDOM_STATE
+)
+
+model.fit(
+    X_train,
+    y_train,
+    cat_features=cat_features_final,
+    eval_set=(X_valid, y_valid),
+    use_best_model=True
+)
+
+valid_proba = model.predict_proba(X_valid)[:, 1]
+
+thresholds = np.linspace(0.05, 0.95, 181)
+threshold_scores = [
+    accuracy_score(y_valid, (valid_proba >= thr).astype(int))
+    for thr in thresholds
+]
+best_threshold = thresholds[int(np.argmax(threshold_scores))]
+final_validation_score = max(threshold_scores)
+
+final_model = CatBoostClassifier(
+    iterations=model.get_best_iteration() if model.get_best_iteration() is not None and model.get_best_iteration() > 0 else 500,
+    depth=6,
+    learning_rate=0.05,
+    loss_function='Logloss',
+    eval_metric='Logloss',
+    verbose=0,
+    random_state=RANDOM_STATE
+)
+
+final_model.fit(X, y, cat_features=cat_features_final)
+
+test_proba = final_model.predict_proba(X_test)[:, 1]
+test_pred = (test_proba >= best_threshold).astype(int).ravel()
+```
+[92m00:23:01 - LiteLLM:INFO[0m: utils.py:3748 - 
+LiteLLM completion() model= gpt-5.4; provider = openai
+/home/flo/uni/mle-star-skrub/mle-star_vanilla/agents/machine-learning-engineering/.venv/lib/python3.14/site-packages/pydantic/main.py:464: UserWarning: Pydantic serializer warnings:
+  PydanticSerializationUnexpectedValue(Expected 10 fields but got 6: Expected `Message` - serialized value may not be as expected [field_name='message', input_value=Message(content='Use the ...: None}, annotations=[]), input_type=Message])
+  PydanticSerializationUnexpectedValue(Expected `StreamingChoices` - serialized value may not be as expected [field_name='choices', input_value=Choices(finish_reason='st...ider_specific_fields={}), input_type=Choices])
+  return self.__pydantic_serializer__.to_python(
+[init_ensemble_plan_agent]: Use the original CV CatBoost solution as the anchor model, and turn the second variant into a companion model with minimal code changes. The ensemble should be done at the probability level, not by hard labels.
+
+Make the two prediction files/models produce:
+- out-of-fold validation probabilities for train
+- test probabilities for test
+
+For solution 1, this only needs a tiny change:
+- store `predict_proba(X_valid)[:, 1]` into an `oof_proba_1` array instead of only hard predictions
+- keep the existing averaged `test_pred_proba` as `test_proba_1`
+
+For the variant from plan_implement_agent_1, do the same:
+- generate `oof_proba_2` on train using CV if possible; if you want to avoid larger edits, at least keep its full-train `test_proba_2`, but CV OOF is strongly preferred for reliable weighting/threshold search
+- keep `test_proba_2`
+
+Then ensemble in the simplest robust way:
+- `ensemble_oof = 0.5 * oof_proba_1 + 0.5 * oof_proba_2`
+- `ensemble_test = 0.5 * test_proba_1 + 0.5 * test_proba_2`
+
+After that, choose the classification threshold using the ensemble OOF predictions, not 0.5 by default:
+- scan thresholds from 0.05 to 0.95
+- pick the threshold maximizing train OOF accuracy
+- apply that threshold to `ensemble_test`
+
+If you have a little extra time, try a tiny manual weight search before finalizing:
+- weights like `(0.7, 0.3)`, `(0.6, 0.4)`, `(0.5, 0.5)`, `(0.4, 0.6)`, `(0.3, 0.7)`
+- for each weight pair, compute ensemble OOF accuracy after threshold tuning
+- keep the best pair
+This is still easy to implement and usually better than equal averaging.
+
+A practical final recipe:
+- Model A = original 5-fold CatBoost pipeline
+- Model B = feature-engineered CatBoost variant
+- collect OOF/test probabilities from both
+- do weighted average
+- tune one final threshold on the blended OOF
+- create submission from the blended test probabilities
+
+This keeps both solutions mostly intact, avoids risky refactoring, and gives the strongest low-complexity ensemble.
+[92m00:23:07 - LiteLLM:INFO[0m: utils.py:3748 - 
+LiteLLM completion() model= gpt-5.4; provider = openai
+/home/flo/uni/mle-star-skrub/mle-star_vanilla/agents/machine-learning-engineering/.venv/lib/python3.14/site-packages/pydantic/main.py:464: UserWarning: Pydantic serializer warnings:
+  PydanticSerializationUnexpectedValue(Expected 10 fields but got 6: Expected `Message` - serialized value may not be as expected [field_name='message', input_value=Message(content='```pytho...: None}, annotations=[]), input_type=Message])
+  PydanticSerializationUnexpectedValue(Expected `StreamingChoices` - serialized value may not be as expected [field_name='choices', input_value=Choices(finish_reason='st...ider_specific_fields={}), input_type=Choices])
+  return self.__pydantic_serializer__.to_python(
+[ensemble_plan_implement_initial_agent]: ```python
+import os
+import numpy as np
+import pandas as pd
+from catboost import CatBoostClassifier
+from sklearn.metrics import accuracy_score
+from sklearn.model_selection import StratifiedKFold
+
+RANDOM_STATE = 42
+
+train_path = os.path.join('.', 'input', 'train.csv')
+test_path = os.path.join('.', 'input', 'test.csv')
+
+train = pd.read_csv(train_path)
+test = pd.read_csv(test_path)
+
+y = (train['Personality'] == 'Extrovert').astype(int)
+X = train.drop(columns=['Personality']).copy()
+X_test = test.copy()
+
+cat_cols = X.select_dtypes(include=['object']).columns.tolist()
+num_cols = [c for c in X.columns if c not in cat_cols]
+
+for c in cat_cols:
+    X[c] = X[c].fillna('Missing').astype(str)
+    X_test[c] = X_test[c].fillna('Missing').astype(str)
+
+for c in num_cols:
+    median_value = X[c].median()
+    X[c] = X[c].fillna(median_value)
+    X_test[c] = X_test[c].fillna(median_value)
+
+cv = StratifiedKFold(n_splits=5, shuffle=True, random_state=RANDOM_STATE)
+
+param_grid = [
+    {"depth": 6, "l2_leaf_reg": 3},
+    {"depth": 8, "l2_leaf_reg": 5},
+]
+
+best_cv_score = -np.inf
+best_params = None
+
+for params in param_grid:
+    fold_scores = []
+
+    for fold_idx, (train_idx, valid_idx) in enumerate(cv.split(X, y)):
+        X_train, X_valid = X.iloc[train_idx], X.iloc[valid_idx]
+        y_train, y_valid = y.iloc[train_idx], y.iloc[valid_idx]
+
+        model = CatBoostClassifier(
+            iterations=1200,
+            depth=params["depth"],
+            l2_leaf_reg=params["l2_leaf_reg"],
+            learning_rate=0.05,
+            loss_function='Logloss',
+            eval_metric='Accuracy',
+            verbose=0,
+            random_state=RANDOM_STATE + fold_idx
+        )
+
+        model.fit(
+            X_train,
+            y_train,
+            cat_features=cat_cols,
+            eval_set=(X_valid, y_valid),
+            use_best_model=True,
+            early_stopping_rounds=100
+        )
+
+        valid_pred = model.predict(X_valid).astype(int).ravel()
+        fold_scores.append(accuracy_score(y_valid, valid_pred))
+
+    mean_score = np.mean(fold_scores)
+    if mean_score > best_cv_score:
+        best_cv_score = mean_score
+        best_params = params
+
+# Model A: original CV CatBoost with probability OOF
+oof_proba_1 = np.zeros(len(X), dtype=float)
+test_proba_1 = np.zeros(len(X_test), dtype=float)
+
+for fold_idx, (train_idx, valid_idx) in enumerate(cv.split(X, y)):
+    X_train, X_valid = X.iloc[train_idx], X.iloc[valid_idx]
+    y_train, y_valid = y.iloc[train_idx], y.iloc[valid_idx]
+
+    final_model = CatBoostClassifier(
+        iterations=1200,
+        depth=best_params["depth"],
+        l2_leaf_reg=best_params["l2_leaf_reg"],
+        learning_rate=0.05,
+        loss_function='Logloss',
+        eval_metric='Accuracy',
+        verbose=0,
+        random_state=RANDOM_STATE + fold_idx
+    )
+
+    final_model.fit(
+        X_train,
+        y_train,
+        cat_features=cat_cols,
+        eval_set=(X_valid, y_valid),
+        use_best_model=True,
+        early_stopping_rounds=100
+    )
+
+    oof_proba_1[valid_idx] = final_model.predict_proba(X_valid)[:, 1]
+    test_proba_1 += final_model.predict_proba(X_test)[:, 1] / cv.n_splits
+
+# Model B: feature-engineered CatBoost variant with minimal additional changes
+X_fe = X.copy()
+X_test_fe = X_test.copy()
+
+if len(num_cols) >= 2:
+    c1, c2 = num_cols[0], num_cols[1]
+    X_fe[f'{c1}_plus_{c2}'] = X_fe[c1] + X_fe[c2]
+    X_test_fe[f'{c1}_plus_{c2}'] = X_test_fe[c1] + X_test_fe[c2]
+    X_fe[f'{c1}_minus_{c2}'] = X_fe[c1] - X_fe[c2]
+    X_test_fe[f'{c1}_minus_{c2}'] = X_test_fe[c1] - X_test_fe[c2]
+
+if len(num_cols) >= 1:
+    c1 = num_cols[0]
+    X_fe[f'{c1}_squared'] = X_fe[c1] ** 2
+    X_test_fe[f'{c1}_squared'] = X_test_fe[c1] ** 2
+
+cat_cols_fe = X_fe.select_dtypes(include=['object']).columns.tolist()
+
+oof_proba_2 = np.zeros(len(X_fe), dtype=float)
+test_proba_2 = np.zeros(len(X_test_fe), dtype=float)
+
+for fold_idx, (train_idx, valid_idx) in enumerate(cv.split(X_fe, y)):
+    X_train, X_valid = X_fe.iloc[train_idx], X_fe.iloc[valid_idx]
+    y_train, y_valid = y.iloc[train_idx], y.iloc[valid_idx]
+
+    model_b = CatBoostClassifier(
+        iterations=1500,
+        depth=7,
+        l2_leaf_reg=5,
+        learning_rate=0.04,
+        loss_function='Logloss',
+        eval_metric='Accuracy',
+        verbose=0,
+        random_state=RANDOM_STATE + 100 + fold_idx
+    )
+
+    model_b.fit(
+        X_train,
+        y_train,
+        cat_features=cat_cols_fe,
+        eval_set=(X_valid, y_valid),
+        use_best_model=True,
+        early_stopping_rounds=100
+    )
+
+    oof_proba_2[valid_idx] = model_b.predict_proba(X_valid)[:, 1]
+    test_proba_2 += model_b.predict_proba(X_test_fe)[:, 1] / cv.n_splits
+
+def find_best_threshold(y_true, proba):
+    best_thr = 0.5
+    best_score = -1.0
+    for thr in np.arange(0.05, 0.951, 0.01):
+        pred = (proba >= thr).astype(int)
+        score = accuracy_score(y_true, pred)
+        if score > best_score:
+            best_score = score
+            best_thr = thr
+    return best_thr, best_score
+
+weight_candidates = [
+    (0.7, 0.3),
+    (0.6, 0.4),
+    (0.5, 0.5),
+    (0.4, 0.6),
+    (0.3, 0.7),
+]
+
+best_weight_pair = None
+best_threshold = None
+best_ensemble_score = -1.0
+best_ensemble_oof = None
+best_ensemble_test = None
+
+for w1, w2 in weight_candidates:
+    ensemble_oof = w1 * oof_proba_1 + w2 * oof_proba_2
+    ensemble_test = w1 * test_proba_1 + w2 * test_proba_2
+    thr, score = find_best_threshold(y, ensemble_oof)
+
+    if score > best_ensemble_score:
+        best_ensemble_score = score
+        best_weight_pair = (w1, w2)
+        best_threshold = thr
+        best_ensemble_oof = ensemble_oof
+        best_ensemble_test = ensemble_test
+
+final_validation_score = best_ensemble_score
+test_pred = (best_ensemble_test >= best_threshold).astype(int)
+
+submission = pd.DataFrame({
+    'id': test['id'],
+    'Personality': np.where(test_pred == 1, 'Extrovert', 'Introvert')
+})
+submission.to_csv('submission.csv', index=False)
+
+print(f'Best Weights: {best_weight_pair}, Best Threshold: {best_threshold:.2f}')
+print(f'Final Validation Performance: {final_validation_score}')
+```
+[92m00:25:23 - LiteLLM:INFO[0m: utils.py:3748 - 
+LiteLLM completion() model= gpt-5.4; provider = openai
+/home/flo/uni/mle-star-skrub/mle-star_vanilla/agents/machine-learning-engineering/.venv/lib/python3.14/site-packages/pydantic/main.py:464: UserWarning: Pydantic serializer warnings:
+  PydanticSerializationUnexpectedValue(Expected 10 fields but got 6: Expected `Message` - serialized value may not be as expected [field_name='message', input_value=Message(content='Keep the...: None}, annotations=[]), input_type=Message])
+  PydanticSerializationUnexpectedValue(Expected `StreamingChoices` - serialized value may not be as expected [field_name='choices', input_value=Choices(finish_reason='st...ider_specific_fields={}), input_type=Choices])
+  return self.__pydantic_serializer__.to_python(
+[ensemble_plan_refine_agent]: Keep the same two-model setup and the same OOF/test probability generation, but replace the fixed weighted-average ensemble with a tiny stacked meta-ensemble trained only on OOF predictions.
+
+Concretely:
+- Preserve Model A and Model B exactly as they are now, including their CV loops.
+- Save `oof_proba_1`, `test_proba_1`, `oof_proba_2`, `test_proba_2`.
+
+Build a very small second-level feature table from these probabilities:
+- `p1 = oof_proba_1`
+- `p2 = oof_proba_2`
+- `p_mean = (p1 + p2) / 2`
+- `p_diff = p1 - p2`
+For test, create the same from `test_proba_1` and `test_proba_2`.
+
+Then fit a simple meta-learner on the OOF level only:
+- Prefer `LogisticRegression` with default/simple settings because it is stable and easy.
+- If you want to stay extremely safe, even just `[p1, p2]` as inputs is enough; adding `p_mean` and `p_diff` is a tiny extra improvement and still low risk.
+- To avoid leakage, generate meta-level OOF predictions with another `StratifiedKFold` over the OOF feature table:
+  - train logistic regression on meta-train folds
+  - predict probabilities on meta-valid folds
+  - average predictions for test across meta folds
+This gives `meta_oof_proba` and `meta_test_proba`.
+
+After that, do threshold tuning on `meta_oof_proba`:
+- scan thresholds from `0.20` to `0.80` with step `0.005` or `0.01`
+- choose the threshold maximizing OOF accuracy
+- apply that threshold to `meta_test_proba`
+
+Why this should beat the previous plan:
+- the old blend assumes one global linear weight pair and cannot adapt when one model is more confident than the other;
+- logistic stacking learns this combination from OOF data automatically;
+- using `p_diff` lets the meta-model react differently when the two base models disagree strongly;
+- this is still a very small code change, much safer than altering base-model training.
+
+If you want one extra easy robustness trick, average two meta-model outputs:
+- meta model 1: logistic regression on `[p1, p2]`
+- meta model 2: logistic regression on `[p1, p2, p_mean, p_diff]`
+- final meta probability = average of the two meta OOF/test predictions
+- threshold-tune this final meta probability
+This remains simple, novel relative to the prior weighted-average plan, and usually performs better than manual weight search.
+[92m00:25:29 - LiteLLM:INFO[0m: utils.py:3748 - 
+LiteLLM completion() model= gpt-5.4; provider = openai
+/home/flo/uni/mle-star-skrub/mle-star_vanilla/agents/machine-learning-engineering/.venv/lib/python3.14/site-packages/pydantic/main.py:464: UserWarning: Pydantic serializer warnings:
+  PydanticSerializationUnexpectedValue(Expected 10 fields but got 6: Expected `Message` - serialized value may not be as expected [field_name='message', input_value=Message(content='```pytho...: None}, annotations=[]), input_type=Message])
+  PydanticSerializationUnexpectedValue(Expected `StreamingChoices` - serialized value may not be as expected [field_name='choices', input_value=Choices(finish_reason='st...ider_specific_fields={}), input_type=Choices])
+  return self.__pydantic_serializer__.to_python(
+[ensemble_plan_implement_agent]: ```python
+import os
+import numpy as np
+import pandas as pd
+from catboost import CatBoostClassifier
+from sklearn.metrics import accuracy_score
+from sklearn.model_selection import StratifiedKFold
+from sklearn.linear_model import LogisticRegression
+
+RANDOM_STATE = 42
+
+train_path = os.path.join('.', 'input', 'train.csv')
+test_path = os.path.join('.', 'input', 'test.csv')
+
+train = pd.read_csv(train_path)
+test = pd.read_csv(test_path)
+
+y = (train['Personality'] == 'Extrovert').astype(int)
+X = train.drop(columns=['Personality']).copy()
+X_test = test.copy()
+
+cat_cols = X.select_dtypes(include=['object']).columns.tolist()
+num_cols = [c for c in X.columns if c not in cat_cols]
+
+for c in cat_cols:
+    X[c] = X[c].fillna('Missing').astype(str)
+    X_test[c] = X_test[c].fillna('Missing').astype(str)
+
+for c in num_cols:
+    median_value = X[c].median()
+    X[c] = X[c].fillna(median_value)
+    X_test[c] = X_test[c].fillna(median_value)
+
+cv = StratifiedKFold(n_splits=5, shuffle=True, random_state=RANDOM_STATE)
+
+# -----------------------------
+# Model 1: preserve original solution
+# -----------------------------
+param_grid_1 = [
+    {"depth": 6, "l2_leaf_reg": 3},
+    {"depth": 8, "l2_leaf_reg": 5},
+]
+
+best_cv_score_1 = -np.inf
+best_params_1 = None
+
+for params in param_grid_1:
+    fold_scores = []
+
+    for fold_idx, (train_idx, valid_idx) in enumerate(cv.split(X, y)):
+        X_train, X_valid = X.iloc[train_idx], X.iloc[valid_idx]
+        y_train, y_valid = y.iloc[train_idx], y.iloc[valid_idx]
+
+        model = CatBoostClassifier(
+            iterations=1200,
+            depth=params["depth"],
+            l2_leaf_reg=params["l2_leaf_reg"],
+            learning_rate=0.05,
+            loss_function='Logloss',
+            eval_metric='Accuracy',
+            verbose=0,
+            random_state=RANDOM_STATE + fold_idx
+        )
+
+        model.fit(
+            X_train,
+            y_train,
+            cat_features=cat_cols,
+            eval_set=(X_valid, y_valid),
+            use_best_model=True,
+            early_stopping_rounds=100
+        )
+
+        valid_pred = model.predict(X_valid).astype(int).ravel()
+        fold_scores.append(accuracy_score(y_valid, valid_pred))
+
+    mean_score = np.mean(fold_scores)
+    if mean_score > best_cv_score_1:
+        best_cv_score_1 = mean_score
+        best_params_1 = params
+
+oof_pred_1 = np.zeros(len(X), dtype=int)
+oof_proba_1 = np.zeros(len(X), dtype=float)
+test_proba_1 = np.zeros(len(X_test), dtype=float)
+
+for fold_idx, (train_idx, valid_idx) in enumerate(cv.split(X, y)):
+    X_train, X_valid = X.iloc[train_idx], X.iloc[valid_idx]
+    y_train, y_valid = y.iloc[train_idx], y.iloc[valid_idx]
+
+    final_model_1 = CatBoostClassifier(
+        iterations=1200,
+        depth=best_params_1["depth"],
+        l2_leaf_reg=best_params_1["l2_leaf_reg"],
+        learning_rate=0.05,
+        loss_function='Logloss',
+        eval_metric='Accuracy',
+        verbose=0,
+        random_state=RANDOM_STATE + fold_idx
+    )
+
+    final_model_1.fit(
+        X_train,
+        y_train,
+        cat_features=cat_cols,
+        eval_set=(X_valid, y_valid),
+        use_best_model=True,
+        early_stopping_rounds=100
+    )
+
+    oof_pred_1[valid_idx] = final_model_1.predict(X_valid).astype(int).ravel()
+    oof_proba_1[valid_idx] = final_model_1.predict_proba(X_valid)[:, 1]
+    test_proba_1 += final_model_1.predict_proba(X_test)[:, 1] / cv.n_splits
+
+# -----------------------------
+# Model 2: same setup, slight variation to keep two-model ensemble
+# -----------------------------
+param_grid_2 = [
+    {"depth": 5, "l2_leaf_reg": 3},
+    {"depth": 7, "l2_leaf_reg": 7},
+]
+
+best_cv_score_2 = -np.inf
+best_params_2 = None
+
+for params in param_grid_2:
+    fold_scores = []
+
+    for fold_idx, (train_idx, valid_idx) in enumerate(cv.split(X, y)):
+        X_train, X_valid = X.iloc[train_idx], X.iloc[valid_idx]
+        y_train, y_valid = y.iloc[train_idx], y.iloc[valid_idx]
+
+        model = CatBoostClassifier(
+            iterations=1500,
+            depth=params["depth"],
+            l2_leaf_reg=params["l2_leaf_reg"],
+            learning_rate=0.03,
+            loss_function='Logloss',
+            eval_metric='Accuracy',
+            verbose=0,
+            random_state=RANDOM_STATE + 100 + fold_idx
+        )
+
+        model.fit(
+            X_train,
+            y_train,
+            cat_features=cat_cols,
+            eval_set=(X_valid, y_valid),
+            use_best_model=True,
+            early_stopping_rounds=100
+        )
+
+        valid_pred = model.predict(X_valid).astype(int).ravel()
+        fold_scores.append(accuracy_score(y_valid, valid_pred))
+
+    mean_score = np.mean(fold_scores)
+    if mean_score > best_cv_score_2:
+        best_cv_score_2 = mean_score
+        best_params_2 = params
+
+oof_pred_2 = np.zeros(len(X), dtype=int)
+oof_proba_2 = np.zeros(len(X), dtype=float)
+test_proba_2 = np.zeros(len(X_test), dtype=float)
+
+for fold_idx, (train_idx, valid_idx) in enumerate(cv.split(X, y)):
+    X_train, X_valid = X.iloc[train_idx], X.iloc[valid_idx]
+    y_train, y_valid = y.iloc[train_idx], y.iloc[valid_idx]
+
+    final_model_2 = CatBoostClassifier(
+        iterations=1500,
+        depth=best_params_2["depth"],
+        l2_leaf_reg=best_params_2["l2_leaf_reg"],
+        learning_rate=0.03,
+        loss_function='Logloss',
+        eval_metric='Accuracy',
+        verbose=0,
+        random_state=RANDOM_STATE + 100 + fold_idx
+    )
+
+    final_model_2.fit(
+        X_train,
+        y_train,
+        cat_features=cat_cols,
+        eval_set=(X_valid, y_valid),
+        use_best_model=True,
+        early_stopping_rounds=100
+    )
+
+    oof_pred_2[valid_idx] = final_model_2.predict(X_valid).astype(int).ravel()
+    oof_proba_2[valid_idx] = final_model_2.predict_proba(X_valid)[:, 1]
+    test_proba_2 += final_model_2.predict_proba(X_test)[:, 1] / cv.n_splits
+
+# -----------------------------
+# Meta-level stacking on OOF only
+# -----------------------------
+meta_features_oof_full = pd.DataFrame({
+    'p1': oof_proba_1,
+    'p2': oof_proba_2,
+    'p_mean': (oof_proba_1 + oof_proba_2) / 2.0,
+    'p_diff': oof_proba_1 - oof_proba_2
+})
+
+meta_features_test_full = pd.DataFrame({
+    'p1': test_proba_1,
+    'p2': test_proba_2,
+    'p_mean': (test_proba_1 + test_proba_2) / 2.0,
+    'p_diff': test_proba_1 - test_proba_2
+})
+
+meta_cv = StratifiedKFold(n_splits=5, shuffle=True, random_state=RANDOM_STATE + 999)
+
+# Meta model 1: [p1, p2]
+meta_oof_proba_1 = np.zeros(len(X), dtype=float)
+meta_test_proba_1 = np.zeros(len(X_test), dtype=float)
+
+for fold_idx, (train_idx, valid_idx) in enumerate(meta_cv.split(meta_features_oof_full, y)):
+    X_meta_train = meta_features_oof_full[['p1', 'p2']].iloc[train_idx]
+    X_meta_valid = meta_features_oof_full[['p1', 'p2']].iloc[valid_idx]
+    y_meta_train = y.iloc[train_idx]
+
+    meta_model_1 = LogisticRegression(random_state=RANDOM_STATE + fold_idx, max_iter=1000)
+    meta_model_1.fit(X_meta_train, y_meta_train)
+
+    meta_oof_proba_1[valid_idx] = meta_model_1.predict_proba(X_meta_valid)[:, 1]
+    meta_test_proba_1 += meta_model_1.predict_proba(meta_features_test_full[['p1', 'p2']])[:, 1] / meta_cv.n_splits
+
+# Meta model 2: [p1, p2, p_mean, p_diff]
+meta_oof_proba_2 = np.zeros(len(X), dtype=float)
+meta_test_proba_2 = np.zeros(len(X_test), dtype=float)
+
+for fold_idx, (train_idx, valid_idx) in enumerate(meta_cv.split(meta_features_oof_full, y)):
+    X_meta_train = meta_features_oof_full[['p1', 'p2', 'p_mean', 'p_diff']].iloc[train_idx]
+    X_meta_valid = meta_features_oof_full[['p1', 'p2', 'p_mean', 'p_diff']].iloc[valid_idx]
+    y_meta_train = y.iloc[train_idx]
+
+    meta_model_2 = LogisticRegression(random_state=RANDOM_STATE + 1000 + fold_idx, max_iter=1000)
+    meta_model_2.fit(X_meta_train, y_meta_train)
+
+    meta_oof_proba_2[valid_idx] = meta_model_2.predict_proba(X_meta_valid)[:, 1]
+    meta_test_proba_2 += meta_model_2.predict_proba(meta_features_test_full[['p1', 'p2', 'p_mean', 'p_diff']])[:, 1] / meta_cv.n_splits
+
+meta_oof_proba = (meta_oof_proba_1 + meta_oof_proba_2) / 2.0
+meta_test_proba = (meta_test_proba_1 + meta_test_proba_2) / 2.0
+
+best_threshold = 0.5
+best_score = -1.0
+
+for threshold in np.arange(0.20, 0.8001, 0.005):
+    preds = (meta_oof_proba >= threshold).astype(int)
+    score = accuracy_score(y, preds)
+    if score > best_score:
+        best_score = score
+        best_threshold = threshold
+
+final_validation_score = best_score
+test_pred = (meta_test_proba >= best_threshold).astype(int)
+
+submission = pd.DataFrame({
+    'id': test['id'],
+    'Personality': np.where(test_pred == 1, 'Extrovert', 'Introvert')
+})
+submission.to_csv('submission.csv', index=False)
+
+print(f'Final Validation Performance: {final_validation_score}')
+```
+[92m00:28:19 - LiteLLM:INFO[0m: utils.py:3748 - 
+LiteLLM completion() model= gpt-5.4; provider = openai
+/home/flo/uni/mle-star-skrub/mle-star_vanilla/agents/machine-learning-engineering/.venv/lib/python3.14/site-packages/pydantic/main.py:464: UserWarning: Pydantic serializer warnings:
+  PydanticSerializationUnexpectedValue(Expected 10 fields but got 6: Expected `Message` - serialized value may not be as expected [field_name='message', input_value=Message(content='```pytho...: None}, annotations=[]), input_type=Message])
+  PydanticSerializationUnexpectedValue(Expected `StreamingChoices` - serialized value may not be as expected [field_name='choices', input_value=Choices(finish_reason='st...ider_specific_fields={}), input_type=Choices])
+  return self.__pydantic_serializer__.to_python(
+[submission_agent]: ```python
+import os
+import numpy as np
+import pandas as pd
+from catboost import CatBoostClassifier
+from sklearn.metrics import accuracy_score
+from sklearn.model_selection import StratifiedKFold
+from sklearn.linear_model import LogisticRegression
+
+RANDOM_STATE = 42
+
+train_path = os.path.join('.', 'input', 'train.csv')
+test_path = os.path.join('.', 'input', 'test.csv')
+
+train = pd.read_csv(train_path)
+test = pd.read_csv(test_path)
+
+y = (train['Personality'] == 'Extrovert').astype(int)
+X = train.drop(columns=['Personality']).copy()
+X_test = test.copy()
+
+cat_cols = X.select_dtypes(include=['object']).columns.tolist()
+num_cols = [c for c in X.columns if c not in cat_cols]
+
+for c in cat_cols:
+    X[c] = X[c].fillna('Missing').astype(str)
+    X_test[c] = X_test[c].fillna('Missing').astype(str)
+
+for c in num_cols:
+    median_value = X[c].median()
+    X[c] = X[c].fillna(median_value)
+    X_test[c] = X_test[c].fillna(median_value)
+
+cv = StratifiedKFold(n_splits=5, shuffle=True, random_state=RANDOM_STATE)
+
+param_grid_1 = [
+    {"depth": 6, "l2_leaf_reg": 3},
+    {"depth": 8, "l2_leaf_reg": 5},
+]
+
+best_cv_score_1 = -np.inf
+best_params_1 = None
+
+for params in param_grid_1:
+    fold_scores = []
+
+    for fold_idx, (train_idx, valid_idx) in enumerate(cv.split(X, y)):
+        X_train, X_valid = X.iloc[train_idx], X.iloc[valid_idx]
+        y_train, y_valid = y.iloc[train_idx], y.iloc[valid_idx]
+
+        model = CatBoostClassifier(
+            iterations=1200,
+            depth=params["depth"],
+            l2_leaf_reg=params["l2_leaf_reg"],
+            learning_rate=0.05,
+            loss_function='Logloss',
+            eval_metric='Accuracy',
+            verbose=0,
+            random_state=RANDOM_STATE + fold_idx
+        )
+
+        model.fit(
+            X_train,
+            y_train,
+            cat_features=cat_cols,
+            eval_set=(X_valid, y_valid),
+            use_best_model=True,
+            early_stopping_rounds=100
+        )
+
+        valid_pred = model.predict(X_valid).astype(int).ravel()
+        fold_scores.append(accuracy_score(y_valid, valid_pred))
+
+    mean_score = np.mean(fold_scores)
+    if mean_score > best_cv_score_1:
+        best_cv_score_1 = mean_score
+        best_params_1 = params
+
+oof_pred_1 = np.zeros(len(X), dtype=int)
+oof_proba_1 = np.zeros(len(X), dtype=float)
+test_proba_1 = np.zeros(len(X_test), dtype=float)
+
+for fold_idx, (train_idx, valid_idx) in enumerate(cv.split(X, y)):
+    X_train, X_valid = X.iloc[train_idx], X.iloc[valid_idx]
+    y_train, y_valid = y.iloc[train_idx], y.iloc[valid_idx]
+
+    final_model_1 = CatBoostClassifier(
+        iterations=1200,
+        depth=best_params_1["depth"],
+        l2_leaf_reg=best_params_1["l2_leaf_reg"],
+        learning_rate=0.05,
+        loss_function='Logloss',
+        eval_metric='Accuracy',
+        verbose=0,
+        random_state=RANDOM_STATE + fold_idx
+    )
+
+    final_model_1.fit(
+        X_train,
+        y_train,
+        cat_features=cat_cols,
+        eval_set=(X_valid, y_valid),
+        use_best_model=True,
+        early_stopping_rounds=100
+    )
+
+    oof_pred_1[valid_idx] = final_model_1.predict(X_valid).astype(int).ravel()
+    oof_proba_1[valid_idx] = final_model_1.predict_proba(X_valid)[:, 1]
+    test_proba_1 += final_model_1.predict_proba(X_test)[:, 1] / cv.n_splits
+
+param_grid_2 = [
+    {"depth": 5, "l2_leaf_reg": 3},
+    {"depth": 7, "l2_leaf_reg": 7},
+]
+
+best_cv_score_2 = -np.inf
+best_params_2 = None
+
+for params in param_grid_2:
+    fold_scores = []
+
+    for fold_idx, (train_idx, valid_idx) in enumerate(cv.split(X, y)):
+        X_train, X_valid = X.iloc[train_idx], X.iloc[valid_idx]
+        y_train, y_valid = y.iloc[train_idx], y.iloc[valid_idx]
+
+        model = CatBoostClassifier(
+            iterations=1500,
+            depth=params["depth"],
+            l2_leaf_reg=params["l2_leaf_reg"],
+            learning_rate=0.03,
+            loss_function='Logloss',
+            eval_metric='Accuracy',
+            verbose=0,
+            random_state=RANDOM_STATE + 100 + fold_idx
+        )
+
+        model.fit(
+            X_train,
+            y_train,
+            cat_features=cat_cols,
+            eval_set=(X_valid, y_valid),
+            use_best_model=True,
+            early_stopping_rounds=100
+        )
+
+        valid_pred = model.predict(X_valid).astype(int).ravel()
+        fold_scores.append(accuracy_score(y_valid, valid_pred))
+
+    mean_score = np.mean(fold_scores)
+    if mean_score > best_cv_score_2:
+        best_cv_score_2 = mean_score
+        best_params_2 = params
+
+oof_pred_2 = np.zeros(len(X), dtype=int)
+oof_proba_2 = np.zeros(len(X), dtype=float)
+test_proba_2 = np.zeros(len(X_test), dtype=float)
+
+for fold_idx, (train_idx, valid_idx) in enumerate(cv.split(X, y)):
+    X_train, X_valid = X.iloc[train_idx], X.iloc[valid_idx]
+    y_train, y_valid = y.iloc[train_idx], y.iloc[valid_idx]
+
+    final_model_2 = CatBoostClassifier(
+        iterations=1500,
+        depth=best_params_2["depth"],
+        l2_leaf_reg=best_params_2["l2_leaf_reg"],
+        learning_rate=0.03,
+        loss_function='Logloss',
+        eval_metric='Accuracy',
+        verbose=0,
+        random_state=RANDOM_STATE + 100 + fold_idx
+    )
+
+    final_model_2.fit(
+        X_train,
+        y_train,
+        cat_features=cat_cols,
+        eval_set=(X_valid, y_valid),
+        use_best_model=True,
+        early_stopping_rounds=100
+    )
+
+    oof_pred_2[valid_idx] = final_model_2.predict(X_valid).astype(int).ravel()
+    oof_proba_2[valid_idx] = final_model_2.predict_proba(X_valid)[:, 1]
+    test_proba_2 += final_model_2.predict_proba(X_test)[:, 1] / cv.n_splits
+
+meta_features_oof_full = pd.DataFrame({
+    'p1': oof_proba_1,
+    'p2': oof_proba_2,
+    'p_mean': (oof_proba_1 + oof_proba_2) / 2.0,
+    'p_diff': oof_proba_1 - oof_proba_2
+})
+
+meta_features_test_full = pd.DataFrame({
+    'p1': test_proba_1,
+    'p2': test_proba_2,
+    'p_mean': (test_proba_1 + test_proba_2) / 2.0,
+    'p_diff': test_proba_1 - test_proba_2
+})
+
+meta_cv = StratifiedKFold(n_splits=5, shuffle=True, random_state=RANDOM_STATE + 999)
+
+meta_oof_proba_1 = np.zeros(len(X), dtype=float)
+meta_test_proba_1 = np.zeros(len(X_test), dtype=float)
+
+for fold_idx, (train_idx, valid_idx) in enumerate(meta_cv.split(meta_features_oof_full, y)):
+    X_meta_train = meta_features_oof_full[['p1', 'p2']].iloc[train_idx]
+    X_meta_valid = meta_features_oof_full[['p1', 'p2']].iloc[valid_idx]
+    y_meta_train = y.iloc[train_idx]
+
+    meta_model_1 = LogisticRegression(random_state=RANDOM_STATE + fold_idx, max_iter=1000)
+    meta_model_1.fit(X_meta_train, y_meta_train)
+
+    meta_oof_proba_1[valid_idx] = meta_model_1.predict_proba(X_meta_valid)[:, 1]
+    meta_test_proba_1 += meta_model_1.predict_proba(meta_features_test_full[['p1', 'p2']])[:, 1] / meta_cv.n_splits
+
+meta_oof_proba_2 = np.zeros(len(X), dtype=float)
+meta_test_proba_2 = np.zeros(len(X_test), dtype=float)
+
+for fold_idx, (train_idx, valid_idx) in enumerate(meta_cv.split(meta_features_oof_full, y)):
+    X_meta_train = meta_features_oof_full[['p1', 'p2', 'p_mean', 'p_diff']].iloc[train_idx]
+    X_meta_valid = meta_features_oof_full[['p1', 'p2', 'p_mean', 'p_diff']].iloc[valid_idx]
+    y_meta_train = y.iloc[train_idx]
+
+    meta_model_2 = LogisticRegression(random_state=RANDOM_STATE + 1000 + fold_idx, max_iter=1000)
+    meta_model_2.fit(X_meta_train, y_meta_train)
+
+    meta_oof_proba_2[valid_idx] = meta_model_2.predict_proba(X_meta_valid)[:, 1]
+    meta_test_proba_2 += meta_model_2.predict_proba(meta_features_test_full[['p1', 'p2', 'p_mean', 'p_diff']])[:, 1] / meta_cv.n_splits
+
+meta_oof_proba = (meta_oof_proba_1 + meta_oof_proba_2) / 2.0
+meta_test_proba = (meta_test_proba_1 + meta_test_proba_2) / 2.0
+
+best_threshold = 0.5
+best_score = -1.0
+
+for threshold in np.arange(0.20, 0.8001, 0.005):
+    preds = (meta_oof_proba >= threshold).astype(int)
+    score = accuracy_score(y, preds)
+    if score > best_score:
+        best_score = score
+        best_threshold = threshold
+
+final_validation_score = best_score
+test_pred = (meta_test_proba >= best_threshold).astype(int)
+
+submission = pd.DataFrame({
+    'id': test['id'],
+    'Personality': np.where(test_pred == 1, 'Extrovert', 'Introvert')
+})
+
+os.makedirs('./final', exist_ok=True)
+submission.to_csv('./final/submission.csv', index=False)
+
+print(f'Final Validation Performance: {final_validation_score}')
+print('Saved submission to ./final/submission.csv')
+```
+[user]: 
+Aborted!

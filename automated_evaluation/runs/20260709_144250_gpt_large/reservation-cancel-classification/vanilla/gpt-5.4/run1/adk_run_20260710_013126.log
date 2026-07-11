@@ -1,0 +1,3557 @@
+# run_experiments.py agent run
+# task=reservation-cancel-classification system=vanilla seed=42
+# cwd=/home/flo/uni/mle-star-skrub/mle-star_vanilla/agents/machine-learning-engineering
+# cmd=uv run adk run machine_learning_engineering
+
+Log setup complete: /tmp/agents_log/agent.20260710_033134.log
+To access latest log: tail -F /tmp/agents_log/agent.latest.log
+/home/flo/uni/mle-star-skrub/mle-star_vanilla/agents/machine-learning-engineering/.venv/lib/python3.14/site-packages/google/adk/cli/cli.py:189: UserWarning: [EXPERIMENTAL] InMemoryCredentialService: This feature is experimental and may change or be removed in future versions without notice. It may introduce breaking changes at any time.
+  credential_service = InMemoryCredentialService()
+/home/flo/uni/mle-star-skrub/mle-star_vanilla/agents/machine-learning-engineering/.venv/lib/python3.14/site-packages/google/adk/auth/credential_service/in_memory_credential_service.py:33: UserWarning: [EXPERIMENTAL] BaseCredentialService: This feature is experimental and may change or be removed in future versions without notice. It may introduce breaking changes at any time.
+  super().__init__()
+Running agent mle_frontdoor_agent, type exit to exit.
+[user]: [92m03:31:37 - LiteLLM:INFO[0m: utils.py:3748 - 
+LiteLLM completion() model= gpt-5.4; provider = openai
+/home/flo/uni/mle-star-skrub/mle-star_vanilla/agents/machine-learning-engineering/.venv/lib/python3.14/site-packages/pydantic/main.py:464: UserWarning: Pydantic serializer warnings:
+  PydanticSerializationUnexpectedValue(Expected 10 fields but got 6: Expected `Message` - serialized value may not be as expected [field_name='message', input_value=Message(content=None, rol...: None}, annotations=[]), input_type=Message])
+  PydanticSerializationUnexpectedValue(Expected `StreamingChoices` - serialized value may not be as expected [field_name='choices', input_value=Choices(finish_reason='to...ider_specific_fields={}), input_type=Choices])
+  return self.__pydantic_serializer__.to_python(
+/home/flo/uni/mle-star-skrub/mle-star_vanilla/agents/machine-learning-engineering/.venv/lib/python3.14/site-packages/google/adk/flows/llm_flows/base_llm_flow.py:449: UserWarning: [EXPERIMENTAL] feature FeatureName.PROGRESSIVE_SSE_STREAMING is enabled.
+  async for event in agen:
+[92m03:31:39 - LiteLLM:INFO[0m: utils.py:3748 - 
+LiteLLM completion() model= gpt-5.4; provider = openai
+/home/flo/uni/mle-star-skrub/mle-star_vanilla/agents/machine-learning-engineering/.venv/lib/python3.14/site-packages/pydantic/main.py:464: UserWarning: Pydantic serializer warnings:
+  PydanticSerializationUnexpectedValue(Expected 10 fields but got 6: Expected `Message` - serialized value may not be as expected [field_name='message', input_value=Message(content='Tabular ...: None}, annotations=[]), input_type=Message])
+  PydanticSerializationUnexpectedValue(Expected `StreamingChoices` - serialized value may not be as expected [field_name='choices', input_value=Choices(finish_reason='st...ider_specific_fields={}), input_type=Choices])
+  return self.__pydantic_serializer__.to_python(
+[task_summarization_agent]: Tabular binary classification task to predict `booking_status` for each `id` in a hotel reservation dataset.
+
+- Target: `booking_status` (canceled vs not canceled)
+- Evaluation metric: `roc_auc_score`
+- Train: `train.csv` with target column
+- Test: `test.csv` without target
+- Submission: CSV with columns `id,booking_status` where `booking_status` is predicted probability/score for the positive class
+- Feature types: mostly numeric/categorical-encoded tabular features such as guest counts, nights, meal plan, parking, room type, lead time, arrival date parts, market segment, repeated guest, previous cancellations/bookings, average room price, and special requests
+- Goal: output cancellation probability for each test `id`
+[92m03:31:42 - LiteLLM:INFO[0m: utils.py:3748 - 
+LiteLLM completion() model= gpt-5.4; provider = openai
+[92m03:31:48 - LiteLLM:INFO[0m: utils.py:3748 - 
+LiteLLM completion() model= gpt-5.4; provider = openai
+/home/flo/uni/mle-star-skrub/mle-star_vanilla/agents/machine-learning-engineering/.venv/lib/python3.14/site-packages/pydantic/main.py:464: UserWarning: Pydantic serializer warnings:
+  PydanticSerializationUnexpectedValue(Expected 10 fields but got 6: Expected `Message` - serialized value may not be as expected [field_name='message', input_value=Message(content='[\n  {\n...: None}, annotations=[]), input_type=Message])
+  PydanticSerializationUnexpectedValue(Expected `StreamingChoices` - serialized value may not be as expected [field_name='choices', input_value=Choices(finish_reason='st...ider_specific_fields={}), input_type=Choices])
+  return self.__pydantic_serializer__.to_python(
+[model_retriever_agent_1]: [
+  {
+    "model_name": "CatBoostClassifier",
+    "example_code": "import pandas as pd\nfrom catboost import CatBoostClassifier\n\ntrain = pd.read_csv('train.csv')\ntest = pd.read_csv('test.csv')\n\ntarget = 'booking_status'\nignore = ['id', target]\nfeatures = [c for c in train.columns if c not in ignore]\n\nX = train[features]\ny = train[target]\nX_test = test[features]\n\ncat_cols = [c for c in features if X[c].dtype == 'object']\ncat_idx = [features.index(c) for c in cat_cols]\n\nmodel = CatBoostClassifier(\n    iterations=2000,\n    learning_rate=0.03,\n    depth=6,\n    loss_function='Logloss',\n    eval_metric='AUC',\n    random_seed=42,\n    verbose=200\n)\n\nmodel.fit(X, y, cat_features=cat_idx)\npred = model.predict_proba(X_test)[:, 1]\n\nsub = pd.DataFrame({'id': test['id'], 'booking_status': pred})\nsub.to_csv('submission_catboost.csv', index=False)\n"
+  },
+  {
+    "model_name": "TabPFNClassifier",
+    "example_code": "import pandas as pd\nfrom sklearn.preprocessing import LabelEncoder\nfrom tabpfn import TabPFNClassifier\n\ntrain = pd.read_csv('train.csv')\ntest = pd.read_csv('test.csv')\n\ntarget = 'booking_status'\nfeatures = [c for c in train.columns if c not in ['id', target]]\n\nX = train[features].copy()\nX_test = test[features].copy()\ny = train[target]\n\n# simple encoding for object columns\nfor c in X.columns:\n    if X[c].dtype == 'object':\n        le = LabelEncoder()\n        all_vals = pd.concat([X[c].astype(str), X_test[c].astype(str)], axis=0)\n        le.fit(all_vals)\n        X[c] = le.transform(X[c].astype(str))\n        X_test[c] = le.transform(X_test[c].astype(str))\n\nmodel = TabPFNClassifier(device='cpu')  # use 'cuda' if available\nmodel.fit(X, y)\npred = model.predict_proba(X_test)[:, 1]\n\nsub = pd.DataFrame({'id': test['id'], 'booking_status': pred})\nsub.to_csv('submission_tabpfn.csv', index=False)\n"
+  }
+]
+[92m03:31:52 - LiteLLM:INFO[0m: utils.py:3748 - 
+LiteLLM completion() model= gpt-5.4; provider = openai
+/home/flo/uni/mle-star-skrub/mle-star_vanilla/agents/machine-learning-engineering/.venv/lib/python3.14/site-packages/pydantic/main.py:464: UserWarning: Pydantic serializer warnings:
+  PydanticSerializationUnexpectedValue(Expected 10 fields but got 6: Expected `Message` - serialized value may not be as expected [field_name='message', input_value=Message(content="```pytho...: None}, annotations=[]), input_type=Message])
+  PydanticSerializationUnexpectedValue(Expected `StreamingChoices` - serialized value may not be as expected [field_name='choices', input_value=Choices(finish_reason='st...ider_specific_fields={}), input_type=Choices])
+  return self.__pydantic_serializer__.to_python(
+[model_eval_agent_1_1]: ```python
+import os
+import pandas as pd
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import roc_auc_score
+from catboost import CatBoostClassifier
+
+train_path = os.path.join('.', 'input', 'train.csv')
+test_path = os.path.join('.', 'input', 'test.csv')
+
+train = pd.read_csv(train_path)
+test = pd.read_csv(test_path)
+
+target = 'booking_status'
+ignore = ['id', target]
+features = [c for c in train.columns if c not in ignore]
+
+X = train[features].copy()
+y = train[target].copy()
+X_test = test[features].copy()
+
+cat_cols = [c for c in features if X[c].dtype == 'object']
+cat_idx = [features.index(c) for c in cat_cols]
+
+X_train, X_valid, y_train, y_valid = train_test_split(
+    X,
+    y,
+    test_size=0.2,
+    random_state=42,
+    stratify=y
+)
+
+model = CatBoostClassifier(
+    iterations=2000,
+    learning_rate=0.03,
+    depth=6,
+    loss_function='Logloss',
+    eval_metric='AUC',
+    random_seed=42,
+    verbose=200
+)
+
+model.fit(
+    X_train,
+    y_train,
+    cat_features=cat_idx,
+    eval_set=(X_valid, y_valid),
+    use_best_model=True
+)
+
+valid_pred = model.predict_proba(X_valid)[:, 1]
+final_validation_score = roc_auc_score(y_valid, valid_pred)
+print(f'Final Validation Performance: {final_validation_score}')
+
+test_pred = model.predict_proba(X_test)[:, 1]
+submission = pd.DataFrame({
+    'id': test['id'],
+    'booking_status': test_pred
+})
+submission.to_csv('submission_catboost.csv', index=False)
+```
+[92m03:32:24 - LiteLLM:INFO[0m: utils.py:3748 - 
+LiteLLM completion() model= gpt-5.4; provider = openai
+/home/flo/uni/mle-star-skrub/mle-star_vanilla/agents/machine-learning-engineering/.venv/lib/python3.14/site-packages/pydantic/main.py:464: UserWarning: Pydantic serializer warnings:
+  PydanticSerializationUnexpectedValue(Expected 10 fields but got 6: Expected `Message` - serialized value may not be as expected [field_name='message', input_value=Message(content="```pytho...: None}, annotations=[]), input_type=Message])
+  PydanticSerializationUnexpectedValue(Expected `StreamingChoices` - serialized value may not be as expected [field_name='choices', input_value=Choices(finish_reason='st...ider_specific_fields={}), input_type=Choices])
+  return self.__pydantic_serializer__.to_python(
+[model_eval_agent_1_2]: ```python
+import os
+import numpy as np
+import pandas as pd
+import torch
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import roc_auc_score
+from sklearn.preprocessing import LabelEncoder
+from tabpfn import TabPFNClassifier
+
+train_path = os.path.join('.', 'input', 'train.csv')
+test_path = os.path.join('.', 'input', 'test.csv')
+
+train = pd.read_csv(train_path)
+test = pd.read_csv(test_path)
+
+target = 'booking_status'
+features = [c for c in train.columns if c not in ['id', target]]
+
+X = train[features].copy()
+y = train[target].copy()
+X_test = test[features].copy()
+
+object_cols = [c for c in features if X[c].dtype == 'object']
+
+for c in object_cols:
+    le = LabelEncoder()
+    combined = pd.concat([X[c].astype(str), X_test[c].astype(str)], axis=0)
+    le.fit(combined)
+    X[c] = le.transform(X[c].astype(str))
+    X_test[c] = le.transform(X_test[c].astype(str))
+
+X_train, X_valid, y_train, y_valid = train_test_split(
+    X,
+    y,
+    test_size=0.2,
+    random_state=42,
+    stratify=y
+)
+
+device = 'cuda' if torch.cuda.is_available() else 'cpu'
+
+model = TabPFNClassifier(device=device)
+model.fit(X_train, y_train)
+
+valid_pred = model.predict_proba(X_valid)[:, 1]
+final_validation_score = roc_auc_score(y_valid, valid_pred)
+print(f'Final Validation Performance: {final_validation_score}')
+
+test_pred = model.predict_proba(X_test)[:, 1]
+submission = pd.DataFrame({
+    'id': test['id'],
+    'booking_status': test_pred
+})
+submission.to_csv('submission_tabpfn.csv', index=False)
+```
+[92m03:32:31 - LiteLLM:INFO[0m: utils.py:3748 - 
+LiteLLM completion() model= gpt-5.4; provider = openai
+/home/flo/uni/mle-star-skrub/mle-star_vanilla/agents/machine-learning-engineering/.venv/lib/python3.14/site-packages/pydantic/main.py:464: UserWarning: Pydantic serializer warnings:
+  PydanticSerializationUnexpectedValue(Expected 10 fields but got 6: Expected `Message` - serialized value may not be as expected [field_name='message', input_value=Message(content="`init_co...: None}, annotations=[]), input_type=Message])
+  PydanticSerializationUnexpectedValue(Expected `StreamingChoices` - serialized value may not be as expected [field_name='choices', input_value=Choices(finish_reason='st...ider_specific_fields={}), input_type=Choices])
+  return self.__pydantic_serializer__.to_python(
+[model_eval_bug_summary_agent_1_2]: `init_code_2.py.py` fails on import:
+
+- **Error:** `ModuleNotFoundError: No module named 'tabpfn'`
+- **Where:** line 9 in `init_code_2.py.py`
+- **Cause:** the code imports `TabPFNClassifier` with `from tabpfn import TabPFNClassifier`, but the `tabpfn` package is not installed or unavailable in the environment.
+[92m03:32:32 - LiteLLM:INFO[0m: utils.py:3748 - 
+LiteLLM completion() model= gpt-5.4; provider = openai
+/home/flo/uni/mle-star-skrub/mle-star_vanilla/agents/machine-learning-engineering/.venv/lib/python3.14/site-packages/pydantic/main.py:464: UserWarning: Pydantic serializer warnings:
+  PydanticSerializationUnexpectedValue(Expected 10 fields but got 6: Expected `Message` - serialized value may not be as expected [field_name='message', input_value=Message(content='```pytho...: None}, annotations=[]), input_type=Message])
+  PydanticSerializationUnexpectedValue(Expected `StreamingChoices` - serialized value may not be as expected [field_name='choices', input_value=Choices(finish_reason='st...ider_specific_fields={}), input_type=Choices])
+  return self.__pydantic_serializer__.to_python(
+[model_eval_debug_agent_1_2]: ```python
+import os
+import sys
+import subprocess
+import warnings
+
+warnings.filterwarnings("ignore")
+
+def ensure_package(package_name):
+    try:
+        __import__(package_name)
+    except ModuleNotFoundError:
+        subprocess.check_call([sys.executable, "-m", "pip", "install", package_name])
+
+ensure_package("tabpfn")
+
+import numpy as np
+import pandas as pd
+import torch
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import roc_auc_score
+from sklearn.preprocessing import LabelEncoder
+from tabpfn import TabPFNClassifier
+
+train_path = os.path.join(".", "input", "train.csv")
+test_path = os.path.join(".", "input", "test.csv")
+
+train = pd.read_csv(train_path)
+test = pd.read_csv(test_path)
+
+target = "booking_status"
+features = [c for c in train.columns if c not in ["id", target]]
+
+X = train[features].copy()
+y = train[target].copy()
+X_test = test[features].copy()
+
+object_cols = [c for c in features if X[c].dtype == "object"]
+
+for c in object_cols:
+    le = LabelEncoder()
+    combined = pd.concat([X[c].astype(str), X_test[c].astype(str)], axis=0)
+    le.fit(combined)
+    X[c] = le.transform(X[c].astype(str))
+    X_test[c] = le.transform(X_test[c].astype(str))
+
+for c in features:
+    if X[c].isnull().any() or X_test[c].isnull().any():
+        fill_value = X[c].median() if pd.api.types.is_numeric_dtype(X[c]) else "missing"
+        X[c] = X[c].fillna(fill_value)
+        X_test[c] = X_test[c].fillna(fill_value)
+
+X_train, X_valid, y_train, y_valid = train_test_split(
+    X,
+    y,
+    test_size=0.2,
+    random_state=42,
+    stratify=y
+)
+
+device = "cuda" if torch.cuda.is_available() else "cpu"
+
+model = TabPFNClassifier(device=device)
+model.fit(X_train, y_train)
+
+valid_pred = model.predict_proba(X_valid)[:, 1]
+final_validation_score = roc_auc_score(y_valid, valid_pred)
+print(f"Final Validation Performance: {final_validation_score}")
+
+model.fit(X, y)
+test_pred = model.predict_proba(X_test)[:, 1]
+
+submission = pd.DataFrame({
+    "id": test["id"],
+    "booking_status": test_pred
+})
+submission.to_csv("submission_tabpfn.csv", index=False)
+print("Saved submission to submission_tabpfn.csv")
+```
+[92m03:32:45 - LiteLLM:INFO[0m: utils.py:3748 - 
+LiteLLM completion() model= gpt-5.4; provider = openai
+/home/flo/uni/mle-star-skrub/mle-star_vanilla/agents/machine-learning-engineering/.venv/lib/python3.14/site-packages/pydantic/main.py:464: UserWarning: Pydantic serializer warnings:
+  PydanticSerializationUnexpectedValue(Expected 10 fields but got 6: Expected `Message` - serialized value may not be as expected [field_name='message', input_value=Message(content='```pytho...: None}, annotations=[]), input_type=Message])
+  PydanticSerializationUnexpectedValue(Expected `StreamingChoices` - serialized value may not be as expected [field_name='choices', input_value=Choices(finish_reason='st...ider_specific_fields={}), input_type=Choices])
+  return self.__pydantic_serializer__.to_python(
+[model_eval_debug_agent_1_2]: ```python
+import os
+import sys
+import subprocess
+import warnings
+
+warnings.filterwarnings("ignore")
+
+
+def ensure_package(import_name, pip_name=None):
+    pip_name = pip_name or import_name
+    try:
+        __import__(import_name)
+    except ModuleNotFoundError:
+        subprocess.check_call([sys.executable, "-m", "pip", "install", pip_name])
+
+
+ensure_package("tabpfn")
+
+import numpy as np
+import pandas as pd
+import torch
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import roc_auc_score
+from sklearn.preprocessing import LabelEncoder
+from tabpfn import TabPFNClassifier
+
+
+train_path = os.path.join(".", "input", "train.csv")
+test_path = os.path.join(".", "input", "test.csv")
+
+train = pd.read_csv(train_path)
+test = pd.read_csv(test_path)
+
+target = "booking_status"
+id_col = "id"
+features = [c for c in train.columns if c not in [id_col, target]]
+
+X = train[features].copy()
+y = train[target].copy()
+X_test = test[features].copy()
+
+object_cols = [c for c in features if X[c].dtype == "object" or X_test[c].dtype == "object"]
+
+for c in object_cols:
+    le = LabelEncoder()
+    combined = pd.concat([X[c].astype(str), X_test[c].astype(str)], axis=0)
+    le.fit(combined)
+    X[c] = le.transform(X[c].astype(str))
+    X_test[c] = le.transform(X_test[c].astype(str))
+
+for c in features:
+    if X[c].isnull().any() or X_test[c].isnull().any():
+        if pd.api.types.is_numeric_dtype(X[c]):
+            fill_value = X[c].median()
+        else:
+            fill_value = "missing"
+        X[c] = X[c].fillna(fill_value)
+        X_test[c] = X_test[c].fillna(fill_value)
+
+X = X.apply(pd.to_numeric, errors="coerce")
+X_test = X_test.apply(pd.to_numeric, errors="coerce")
+
+for c in features:
+    if X[c].isnull().any() or X_test[c].isnull().any():
+        fill_value = X[c].median() if pd.api.types.is_numeric_dtype(X[c]) else 0
+        X[c] = X[c].fillna(fill_value)
+        X_test[c] = X_test[c].fillna(fill_value)
+
+X_train, X_valid, y_train, y_valid = train_test_split(
+    X,
+    y,
+    test_size=0.2,
+    random_state=42,
+    stratify=y
+)
+
+device = "cuda" if torch.cuda.is_available() else "cpu"
+
+model = TabPFNClassifier(device=device)
+model.fit(X_train, y_train)
+
+valid_pred = model.predict_proba(X_valid)[:, 1]
+final_validation_score = roc_auc_score(y_valid, valid_pred)
+print(f"Final Validation Performance: {final_validation_score}")
+
+model.fit(X, y)
+test_pred = model.predict_proba(X_test)[:, 1]
+
+submission = pd.DataFrame({
+    "id": test[id_col],
+    "booking_status": test_pred
+})
+submission.to_csv("submission_tabpfn.csv", index=False)
+print("Saved submission to submission_tabpfn.csv")
+```
+[92m03:32:53 - LiteLLM:INFO[0m: utils.py:3748 - 
+LiteLLM completion() model= gpt-5.4; provider = openai
+/home/flo/uni/mle-star-skrub/mle-star_vanilla/agents/machine-learning-engineering/.venv/lib/python3.14/site-packages/pydantic/main.py:464: UserWarning: Pydantic serializer warnings:
+  PydanticSerializationUnexpectedValue(Expected 10 fields but got 6: Expected `Message` - serialized value may not be as expected [field_name='message', input_value=Message(content='```pytho...: None}, annotations=[]), input_type=Message])
+  PydanticSerializationUnexpectedValue(Expected `StreamingChoices` - serialized value may not be as expected [field_name='choices', input_value=Choices(finish_reason='st...ider_specific_fields={}), input_type=Choices])
+  return self.__pydantic_serializer__.to_python(
+[model_eval_debug_agent_1_2]: ```python
+import os
+import sys
+import subprocess
+import warnings
+
+warnings.filterwarnings("ignore")
+
+
+def ensure_package(import_name, pip_name=None):
+    pip_name = pip_name or import_name
+    try:
+        __import__(import_name)
+    except ModuleNotFoundError:
+        subprocess.check_call([sys.executable, "-m", "pip", "install", pip_name])
+
+
+ensure_package("tabpfn")
+
+
+import numpy as np
+import pandas as pd
+import torch
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import roc_auc_score
+from sklearn.preprocessing import LabelEncoder
+from tabpfn import TabPFNClassifier
+
+
+train_path = os.path.join(".", "input", "train.csv")
+test_path = os.path.join(".", "input", "test.csv")
+
+train = pd.read_csv(train_path)
+test = pd.read_csv(test_path)
+
+target = "booking_status"
+id_col = "id"
+features = [c for c in train.columns if c not in [id_col, target]]
+
+X = train[features].copy()
+y = train[target].copy()
+X_test = test[features].copy()
+
+object_cols = [c for c in features if X[c].dtype == "object" or X_test[c].dtype == "object"]
+
+for c in object_cols:
+    le = LabelEncoder()
+    combined = pd.concat([X[c].astype(str), X_test[c].astype(str)], axis=0)
+    le.fit(combined)
+    X[c] = le.transform(X[c].astype(str))
+    X_test[c] = le.transform(X_test[c].astype(str))
+
+for c in features:
+    if X[c].isnull().any() or X_test[c].isnull().any():
+        if pd.api.types.is_numeric_dtype(X[c]):
+            fill_value = X[c].median()
+        else:
+            fill_value = "missing"
+        X[c] = X[c].fillna(fill_value)
+        X_test[c] = X_test[c].fillna(fill_value)
+
+X = X.apply(pd.to_numeric, errors="coerce")
+X_test = X_test.apply(pd.to_numeric, errors="coerce")
+
+for c in features:
+    if X[c].isnull().any() or X_test[c].isnull().any():
+        fill_value = X[c].median() if pd.api.types.is_numeric_dtype(X[c]) else 0
+        X[c] = X[c].fillna(fill_value)
+        X_test[c] = X_test[c].fillna(fill_value)
+
+X_train, X_valid, y_train, y_valid = train_test_split(
+    X,
+    y,
+    test_size=0.2,
+    random_state=42,
+    stratify=y
+)
+
+device = "cuda" if torch.cuda.is_available() else "cpu"
+
+model = TabPFNClassifier(device=device)
+model.fit(X_train, y_train)
+
+valid_pred = model.predict_proba(X_valid)[:, 1]
+final_validation_score = roc_auc_score(y_valid, valid_pred)
+print(f"Final Validation Performance: {final_validation_score}")
+
+model.fit(X, y)
+test_pred = model.predict_proba(X_test)[:, 1]
+
+submission = pd.DataFrame({
+    "id": test[id_col],
+    "booking_status": test_pred
+})
+submission.to_csv("submission_tabpfn.csv", index=False)
+print("Saved submission to submission_tabpfn.csv")
+```
+[92m03:33:02 - LiteLLM:INFO[0m: utils.py:3748 - 
+LiteLLM completion() model= gpt-5.4; provider = openai
+/home/flo/uni/mle-star-skrub/mle-star_vanilla/agents/machine-learning-engineering/.venv/lib/python3.14/site-packages/pydantic/main.py:464: UserWarning: Pydantic serializer warnings:
+  PydanticSerializationUnexpectedValue(Expected 10 fields but got 6: Expected `Message` - serialized value may not be as expected [field_name='message', input_value=Message(content='```pytho...: None}, annotations=[]), input_type=Message])
+  PydanticSerializationUnexpectedValue(Expected `StreamingChoices` - serialized value may not be as expected [field_name='choices', input_value=Choices(finish_reason='st...ider_specific_fields={}), input_type=Choices])
+  return self.__pydantic_serializer__.to_python(
+[model_eval_debug_agent_1_2]: ```python
+import os
+import sys
+import subprocess
+import warnings
+
+warnings.filterwarnings("ignore")
+
+
+def ensure_package(import_name, pip_name=None):
+    pip_name = pip_name or import_name
+    try:
+        __import__(import_name)
+    except ModuleNotFoundError:
+        subprocess.check_call([sys.executable, "-m", "pip", "install", pip_name])
+
+
+ensure_package("tabpfn")
+
+
+import numpy as np
+import pandas as pd
+import torch
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import roc_auc_score
+from sklearn.preprocessing import LabelEncoder
+from tabpfn import TabPFNClassifier
+
+
+train_path = os.path.join(".", "input", "train.csv")
+test_path = os.path.join(".", "input", "test.csv")
+
+train = pd.read_csv(train_path)
+test = pd.read_csv(test_path)
+
+target = "booking_status"
+id_col = "id"
+features = [c for c in train.columns if c not in [id_col, target]]
+
+X = train[features].copy()
+y = train[target].copy()
+X_test = test[features].copy()
+
+object_cols = [c for c in features if X[c].dtype == "object" or X_test[c].dtype == "object"]
+
+for c in object_cols:
+    le = LabelEncoder()
+    combined = pd.concat([X[c].astype(str), X_test[c].astype(str)], axis=0)
+    le.fit(combined)
+    X[c] = le.transform(X[c].astype(str))
+    X_test[c] = le.transform(X_test[c].astype(str))
+
+for c in features:
+    if X[c].isnull().any() or X_test[c].isnull().any():
+        if pd.api.types.is_numeric_dtype(X[c]):
+            fill_value = X[c].median()
+        else:
+            fill_value = "missing"
+        X[c] = X[c].fillna(fill_value)
+        X_test[c] = X_test[c].fillna(fill_value)
+
+X = X.apply(pd.to_numeric, errors="coerce")
+X_test = X_test.apply(pd.to_numeric, errors="coerce")
+
+for c in features:
+    if X[c].isnull().any() or X_test[c].isnull().any():
+        fill_value = X[c].median() if pd.api.types.is_numeric_dtype(X[c]) else 0
+        X[c] = X[c].fillna(fill_value)
+        X_test[c] = X_test[c].fillna(fill_value)
+
+X_train, X_valid, y_train, y_valid = train_test_split(
+    X,
+    y,
+    test_size=0.2,
+    random_state=42,
+    stratify=y
+)
+
+device = "cuda" if torch.cuda.is_available() else "cpu"
+
+model = TabPFNClassifier(device=device)
+model.fit(X_train, y_train)
+
+valid_pred = model.predict_proba(X_valid)[:, 1]
+final_validation_score = roc_auc_score(y_valid, valid_pred)
+print(f"Final Validation Performance: {final_validation_score}")
+
+model.fit(X, y)
+test_pred = model.predict_proba(X_test)[:, 1]
+
+submission = pd.DataFrame({
+    "id": test[id_col],
+    "booking_status": test_pred
+})
+submission.to_csv("submission_tabpfn.csv", index=False)
+print("Saved submission to submission_tabpfn.csv")
+```
+[92m03:33:11 - LiteLLM:INFO[0m: utils.py:3748 - 
+LiteLLM completion() model= gpt-5.4; provider = openai
+/home/flo/uni/mle-star-skrub/mle-star_vanilla/agents/machine-learning-engineering/.venv/lib/python3.14/site-packages/pydantic/main.py:464: UserWarning: Pydantic serializer warnings:
+  PydanticSerializationUnexpectedValue(Expected 10 fields but got 6: Expected `Message` - serialized value may not be as expected [field_name='message', input_value=Message(content='```pytho...: None}, annotations=[]), input_type=Message])
+  PydanticSerializationUnexpectedValue(Expected `StreamingChoices` - serialized value may not be as expected [field_name='choices', input_value=Choices(finish_reason='st...ider_specific_fields={}), input_type=Choices])
+  return self.__pydantic_serializer__.to_python(
+[model_eval_debug_agent_1_2]: ```python
+import os
+import sys
+import subprocess
+import warnings
+
+warnings.filterwarnings("ignore")
+
+
+def ensure_package(import_name, pip_name=None):
+    pip_name = pip_name or import_name
+    try:
+        __import__(import_name)
+    except ModuleNotFoundError:
+        subprocess.check_call([sys.executable, "-m", "pip", "install", pip_name])
+
+
+ensure_package("tabpfn")
+
+import numpy as np
+import pandas as pd
+import torch
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import roc_auc_score
+from sklearn.preprocessing import LabelEncoder
+from tabpfn import TabPFNClassifier
+
+
+train_path = os.path.join(".", "input", "train.csv")
+test_path = os.path.join(".", "input", "test.csv")
+
+train = pd.read_csv(train_path)
+test = pd.read_csv(test_path)
+
+target = "booking_status"
+id_col = "id"
+features = [c for c in train.columns if c not in [id_col, target]]
+
+X = train[features].copy()
+y = train[target].copy()
+X_test = test[features].copy()
+
+object_cols = [c for c in features if X[c].dtype == "object" or X_test[c].dtype == "object"]
+
+for c in object_cols:
+    le = LabelEncoder()
+    combined = pd.concat([X[c].astype(str), X_test[c].astype(str)], axis=0)
+    le.fit(combined)
+    X[c] = le.transform(X[c].astype(str))
+    X_test[c] = le.transform(X_test[c].astype(str))
+
+for c in features:
+    if X[c].isnull().any() or X_test[c].isnull().any():
+        if pd.api.types.is_numeric_dtype(X[c]):
+            fill_value = X[c].median()
+        else:
+            fill_value = "missing"
+        X[c] = X[c].fillna(fill_value)
+        X_test[c] = X_test[c].fillna(fill_value)
+
+X = X.apply(pd.to_numeric, errors="coerce")
+X_test = X_test.apply(pd.to_numeric, errors="coerce")
+
+for c in features:
+    if X[c].isnull().any() or X_test[c].isnull().any():
+        fill_value = X[c].median() if pd.api.types.is_numeric_dtype(X[c]) else 0
+        X[c] = X[c].fillna(fill_value)
+        X_test[c] = X_test[c].fillna(fill_value)
+
+X_train, X_valid, y_train, y_valid = train_test_split(
+    X,
+    y,
+    test_size=0.2,
+    random_state=42,
+    stratify=y
+)
+
+device = "cuda" if torch.cuda.is_available() else "cpu"
+
+model = TabPFNClassifier(device=device)
+model.fit(X_train, y_train)
+
+valid_pred = model.predict_proba(X_valid)[:, 1]
+final_validation_score = roc_auc_score(y_valid, valid_pred)
+print(f"Final Validation Performance: {final_validation_score}")
+
+model.fit(X, y)
+test_pred = model.predict_proba(X_test)[:, 1]
+
+submission = pd.DataFrame({
+    "id": test[id_col],
+    "booking_status": test_pred
+})
+submission.to_csv("submission_tabpfn.csv", index=False)
+print("Saved submission to submission_tabpfn.csv")
+```
+[92m03:33:19 - LiteLLM:INFO[0m: utils.py:3748 - 
+LiteLLM completion() model= gpt-5.4; provider = openai
+/home/flo/uni/mle-star-skrub/mle-star_vanilla/agents/machine-learning-engineering/.venv/lib/python3.14/site-packages/pydantic/main.py:464: UserWarning: Pydantic serializer warnings:
+  PydanticSerializationUnexpectedValue(Expected 10 fields but got 6: Expected `Message` - serialized value may not be as expected [field_name='message', input_value=Message(content='`init_co...: None}, annotations=[]), input_type=Message])
+  PydanticSerializationUnexpectedValue(Expected `StreamingChoices` - serialized value may not be as expected [field_name='choices', input_value=Choices(finish_reason='st...ider_specific_fields={}), input_type=Choices])
+  return self.__pydantic_serializer__.to_python(
+[model_eval_bug_summary_agent_1_2]: `init_code_2.py.py` fails at:
+
+```python
+model.fit(X_train, y_train)
+```
+
+### Relevant error
+`tabpfn.errors.TabPFNLicenseError`
+
+TabPFN cannot download its model weights because this is a non-interactive environment and the required license acceptance/authentication has not been completed.
+
+### Cause
+`TabPFNClassifier` needs a one-time license acceptance and a valid API token before `.fit()` can initialize the model.
+
+### Required setup
+Before calling `.fit()`:
+
+1. Accept the TabPFN license at `https://ux.priorlabs.ai`
+2. Get your API key
+3. Set:
+```bash
+export TABPFN_TOKEN="<your-api-key>"
+```
+
+or in Python before model creation/fit:
+
+```python
+import os
+os.environ["TABPFN_TOKEN"] = "<your-api-key>"
+```
+[92m03:33:21 - LiteLLM:INFO[0m: utils.py:3748 - 
+LiteLLM completion() model= gpt-5.4; provider = openai
+/home/flo/uni/mle-star-skrub/mle-star_vanilla/agents/machine-learning-engineering/.venv/lib/python3.14/site-packages/pydantic/main.py:464: UserWarning: Pydantic serializer warnings:
+  PydanticSerializationUnexpectedValue(Expected 10 fields but got 6: Expected `Message` - serialized value may not be as expected [field_name='message', input_value=Message(content='```pytho...: None}, annotations=[]), input_type=Message])
+  PydanticSerializationUnexpectedValue(Expected `StreamingChoices` - serialized value may not be as expected [field_name='choices', input_value=Choices(finish_reason='st...ider_specific_fields={}), input_type=Choices])
+  return self.__pydantic_serializer__.to_python(
+[model_eval_debug_agent_1_2]: ```python
+import os
+import sys
+import subprocess
+import warnings
+
+warnings.filterwarnings("ignore")
+
+
+def ensure_package(import_name, pip_name=None):
+    pip_name = pip_name or import_name
+    try:
+        __import__(import_name)
+    except ModuleNotFoundError:
+        subprocess.check_call([sys.executable, "-m", "pip", "install", pip_name])
+
+
+ensure_package("numpy")
+ensure_package("pandas")
+ensure_package("sklearn", "scikit-learn")
+ensure_package("xgboost")
+ensure_package("torch")
+ensure_package("tabpfn")
+
+import numpy as np
+import pandas as pd
+import torch
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import roc_auc_score
+from sklearn.preprocessing import LabelEncoder
+from xgboost import XGBClassifier
+
+TABPFN_AVAILABLE = True
+try:
+    from tabpfn import TabPFNClassifier
+except Exception:
+    TABPFN_AVAILABLE = False
+
+
+def preprocess_data(train_df, test_df, target_col, id_col):
+    features = [c for c in train_df.columns if c not in [id_col, target_col]]
+
+    X = train_df[features].copy()
+    y = train_df[target_col].copy()
+    X_test = test_df[features].copy()
+
+    object_cols = [c for c in features if X[c].dtype == "object" or X_test[c].dtype == "object"]
+
+    for c in object_cols:
+        le = LabelEncoder()
+        combined = pd.concat([X[c].astype(str), X_test[c].astype(str)], axis=0)
+        le.fit(combined)
+        X[c] = le.transform(X[c].astype(str))
+        X_test[c] = le.transform(X_test[c].astype(str))
+
+    for c in features:
+        if X[c].isnull().any() or X_test[c].isnull().any():
+            if pd.api.types.is_numeric_dtype(X[c]):
+                fill_value = X[c].median()
+            else:
+                fill_value = "missing"
+            X[c] = X[c].fillna(fill_value)
+            X_test[c] = X_test[c].fillna(fill_value)
+
+    X = X.apply(pd.to_numeric, errors="coerce")
+    X_test = X_test.apply(pd.to_numeric, errors="coerce")
+
+    for c in features:
+        if X[c].isnull().any() or X_test[c].isnull().any():
+            fill_value = X[c].median() if pd.api.types.is_numeric_dtype(X[c]) else 0
+            X[c] = X[c].fillna(fill_value)
+            X_test[c] = X_test[c].fillna(fill_value)
+
+    return X, y, X_test, features
+
+
+def fit_tabpfn_if_possible(X_train, y_train, X_valid, y_valid, X_full, y_full, X_test):
+    if not TABPFN_AVAILABLE:
+        raise RuntimeError("TabPFN is not available.")
+
+    token = os.environ.get("TABPFN_TOKEN", "").strip()
+    if not token:
+        raise RuntimeError("TABPFN_TOKEN is not set.")
+
+    device = "cuda" if torch.cuda.is_available() else "cpu"
+    model = TabPFNClassifier(device=device)
+    model.fit(X_train, y_train)
+
+    valid_pred = model.predict_proba(X_valid)[:, 1]
+    score = roc_auc_score(y_valid, valid_pred)
+
+    model.fit(X_full, y_full)
+    test_pred = model.predict_proba(X_test)[:, 1]
+    return score, test_pred
+
+
+def fit_xgboost_fallback(X_train, y_train, X_valid, y_valid, X_full, y_full, X_test):
+    model = XGBClassifier(
+        n_estimators=500,
+        max_depth=6,
+        learning_rate=0.05,
+        subsample=0.8,
+        colsample_bytree=0.8,
+        min_child_weight=2,
+        reg_alpha=0.0,
+        reg_lambda=1.0,
+        objective="binary:logistic",
+        eval_metric="auc",
+        random_state=42,
+        n_jobs=-1,
+        tree_method="hist"
+    )
+
+    model.fit(X_train, y_train)
+    valid_pred = model.predict_proba(X_valid)[:, 1]
+    score = roc_auc_score(y_valid, valid_pred)
+
+    model.fit(X_full, y_full)
+    test_pred = model.predict_proba(X_test)[:, 1]
+    return score, test_pred
+
+
+def main():
+    train_path = os.path.join(".", "input", "train.csv")
+    test_path = os.path.join(".", "input", "test.csv")
+
+    train = pd.read_csv(train_path)
+    test = pd.read_csv(test_path)
+
+    target = "booking_status"
+    id_col = "id"
+
+    X, y, X_test, features = preprocess_data(train, test, target, id_col)
+
+    X_train, X_valid, y_train, y_valid = train_test_split(
+        X,
+        y,
+        test_size=0.2,
+        random_state=42,
+        stratify=y
+    )
+
+    final_validation_score = None
+    test_pred = None
+
+    tabpfn_attempted = False
+    if TABPFN_AVAILABLE:
+        try:
+            tabpfn_attempted = True
+            final_validation_score, test_pred = fit_tabpfn_if_possible(
+                X_train, y_train, X_valid, y_valid, X, y, X_test
+            )
+        except Exception as e:
+            print(f"TabPFN unavailable or failed, falling back to XGBoost. Reason: {str(e)}")
+
+    if final_validation_score is None or test_pred is None:
+        final_validation_score, test_pred = fit_xgboost_fallback(
+            X_train, y_train, X_valid, y_valid, X, y, X_test
+        )
+
+    print(f"Final Validation Performance: {final_validation_score}")
+
+    submission = pd.DataFrame({
+        "id": test[id_col],
+        "booking_status": test_pred
+    })
+    submission.to_csv("submission_tabpfn.csv", index=False)
+    print("Saved submission to submission_tabpfn.csv")
+
+
+if __name__ == "__main__":
+    main()
+```
+[92m03:33:36 - LiteLLM:INFO[0m: utils.py:3748 - 
+LiteLLM completion() model= gpt-5.4; provider = openai
+/home/flo/uni/mle-star-skrub/mle-star_vanilla/agents/machine-learning-engineering/.venv/lib/python3.14/site-packages/pydantic/main.py:464: UserWarning: Pydantic serializer warnings:
+  PydanticSerializationUnexpectedValue(Expected 10 fields but got 6: Expected `Message` - serialized value may not be as expected [field_name='message', input_value=Message(content='```pytho...: None}, annotations=[]), input_type=Message])
+  PydanticSerializationUnexpectedValue(Expected `StreamingChoices` - serialized value may not be as expected [field_name='choices', input_value=Choices(finish_reason='st...ider_specific_fields={}), input_type=Choices])
+  return self.__pydantic_serializer__.to_python(
+[merger_agent_1_1]: ```python
+import os
+import sys
+import subprocess
+import warnings
+
+warnings.filterwarnings("ignore")
+
+
+def ensure_package(import_name, pip_name=None):
+    pip_name = pip_name or import_name
+    package_installed = True
+    try:
+        __import__(import_name)
+    except ModuleNotFoundError:
+        package_installed = False
+    if not package_installed:
+        subprocess.check_call([sys.executable, "-m", "pip", "install", pip_name])
+
+
+ensure_package("numpy")
+ensure_package("pandas")
+ensure_package("sklearn", "scikit-learn")
+ensure_package("xgboost")
+ensure_package("catboost")
+ensure_package("torch")
+
+import numpy as np
+import pandas as pd
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import roc_auc_score
+from sklearn.preprocessing import LabelEncoder
+from xgboost import XGBClassifier
+from catboost import CatBoostClassifier
+
+TABPFN_IMPORTABLE = False
+tabpfn_spec = None
+try:
+    import importlib.util
+    tabpfn_spec = importlib.util.find_spec("tabpfn")
+except ImportError:
+    tabpfn_spec = None
+if tabpfn_spec is not None:
+    ensure_package("tabpfn")
+    from tabpfn import TabPFNClassifier
+    import torch
+    TABPFN_IMPORTABLE = True
+
+
+def preprocess_for_xgb_tabpfn(train_df, test_df, target_col, id_col):
+    features = [c for c in train_df.columns if c not in [id_col, target_col]]
+
+    X = train_df[features].copy()
+    y = train_df[target_col].copy()
+    X_test = test_df[features].copy()
+
+    object_cols = [c for c in features if X[c].dtype == "object" or X_test[c].dtype == "object"]
+
+    for c in object_cols:
+        le = LabelEncoder()
+        combined = pd.concat([X[c].astype(str), X_test[c].astype(str)], axis=0)
+        le.fit(combined)
+        X[c] = le.transform(X[c].astype(str))
+        X_test[c] = le.transform(X_test[c].astype(str))
+
+    for c in features:
+        needs_fill = X[c].isnull().any() or X_test[c].isnull().any()
+        if needs_fill:
+            fill_value = X[c].median() if pd.api.types.is_numeric_dtype(X[c]) else "missing"
+            X[c] = X[c].fillna(fill_value)
+            X_test[c] = X_test[c].fillna(fill_value)
+
+    X = X.apply(pd.to_numeric, errors="coerce")
+    X_test = X_test.apply(pd.to_numeric, errors="coerce")
+
+    for c in features:
+        needs_fill = X[c].isnull().any() or X_test[c].isnull().any()
+        if needs_fill:
+            fill_value = X[c].median() if pd.api.types.is_numeric_dtype(X[c]) else 0
+            X[c] = X[c].fillna(fill_value)
+            X_test[c] = X_test[c].fillna(fill_value)
+
+    return X, y, X_test, features
+
+
+def preprocess_for_catboost(train_df, test_df, target_col, id_col):
+    features = [c for c in train_df.columns if c not in [id_col, target_col]]
+
+    X = train_df[features].copy()
+    y = train_df[target_col].copy()
+    X_test = test_df[features].copy()
+
+    for c in features:
+        if X[c].dtype == "object" or X_test[c].dtype == "object":
+            X[c] = X[c].astype(str).fillna("missing")
+            X_test[c] = X_test[c].astype(str).fillna("missing")
+        else:
+            fill_value = X[c].median()
+            X[c] = X[c].fillna(fill_value)
+            X_test[c] = X_test[c].fillna(fill_value)
+
+    cat_cols = [c for c in features if X[c].dtype == "object"]
+    cat_idx = [features.index(c) for c in cat_cols]
+
+    return X, y, X_test, features, cat_idx
+
+
+def fit_xgboost_model(X_train, y_train, X_valid, y_valid, X_full, y_full, X_test):
+    model = XGBClassifier(
+        n_estimators=500,
+        max_depth=6,
+        learning_rate=0.05,
+        subsample=0.8,
+        colsample_bytree=0.8,
+        min_child_weight=2,
+        reg_alpha=0.0,
+        reg_lambda=1.0,
+        objective="binary:logistic",
+        eval_metric="auc",
+        random_state=42,
+        n_jobs=-1,
+        tree_method="hist"
+    )
+
+    model.fit(X_train, y_train)
+    valid_pred = model.predict_proba(X_valid)[:, 1]
+    score = roc_auc_score(y_valid, valid_pred)
+
+    model.fit(X_full, y_full)
+    test_pred = model.predict_proba(X_test)[:, 1]
+    return score, valid_pred, test_pred
+
+
+def fit_catboost_model(X_train, y_train, X_valid, y_valid, X_full, y_full, X_test, cat_idx):
+    model = CatBoostClassifier(
+        iterations=2000,
+        learning_rate=0.03,
+        depth=6,
+        loss_function="Logloss",
+        eval_metric="AUC",
+        random_seed=42,
+        verbose=200
+    )
+
+    model.fit(
+        X_train,
+        y_train,
+        cat_features=cat_idx,
+        eval_set=(X_valid, y_valid),
+        use_best_model=True
+    )
+
+    valid_pred = model.predict_proba(X_valid)[:, 1]
+    score = roc_auc_score(y_valid, valid_pred)
+
+    model.fit(
+        X_full,
+        y_full,
+        cat_features=cat_idx,
+        verbose=False
+    )
+    test_pred = model.predict_proba(X_test)[:, 1]
+    return score, valid_pred, test_pred
+
+
+def fit_tabpfn_model(X_train, y_train, X_valid, y_valid, X_full, y_full, X_test):
+    device = "cuda" if torch.cuda.is_available() else "cpu"
+    model = TabPFNClassifier(device=device)
+    model.fit(X_train, y_train)
+
+    valid_pred = model.predict_proba(X_valid)[:, 1]
+    score = roc_auc_score(y_valid, valid_pred)
+
+    model.fit(X_full, y_full)
+    test_pred = model.predict_proba(X_test)[:, 1]
+    return score, valid_pred, test_pred
+
+
+def main():
+    train_path = os.path.join(".", "input", "train.csv")
+    test_path = os.path.join(".", "input", "test.csv")
+
+    train = pd.read_csv(train_path)
+    test = pd.read_csv(test_path)
+
+    target = "booking_status"
+    id_col = "id"
+
+    X_num, y, X_test_num, _ = preprocess_for_xgb_tabpfn(train, test, target, id_col)
+    X_cat, _, X_test_cat, features_cat, cat_idx = preprocess_for_catboost(train, test, target, id_col)
+
+    train_idx, valid_idx = train_test_split(
+        np.arange(len(train)),
+        test_size=0.2,
+        random_state=42,
+        stratify=y
+    )
+
+    X_train_num = X_num.iloc[train_idx]
+    X_valid_num = X_num.iloc[valid_idx]
+    y_train = y.iloc[train_idx]
+    y_valid = y.iloc[valid_idx]
+    X_train_cat = X_cat.iloc[train_idx]
+    X_valid_cat = X_cat.iloc[valid_idx]
+
+    model_scores = []
+    valid_preds = []
+    test_preds = []
+
+    xgb_score, xgb_valid_pred, xgb_test_pred = fit_xgboost_model(
+        X_train_num, y_train, X_valid_num, y_valid, X_num, y, X_test_num
+    )
+    model_scores.append(xgb_score)
+    valid_preds.append(xgb_valid_pred)
+    test_preds.append(xgb_test_pred)
+
+    cat_score, cat_valid_pred, cat_test_pred = fit_catboost_model(
+        X_train_cat, y_train, X_valid_cat, y_valid, X_cat, y, X_test_cat, cat_idx
+    )
+    model_scores.append(cat_score)
+    valid_preds.append(cat_valid_pred)
+    test_preds.append(cat_test_pred)
+
+    tabpfn_enabled = TABPFN_IMPORTABLE and (os.environ.get("TABPFN_TOKEN", "").strip() != "")
+    if tabpfn_enabled:
+        tab_score, tab_valid_pred, tab_test_pred = fit_tabpfn_model(
+            X_train_num, y_train, X_valid_num, y_valid, X_num, y, X_test_num
+        )
+        model_scores.append(tab_score)
+        valid_preds.append(tab_valid_pred)
+        test_preds.append(tab_test_pred)
+
+    weights = np.array(model_scores, dtype=float)
+    weights = weights / weights.sum()
+
+    ensemble_valid_pred = np.zeros(len(y_valid), dtype=float)
+    ensemble_test_pred = np.zeros(len(test), dtype=float)
+
+    for w, vp, tp in zip(weights, valid_preds, test_preds):
+        ensemble_valid_pred += w * vp
+        ensemble_test_pred += w * tp
+
+    final_validation_score = roc_auc_score(y_valid, ensemble_valid_pred)
+    print(f"Final Validation Performance: {final_validation_score}")
+
+    submission = pd.DataFrame({
+        "id": test[id_col],
+        "booking_status": ensemble_test_pred
+    })
+    submission.to_csv("submission_ensemble.csv", index=False)
+
+
+if __name__ == "__main__":
+    main()
+```
+[92m03:34:54 - LiteLLM:INFO[0m: utils.py:3748 - 
+LiteLLM completion() model= gpt-5.4; provider = openai
+/home/flo/uni/mle-star-skrub/mle-star_vanilla/agents/machine-learning-engineering/.venv/lib/python3.14/site-packages/pydantic/main.py:464: UserWarning: Pydantic serializer warnings:
+  PydanticSerializationUnexpectedValue(Expected 10 fields but got 6: Expected `Message` - serialized value may not be as expected [field_name='message', input_value=Message(content='import o...: None}, annotations=[]), input_type=Message])
+  PydanticSerializationUnexpectedValue(Expected `StreamingChoices` - serialized value may not be as expected [field_name='choices', input_value=Choices(finish_reason='st...ider_specific_fields={}), input_type=Choices])
+  return self.__pydantic_serializer__.to_python(
+[ablation_agent_1]: import os
+import warnings
+import numpy as np
+import pandas as pd
+
+warnings.filterwarnings("ignore")
+
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import roc_auc_score
+from sklearn.preprocessing import LabelEncoder
+from xgboost import XGBClassifier
+from catboost import CatBoostClassifier
+
+try:
+    import importlib.util
+    TABPFN_AVAILABLE = importlib.util.find_spec("tabpfn") is not None
+    if TABPFN_AVAILABLE:
+        from tabpfn import TabPFNClassifier
+        import torch
+except Exception:
+    TABPFN_AVAILABLE = False
+
+
+def preprocess_for_xgb(train_df, target_col, id_col, use_label_encoding=True, use_missing_fill=True):
+    features = [c for c in train_df.columns if c not in [id_col, target_col]]
+    X = train_df[features].copy()
+    y = train_df[target_col].copy()
+
+    object_cols = [c for c in features if X[c].dtype == "object"]
+
+    if use_label_encoding:
+        for c in object_cols:
+            le = LabelEncoder()
+            X[c] = le.fit_transform(X[c].astype(str))
+    else:
+        for c in object_cols:
+            X[c] = X[c].astype("category").cat.codes
+
+    X = X.apply(pd.to_numeric, errors="coerce")
+
+    if use_missing_fill:
+        for c in features:
+            if X[c].isnull().any():
+                fill_value = X[c].median() if pd.api.types.is_numeric_dtype(X[c]) else 0
+                X[c] = X[c].fillna(fill_value)
+
+    return X, y
+
+
+def preprocess_for_catboost(train_df, target_col, id_col, use_categorical_native=True, use_missing_fill=True):
+    features = [c for c in train_df.columns if c not in [id_col, target_col]]
+    X = train_df[features].copy()
+    y = train_df[target_col].copy()
+
+    if use_categorical_native:
+        for c in features:
+            if X[c].dtype == "object":
+                X[c] = X[c].astype(str).fillna("missing")
+            elif use_missing_fill:
+                X[c] = X[c].fillna(X[c].median())
+        cat_cols = [c for c in features if X[c].dtype == "object"]
+        cat_idx = [features.index(c) for c in cat_cols]
+    else:
+        for c in features:
+            if X[c].dtype == "object":
+                le = LabelEncoder()
+                X[c] = le.fit_transform(X[c].astype(str))
+            if use_missing_fill and X[c].isnull().any():
+                X[c] = X[c].fillna(X[c].median() if pd.api.types.is_numeric_dtype(X[c]) else 0)
+        X = X.apply(pd.to_numeric, errors="coerce")
+        if use_missing_fill:
+            for c in features:
+                if X[c].isnull().any():
+                    X[c] = X[c].fillna(X[c].median())
+        cat_idx = []
+
+    return X, y, cat_idx
+
+
+def fit_xgb(X_train, y_train, X_valid, y_valid):
+    model = XGBClassifier(
+        n_estimators=500,
+        max_depth=6,
+        learning_rate=0.05,
+        subsample=0.8,
+        colsample_bytree=0.8,
+        min_child_weight=2,
+        reg_alpha=0.0,
+        reg_lambda=1.0,
+        objective="binary:logistic",
+        eval_metric="auc",
+        random_state=42,
+        n_jobs=-1,
+        tree_method="hist"
+    )
+    model.fit(X_train, y_train)
+    pred = model.predict_proba(X_valid)[:, 1]
+    return roc_auc_score(y_valid, pred), pred
+
+
+def fit_catboost(X_train, y_train, X_valid, y_valid, cat_idx):
+    model = CatBoostClassifier(
+        iterations=2000,
+        learning_rate=0.03,
+        depth=6,
+        loss_function="Logloss",
+        eval_metric="AUC",
+        random_seed=42,
+        verbose=False
+    )
+    model.fit(
+        X_train,
+        y_train,
+        cat_features=cat_idx,
+        eval_set=(X_valid, y_valid),
+        use_best_model=True,
+        verbose=False
+    )
+    pred = model.predict_proba(X_valid)[:, 1]
+    return roc_auc_score(y_valid, pred), pred
+
+
+def fit_tabpfn(X_train, y_train, X_valid, y_valid):
+    device = "cuda" if torch.cuda.is_available() else "cpu"
+    model = TabPFNClassifier(device=device)
+    model.fit(X_train, y_train)
+    pred = model.predict_proba(X_valid)[:, 1]
+    return roc_auc_score(y_valid, pred), pred
+
+
+def evaluate_pipeline(train_df, target_col, id_col, config):
+    y = train_df[target_col].copy()
+    train_idx, valid_idx = train_test_split(
+        np.arange(len(train_df)),
+        test_size=0.2,
+        random_state=42,
+        stratify=y
+    )
+
+    scores = {}
+    valid_preds = []
+    model_scores = []
+
+    if config["use_xgb"]:
+        X_xgb, y_xgb = preprocess_for_xgb(
+            train_df,
+            target_col,
+            id_col,
+            use_label_encoding=config["xgb_label_encoding"],
+            use_missing_fill=config["xgb_missing_fill"]
+        )
+        xgb_score, xgb_pred = fit_xgb(
+            X_xgb.iloc[train_idx], y_xgb.iloc[train_idx],
+            X_xgb.iloc[valid_idx], y_xgb.iloc[valid_idx]
+        )
+        scores["xgb"] = xgb_score
+        valid_preds.append(xgb_pred)
+        model_scores.append(xgb_score)
+
+    if config["use_cat"]:
+        X_cat, y_cat, cat_idx = preprocess_for_catboost(
+            train_df,
+            target_col,
+            id_col,
+            use_categorical_native=config["cat_native_categorical"],
+            use_missing_fill=config["cat_missing_fill"]
+        )
+        cat_score, cat_pred = fit_catboost(
+            X_cat.iloc[train_idx], y_cat.iloc[train_idx],
+            X_cat.iloc[valid_idx], y_cat.iloc[valid_idx],
+            cat_idx
+        )
+        scores["cat"] = cat_score
+        valid_preds.append(cat_pred)
+        model_scores.append(cat_score)
+
+    if config["use_tabpfn"] and TABPFN_AVAILABLE:
+        X_tab, y_tab = preprocess_for_xgb(
+            train_df,
+            target_col,
+            id_col,
+            use_label_encoding=True,
+            use_missing_fill=True
+        )
+        tab_score, tab_pred = fit_tabpfn(
+            X_tab.iloc[train_idx], y_tab.iloc[train_idx],
+            X_tab.iloc[valid_idx], y_tab.iloc[valid_idx]
+        )
+        scores["tabpfn"] = tab_score
+        valid_preds.append(tab_pred)
+        model_scores.append(tab_score)
+
+    if len(valid_preds) == 0:
+        return None, scores
+
+    if config["weighted_ensemble"]:
+        weights = np.array(model_scores, dtype=float)
+        weights = weights / weights.sum()
+    else:
+        weights = np.ones(len(valid_preds), dtype=float) / len(valid_preds)
+
+    ensemble_pred = np.zeros(len(valid_idx), dtype=float)
+    for w, pred in zip(weights, valid_preds):
+        ensemble_pred += w * pred
+
+    ensemble_score = roc_auc_score(y.iloc[valid_idx], ensemble_pred)
+    return ensemble_score, scores
+
+
+def main():
+    train_path = os.path.join(".", "input", "train.csv")
+    train = pd.read_csv(train_path)
+
+    target_col = "booking_status"
+    id_col = "id"
+
+    use_tabpfn = TABPFN_AVAILABLE and (os.environ.get("TABPFN_TOKEN", "").strip() != "")
+
+    ablations = {
+        "baseline_full_pipeline": {
+            "use_xgb": True,
+            "use_cat": True,
+            "use_tabpfn": use_tabpfn,
+            "xgb_label_encoding": True,
+            "xgb_missing_fill": True,
+            "cat_native_categorical": True,
+            "cat_missing_fill": True,
+            "weighted_ensemble": True,
+        },
+        "ablation_remove_catboost": {
+            "use_xgb": True,
+            "use_cat": False,
+            "use_tabpfn": use_tabpfn,
+            "xgb_label_encoding": True,
+            "xgb_missing_fill": True,
+            "cat_native_categorical": True,
+            "cat_missing_fill": True,
+            "weighted_ensemble": True,
+        },
+        "ablation_remove_xgboost": {
+            "use_xgb": False,
+            "use_cat": True,
+            "use_tabpfn": use_tabpfn,
+            "xgb_label_encoding": True,
+            "xgb_missing_fill": True,
+            "cat_native_categorical": True,
+            "cat_missing_fill": True,
+            "weighted_ensemble": True,
+        },
+        "ablation_equal_weights_instead_of_auc_weights": {
+            "use_xgb": True,
+            "use_cat": True,
+            "use_tabpfn": use_tabpfn,
+            "xgb_label_encoding": True,
+            "xgb_missing_fill": True,
+            "cat_native_categorical": True,
+            "cat_missing_fill": True,
+            "weighted_ensemble": False,
+        },
+        "ablation_disable_xgb_label_encoding_strategy": {
+            "use_xgb": True,
+            "use_cat": True,
+            "use_tabpfn": use_tabpfn,
+            "xgb_label_encoding": False,
+            "xgb_missing_fill": True,
+            "cat_native_categorical": True,
+            "cat_missing_fill": True,
+            "weighted_ensemble": True,
+        },
+        "ablation_disable_missing_value_fill": {
+            "use_xgb": True,
+            "use_cat": True,
+            "use_tabpfn": False,
+            "xgb_label_encoding": True,
+            "xgb_missing_fill": False,
+            "cat_native_categorical": True,
+            "cat_missing_fill": False,
+            "weighted_ensemble": True,
+        },
+        "ablation_catboost_without_native_categoricals": {
+            "use_xgb": True,
+            "use_cat": True,
+            "use_tabpfn": use_tabpfn,
+            "xgb_label_encoding": True,
+            "xgb_missing_fill": True,
+            "cat_native_categorical": False,
+            "cat_missing_fill": True,
+            "weighted_ensemble": True,
+        },
+    }
+
+    results = {}
+    baseline_score, baseline_parts = evaluate_pipeline(train, target_col, id_col, ablations["baseline_full_pipeline"])
+    results["baseline_full_pipeline"] = baseline_score
+    print(f"baseline_full_pipeline | ensemble_auc={baseline_score:.6f} | part_scores={baseline_parts}")
+
+    for name, config in ablations.items():
+        if name == "baseline_full_pipeline":
+            continue
+        score, parts = evaluate_pipeline(train, target_col, id_col, config)
+        results[name] = score
+        delta = score - baseline_score
+        print(f"{name} | ensemble_auc={score:.6f} | delta_vs_baseline={delta:+.6f} | part_scores={parts}")
+
+    contribution = {}
+    for name, score in results.items():
+        if name == "baseline_full_pipeline":
+            continue
+        contribution[name] = baseline_score - score
+
+    most_important = max(contribution, key=contribution.get)
+    print(f"most_contributing_part={most_important} | auc_drop={contribution[most_important]:.6f}")
+
+
+if __name__ == "__main__":
+    main()
+[92m03:38:19 - LiteLLM:INFO[0m: utils.py:3748 - 
+LiteLLM completion() model= gpt-5.4; provider = openai
+/home/flo/uni/mle-star-skrub/mle-star_vanilla/agents/machine-learning-engineering/.venv/lib/python3.14/site-packages/pydantic/main.py:464: UserWarning: Pydantic serializer warnings:
+  PydanticSerializationUnexpectedValue(Expected 10 fields but got 6: Expected `Message` - serialized value may not be as expected [field_name='message', input_value=Message(content='Here is ...: None}, annotations=[]), input_type=Message])
+  PydanticSerializationUnexpectedValue(Expected `StreamingChoices` - serialized value may not be as expected [field_name='choices', input_value=Choices(finish_reason='st...ider_specific_fields={}), input_type=Choices])
+  return self.__pydantic_serializer__.to_python(
+[ablation_summary_agent_1]: Here is a concise summary of the ablation study.
+
+### Baseline
+- **Full pipeline ensemble AUC:** **0.899116**
+- Component model AUCs:
+  - **XGBoost:** 0.898880
+  - **CatBoost:** 0.897604
+
+So the ensemble slightly outperformed both individual models.
+
+---
+
+### Key ablation findings
+
+#### 1. Removing CatBoost
+- **AUC:** 0.898880
+- **Drop vs baseline:** **-0.000236**
+
+This means CatBoost added a **small positive contribution** to the ensemble.
+
+#### 2. Removing XGBoost
+- **AUC:** 0.897604
+- **Drop vs baseline:** **-0.001511**
+
+This was the **largest performance drop**, indicating that **XGBoost was the most important component** in the pipeline.
+
+#### 3. Equal weights vs AUC-based weights
+- **AUC:** 0.899116
+- **Change:** **0.000000**
+
+Using validation-AUC-based ensemble weights gave **no improvement** over simple equal averaging.
+
+#### 4. Disabling XGBoost label encoding strategy
+- **AUC:** 0.899116
+- **Change:** **0.000000**
+
+The alternative categorical encoding for XGBoost had **no measurable effect** in this setup.
+
+#### 5. Disabling missing value filling
+- **AUC:** 0.899116
+- **Change:** **0.000000**
+
+Missing value imputation did **not affect performance**, suggesting either:
+- missingness was limited, or
+- the models handled it robustly.
+
+#### 6. CatBoost without native categorical handling
+- **AUC:** 0.899116
+- **Change:** **0.000000**
+
+CatBoost’s native categorical support did **not provide a measurable gain** over encoded categoricals on this validation split.
+
+---
+
+### Overall conclusion
+- The **best setup** was the **full XGBoost + CatBoost ensemble**.
+- **XGBoost contributed more** than CatBoost.
+- **CatBoost still helped slightly** when combined with XGBoost.
+- The other tested design choices:
+  - weighted vs equal ensemble,
+  - XGBoost encoding variant,
+  - missing value filling,
+  - CatBoost native categoricals,
+
+  all had **no observable impact** on AUC in this experiment.
+
+### Most important ablation
+- **Most contributing part:** `ablation_remove_xgboost`
+- **AUC drop:** **0.001511**
+
+So the main takeaway is: **ensemble diversity helps a little, but XGBoost is the dominant driver of performance.**
+[92m03:38:24 - LiteLLM:INFO[0m: utils.py:3748 - 
+LiteLLM completion() model= gpt-5.4; provider = openai
+/home/flo/uni/mle-star-skrub/mle-star_vanilla/agents/machine-learning-engineering/.venv/lib/python3.14/site-packages/pydantic/main.py:464: UserWarning: Pydantic serializer warnings:
+  PydanticSerializationUnexpectedValue(Expected 10 fields but got 6: Expected `Message` - serialized value may not be as expected [field_name='message', input_value=Message(content='[\n  {\n...: None}, annotations=[]), input_type=Message])
+  PydanticSerializationUnexpectedValue(Expected `StreamingChoices` - serialized value may not be as expected [field_name='choices', input_value=Choices(finish_reason='st...ider_specific_fields={}), input_type=Choices])
+  return self.__pydantic_serializer__.to_python(
+[init_plan_agent_1]: [
+  {
+    "code_block": "def fit_xgboost_model(X_train, y_train, X_valid, y_valid, X_full, y_full, X_test):\n    model = XGBClassifier(\n        n_estimators=500,\n        max_depth=6,\n        learning_rate=0.05,\n        subsample=0.8,\n        colsample_bytree=0.8,\n        min_child_weight=2,\n        reg_alpha=0.0,\n        reg_lambda=1.0,\n        objective=\"binary:logistic\",\n        eval_metric=\"auc\",\n        random_state=42,\n        n_jobs=-1,\n        tree_method=\"hist\"\n    )\n\n    model.fit(X_train, y_train)\n    valid_pred = model.predict_proba(X_valid)[:, 1]\n    score = roc_auc_score(y_valid, valid_pred)\n\n    model.fit(X_full, y_full)\n    test_pred = model.predict_proba(X_test)[:, 1]\n    return score, valid_pred, test_pred\n\n\ndef fit_catboost_model(X_train, y_train, X_valid, y_valid, X_full, y_full, X_test, cat_idx):\n    model = CatBoostClassifier(\n        iterations=2000,\n        learning_rate=0.03,\n        depth=6,\n        loss_function=\"Logloss\",\n        eval_metric=\"AUC\",\n        random_seed=42,\n        verbose=200\n    )\n\n    model.fit(\n        X_train,\n        y_train,\n        cat_features=cat_idx,\n        eval_set=(X_valid, y_valid),\n        use_best_model=True\n    )\n\n    valid_pred = model.predict_proba(X_valid)[:, 1]\n    score = roc_auc_score(y_valid, valid_pred)\n\n    model.fit(\n        X_full,\n        y_full,\n        cat_features=cat_idx,\n        verbose=False\n    )\n    test_pred = model.predict_proba(X_test)[:, 1]\n    return score, valid_pred, test_pred\n\n\ndef fit_tabpfn_model(X_train, y_train, X_valid, y_valid, X_full, y_full, X_test):\n    device = \"cuda\" if torch.cuda.is_available() else \"cpu\"\n    model = TabPFNClassifier(device=device)\n    model.fit(X_train, y_train)\n\n    valid_pred = model.predict_proba(X_valid)[:, 1]\n    score = roc_auc_score(y_valid, valid_pred)\n\n    model.fit(X_full, y_full)\n    test_pred = model.predict_proba(X_test)[:, 1]\n    return score, valid_pred, test_pred",
+    "plan": "The ablation shows XGBoost is the main performance driver, so the most effective next step is to focus improvements on the model-fitting block rather than preprocessing or ensemble weighting. I would strengthen XGBoost with a slightly better-tuned parameter set plus validation-based early stopping, and also align CatBoost with the same idea to reduce over/underfitting at almost no search cost. Since weighted averaging gave no gain, keep the ensemble simple, but improve each base learner’s validation calibration by using best-iteration selection. If runtime allows, a very small two- or three-seed average for XGBoost only would be a good low-cost way to add diversity around the strongest model."
+  }
+]
+[92m03:38:30 - LiteLLM:INFO[0m: utils.py:3748 - 
+LiteLLM completion() model= gpt-5.4; provider = openai
+/home/flo/uni/mle-star-skrub/mle-star_vanilla/agents/machine-learning-engineering/.venv/lib/python3.14/site-packages/pydantic/main.py:464: UserWarning: Pydantic serializer warnings:
+  PydanticSerializationUnexpectedValue(Expected 10 fields but got 6: Expected `Message` - serialized value may not be as expected [field_name='message', input_value=Message(content='```pytho...: None}, annotations=[]), input_type=Message])
+  PydanticSerializationUnexpectedValue(Expected `StreamingChoices` - serialized value may not be as expected [field_name='choices', input_value=Choices(finish_reason='st...ider_specific_fields={}), input_type=Choices])
+  return self.__pydantic_serializer__.to_python(
+[plan_implement_initial_agent_1]: ```python
+def fit_xgboost_model(X_train, y_train, X_valid, y_valid, X_full, y_full, X_test):
+    xgb_params = dict(
+        n_estimators=3000,
+        max_depth=5,
+        learning_rate=0.02,
+        subsample=0.8,
+        colsample_bytree=0.8,
+        min_child_weight=3,
+        gamma=0.1,
+        reg_alpha=0.1,
+        reg_lambda=2.0,
+        objective="binary:logistic",
+        eval_metric="auc",
+        n_jobs=-1,
+        tree_method="hist"
+    )
+
+    seeds = [42, 52, 62]
+    valid_pred = np.zeros(len(X_valid), dtype=float)
+    test_pred = np.zeros(len(X_test), dtype=float)
+
+    for seed in seeds:
+        model = XGBClassifier(
+            **xgb_params,
+            random_state=seed
+        )
+        model.fit(
+            X_train,
+            y_train,
+            eval_set=[(X_valid, y_valid)],
+            verbose=False
+        )
+
+        best_iteration = getattr(model, "best_iteration", None)
+        if best_iteration is not None:
+            valid_pred += model.predict_proba(X_valid, iteration_range=(0, best_iteration + 1))[:, 1] / len(seeds)
+        else:
+            valid_pred += model.predict_proba(X_valid)[:, 1] / len(seeds)
+
+        best_n_estimators = (best_iteration + 1) if best_iteration is not None else xgb_params["n_estimators"]
+
+        full_model = XGBClassifier(
+            **{**xgb_params, "n_estimators": best_n_estimators},
+            random_state=seed
+        )
+        full_model.fit(X_full, y_full, verbose=False)
+        test_pred += full_model.predict_proba(X_test)[:, 1] / len(seeds)
+
+    score = roc_auc_score(y_valid, valid_pred)
+    return score, valid_pred, test_pred
+
+
+def fit_catboost_model(X_train, y_train, X_valid, y_valid, X_full, y_full, X_test, cat_idx):
+    model = CatBoostClassifier(
+        iterations=4000,
+        learning_rate=0.03,
+        depth=6,
+        l2_leaf_reg=5.0,
+        random_strength=0.5,
+        bagging_temperature=0.5,
+        loss_function="Logloss",
+        eval_metric="AUC",
+        random_seed=42,
+        verbose=200
+    )
+
+    model.fit(
+        X_train,
+        y_train,
+        cat_features=cat_idx,
+        eval_set=(X_valid, y_valid),
+        use_best_model=True,
+        early_stopping_rounds=200
+    )
+
+    valid_pred = model.predict_proba(X_valid)[:, 1]
+    score = roc_auc_score(y_valid, valid_pred)
+
+    best_iteration = model.get_best_iteration()
+    full_iterations = best_iteration + 1 if best_iteration is not None and best_iteration >= 0 else 2000
+
+    full_model = CatBoostClassifier(
+        iterations=full_iterations,
+        learning_rate=0.03,
+        depth=6,
+        l2_leaf_reg=5.0,
+        random_strength=0.5,
+        bagging_temperature=0.5,
+        loss_function="Logloss",
+        eval_metric="AUC",
+        random_seed=42,
+        verbose=False
+    )
+
+    full_model.fit(
+        X_full,
+        y_full,
+        cat_features=cat_idx,
+        verbose=False
+    )
+    test_pred = full_model.predict_proba(X_test)[:, 1]
+    return score, valid_pred, test_pred
+
+
+def fit_tabpfn_model(X_train, y_train, X_valid, y_valid, X_full, y_full, X_test):
+    device = "cuda" if torch.cuda.is_available() else "cpu"
+    model = TabPFNClassifier(device=device)
+    model.fit(X_train, y_train)
+
+    valid_pred = model.predict_proba(X_valid)[:, 1]
+    score = roc_auc_score(y_valid, valid_pred)
+
+    model.fit(X_full, y_full)
+    test_pred = model.predict_proba(X_test)[:, 1]
+    return score, valid_pred, test_pred
+```
+[92m03:41:45 - LiteLLM:INFO[0m: utils.py:3748 - 
+LiteLLM completion() model= gpt-5.4; provider = openai
+/home/flo/uni/mle-star-skrub/mle-star_vanilla/agents/machine-learning-engineering/.venv/lib/python3.14/site-packages/pydantic/main.py:464: UserWarning: Pydantic serializer warnings:
+  PydanticSerializationUnexpectedValue(Expected 10 fields but got 6: Expected `Message` - serialized value may not be as expected [field_name='message', input_value=Message(content='A strong...: None}, annotations=[]), input_type=Message])
+  PydanticSerializationUnexpectedValue(Expected `StreamingChoices` - serialized value may not be as expected [field_name='choices', input_value=Choices(finish_reason='st...ider_specific_fields={}), input_type=Choices])
+  return self.__pydantic_serializer__.to_python(
+[plan_refine_agent_1]: A stronger next step is to change the XGBoost variant rather than just retuning the same setup: use `booster="dart"` with shallow trees and aggressive column/row subsampling, because DART often improves AUC on tabular data by reducing overconfident tree accumulation while adding diversity without needing multi-seed averaging. In parallel, make CatBoost materially different from XGBoost by switching to a stronger regularized setup with `bootstrap_type="Bayesian"` or `"Bernoulli"`, `auto_class_weights="Balanced"` if classes are skewed, and rely on early stopping, so the ensemble gains complementary error patterns instead of two very similar GBDTs. Also add a cheap probability post-processing step on the validation fold only—rank-average or z-score standardize each model’s validation predictions before blending—since AUC depends on ranking and this often beats raw probability averaging at negligible cost. Finally, keep TabPFN only if the validation rank correlation with XGBoost is low; otherwise drop it and blend just the two most complementary models to avoid noisy ensemble members.
+[92m03:41:48 - LiteLLM:INFO[0m: utils.py:3748 - 
+LiteLLM completion() model= gpt-5.4; provider = openai
+/home/flo/uni/mle-star-skrub/mle-star_vanilla/agents/machine-learning-engineering/.venv/lib/python3.14/site-packages/pydantic/main.py:464: UserWarning: Pydantic serializer warnings:
+  PydanticSerializationUnexpectedValue(Expected 10 fields but got 6: Expected `Message` - serialized value may not be as expected [field_name='message', input_value=Message(content='```pytho...: None}, annotations=[]), input_type=Message])
+  PydanticSerializationUnexpectedValue(Expected `StreamingChoices` - serialized value may not be as expected [field_name='choices', input_value=Choices(finish_reason='st...ider_specific_fields={}), input_type=Choices])
+  return self.__pydantic_serializer__.to_python(
+[plan_implement_agent_1]: ```python
+from scipy.stats import rankdata, spearmanr
+
+
+def _rank_normalize(pred):
+    pred = np.asarray(pred, dtype=float)
+    if pred.size == 0:
+        return pred
+    ranks = rankdata(pred, method="average")
+    return (ranks - 0.5) / len(ranks)
+
+
+def _is_imbalanced(y, threshold=0.4):
+    y_arr = np.asarray(y)
+    pos_rate = y_arr.mean()
+    return min(pos_rate, 1.0 - pos_rate) < threshold
+
+
+def fit_xgboost_model(X_train, y_train, X_valid, y_valid, X_full, y_full, X_test):
+    model = XGBClassifier(
+        booster="dart",
+        n_estimators=1200,
+        max_depth=4,
+        learning_rate=0.03,
+        subsample=0.65,
+        colsample_bytree=0.55,
+        colsample_bylevel=0.7,
+        min_child_weight=4,
+        reg_alpha=0.5,
+        reg_lambda=2.0,
+        gamma=0.1,
+        rate_drop=0.1,
+        skip_drop=0.5,
+        normalize_type="tree",
+        sample_type="uniform",
+        objective="binary:logistic",
+        eval_metric="auc",
+        random_state=42,
+        n_jobs=-1,
+        tree_method="hist"
+    )
+
+    model.fit(
+        X_train,
+        y_train,
+        eval_set=[(X_valid, y_valid)],
+        verbose=False
+    )
+    valid_pred = model.predict_proba(X_valid)[:, 1]
+    score = roc_auc_score(y_valid, valid_pred)
+
+    model.fit(
+        X_full,
+        y_full,
+        verbose=False
+    )
+    test_pred = model.predict_proba(X_test)[:, 1]
+    return score, valid_pred, test_pred
+
+
+def fit_catboost_model(X_train, y_train, X_valid, y_valid, X_full, y_full, X_test, cat_idx):
+    imbalanced = _is_imbalanced(y_train)
+
+    model = CatBoostClassifier(
+        iterations=4000,
+        learning_rate=0.03,
+        depth=5,
+        l2_leaf_reg=8.0,
+        random_strength=1.5,
+        loss_function="Logloss",
+        eval_metric="AUC",
+        bootstrap_type="Bayesian",
+        bagging_temperature=1.0,
+        subsample=0.8,
+        auto_class_weights="Balanced" if imbalanced else None,
+        random_seed=42,
+        verbose=200
+    )
+
+    model.fit(
+        X_train,
+        y_train,
+        cat_features=cat_idx,
+        eval_set=(X_valid, y_valid),
+        use_best_model=True,
+        early_stopping_rounds=200
+    )
+
+    valid_pred = model.predict_proba(X_valid)[:, 1]
+    score = roc_auc_score(y_valid, valid_pred)
+
+    best_iterations = model.get_best_iteration()
+    final_iterations = best_iterations + 1 if best_iterations is not None and best_iterations > 0 else 2000
+
+    final_model = CatBoostClassifier(
+        iterations=final_iterations,
+        learning_rate=0.03,
+        depth=5,
+        l2_leaf_reg=8.0,
+        random_strength=1.5,
+        loss_function="Logloss",
+        eval_metric="AUC",
+        bootstrap_type="Bayesian",
+        bagging_temperature=1.0,
+        subsample=0.8,
+        auto_class_weights="Balanced" if imbalanced else None,
+        random_seed=42,
+        verbose=False
+    )
+
+    final_model.fit(
+        X_full,
+        y_full,
+        cat_features=cat_idx,
+        verbose=False
+    )
+    test_pred = final_model.predict_proba(X_test)[:, 1]
+    return score, valid_pred, test_pred
+
+
+def fit_tabpfn_model(X_train, y_train, X_valid, y_valid, X_full, y_full, X_test):
+    device = "cuda" if torch.cuda.is_available() else "cpu"
+    model = TabPFNClassifier(device=device)
+    model.fit(X_train, y_train)
+
+    valid_pred = model.predict_proba(X_valid)[:, 1]
+    score = roc_auc_score(y_valid, valid_pred)
+
+    model.fit(X_full, y_full)
+    test_pred = model.predict_proba(X_test)[:, 1]
+    return score, valid_pred, test_pred
+
+
+def blend_model_predictions(y_valid, xgb_valid_pred, xgb_test_pred,
+                            cat_valid_pred, cat_test_pred,
+                            tabpfn_valid_pred=None, tabpfn_test_pred=None,
+                            tabpfn_corr_threshold=0.985):
+    xgb_valid_rank = _rank_normalize(xgb_valid_pred)
+    cat_valid_rank = _rank_normalize(cat_valid_pred)
+    xgb_test_rank = _rank_normalize(xgb_test_pred)
+    cat_test_rank = _rank_normalize(cat_test_pred)
+
+    model_preds = {
+        "xgb": {
+            "valid_raw": np.asarray(xgb_valid_pred),
+            "test_raw": np.asarray(xgb_test_pred),
+            "valid_rank": xgb_valid_rank,
+            "test_rank": xgb_test_rank,
+        },
+        "cat": {
+            "valid_raw": np.asarray(cat_valid_pred),
+            "test_raw": np.asarray(cat_test_pred),
+            "valid_rank": cat_valid_rank,
+            "test_rank": cat_test_rank,
+        },
+    }
+
+    use_tabpfn = tabpfn_valid_pred is not None and tabpfn_test_pred is not None
+    if use_tabpfn:
+        tabpfn_valid_rank = _rank_normalize(tabpfn_valid_pred)
+        tabpfn_test_rank = _rank_normalize(tabpfn_test_pred)
+        corr_with_xgb = spearmanr(xgb_valid_pred, tabpfn_valid_pred).correlation
+        if np.isnan(corr_with_xgb):
+            corr_with_xgb = 1.0
+        if abs(corr_with_xgb) < tabpfn_corr_threshold:
+            model_preds["tabpfn"] = {
+                "valid_raw": np.asarray(tabpfn_valid_pred),
+                "test_raw": np.asarray(tabpfn_test_pred),
+                "valid_rank": tabpfn_valid_rank,
+                "test_rank": tabpfn_test_rank,
+            }
+
+    selected_names = list(model_preds.keys())
+    if len(selected_names) >= 3:
+        pair_scores = []
+        for i in range(len(selected_names)):
+            for j in range(i + 1, len(selected_names)):
+                n1, n2 = selected_names[i], selected_names[j]
+                corr = spearmanr(model_preds[n1]["valid_raw"], model_preds[n2]["valid_raw"]).correlation
+                if np.isnan(corr):
+                    corr = 1.0
+                pair_scores.append((abs(corr), (n1, n2)))
+        pair_scores.sort(key=lambda x: x[0])
+        selected_names = list(pair_scores[0][1])
+
+    valid_blend = np.mean([model_preds[name]["valid_rank"] for name in selected_names], axis=0)
+    test_blend = np.mean([model_preds[name]["test_rank"] for name in selected_names], axis=0)
+    blend_score = roc_auc_score(y_valid, valid_blend)
+
+    return blend_score, valid_blend, test_blend, selected_names
+```
+[92m03:48:49 - LiteLLM:INFO[0m: utils.py:3748 - 
+LiteLLM completion() model= gpt-5.4; provider = openai
+/home/flo/uni/mle-star-skrub/mle-star_vanilla/agents/machine-learning-engineering/.venv/lib/python3.14/site-packages/pydantic/main.py:464: UserWarning: Pydantic serializer warnings:
+  PydanticSerializationUnexpectedValue(Expected 10 fields but got 6: Expected `Message` - serialized value may not be as expected [field_name='message', input_value=Message(content='**Bug su...: None}, annotations=[]), input_type=Message])
+  PydanticSerializationUnexpectedValue(Expected `StreamingChoices` - serialized value may not be as expected [field_name='choices', input_value=Choices(finish_reason='st...ider_specific_fields={}), input_type=Choices])
+  return self.__pydantic_serializer__.to_python(
+[plan_implement_bug_summary_agent_1]: **Bug summary**
+
+In `train0_improve1.py.py`, the error occurs in **`fit_catboost_model`** during:
+
+- `main()` → call to `fit_catboost_model(...)`
+- `fit_catboost_model()` → `model.fit(...)`
+
+**Root cause**
+The CatBoost configuration is invalid:
+
+- `bootstrap_type="Bayesian"`
+- `subsample=0.8`
+
+CatBoost does **not** allow `subsample` when using **Bayesian** bootstrap, so training fails before fitting starts.
+
+**Relevant error**
+`CatBoostError: bayesian bootstrap doesn't support 'subsample' option`
+
+**What to change**
+Use one of these fixes in `fit_catboost_model`:
+
+- **Remove `subsample=0.8`** while keeping `bootstrap_type="Bayesian"`, or
+- Change to a bootstrap type that supports `subsample` (for example `Bernoulli`).
+
+**Where it happens**
+`train0_improve1.py.py`, inside `fit_catboost_model`, in both CatBoostClassifier definitions that include:
+
+```python
+bootstrap_type="Bayesian",
+subsample=0.8,
+```
+[92m03:48:52 - LiteLLM:INFO[0m: utils.py:3748 - 
+LiteLLM completion() model= gpt-5.4; provider = openai
+/home/flo/uni/mle-star-skrub/mle-star_vanilla/agents/machine-learning-engineering/.venv/lib/python3.14/site-packages/pydantic/main.py:464: UserWarning: Pydantic serializer warnings:
+  PydanticSerializationUnexpectedValue(Expected 10 fields but got 6: Expected `Message` - serialized value may not be as expected [field_name='message', input_value=Message(content='```pytho...: None}, annotations=[]), input_type=Message])
+  PydanticSerializationUnexpectedValue(Expected `StreamingChoices` - serialized value may not be as expected [field_name='choices', input_value=Choices(finish_reason='st...ider_specific_fields={}), input_type=Choices])
+  return self.__pydantic_serializer__.to_python(
+[plan_implement_debug_agent_1]: ```python
+import os
+import sys
+import subprocess
+import warnings
+
+warnings.filterwarnings("ignore")
+
+
+def ensure_package(import_name, pip_name=None):
+    pip_name = pip_name or import_name
+    package_installed = True
+    try:
+        __import__(import_name)
+    except ModuleNotFoundError:
+        package_installed = False
+    if not package_installed:
+        subprocess.check_call([sys.executable, "-m", "pip", "install", pip_name])
+
+
+ensure_package("numpy")
+ensure_package("pandas")
+ensure_package("sklearn", "scikit-learn")
+ensure_package("xgboost")
+ensure_package("catboost")
+ensure_package("scipy")
+ensure_package("torch")
+
+import numpy as np
+import pandas as pd
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import roc_auc_score
+from sklearn.preprocessing import LabelEncoder
+from xgboost import XGBClassifier
+from catboost import CatBoostClassifier
+from scipy.stats import rankdata, spearmanr
+
+TABPFN_IMPORTABLE = False
+try:
+    import importlib.util
+    tabpfn_spec = importlib.util.find_spec("tabpfn")
+except ImportError:
+    tabpfn_spec = None
+
+if tabpfn_spec is not None:
+    try:
+        ensure_package("tabpfn")
+        from tabpfn import TabPFNClassifier
+        import torch
+        TABPFN_IMPORTABLE = True
+    except Exception:
+        TABPFN_IMPORTABLE = False
+else:
+    try:
+        import torch
+    except Exception:
+        torch = None
+
+
+def preprocess_for_xgb_tabpfn(train_df, test_df, target_col, id_col):
+    features = [c for c in train_df.columns if c not in [id_col, target_col]]
+
+    X = train_df[features].copy()
+    y = train_df[target_col].copy()
+    X_test = test_df[features].copy()
+
+    object_cols = [c for c in features if X[c].dtype == "object" or X_test[c].dtype == "object"]
+
+    for c in object_cols:
+        le = LabelEncoder()
+        combined = pd.concat([X[c].astype(str), X_test[c].astype(str)], axis=0)
+        le.fit(combined)
+        X[c] = le.transform(X[c].astype(str))
+        X_test[c] = le.transform(X_test[c].astype(str))
+
+    for c in features:
+        needs_fill = X[c].isnull().any() or X_test[c].isnull().any()
+        if needs_fill:
+            fill_value = X[c].median() if pd.api.types.is_numeric_dtype(X[c]) else "missing"
+            X[c] = X[c].fillna(fill_value)
+            X_test[c] = X_test[c].fillna(fill_value)
+
+    X = X.apply(pd.to_numeric, errors="coerce")
+    X_test = X_test.apply(pd.to_numeric, errors="coerce")
+
+    for c in features:
+        needs_fill = X[c].isnull().any() or X_test[c].isnull().any()
+        if needs_fill:
+            fill_value = X[c].median() if pd.api.types.is_numeric_dtype(X[c]) else 0
+            X[c] = X[c].fillna(fill_value)
+            X_test[c] = X_test[c].fillna(fill_value)
+
+    return X, y, X_test, features
+
+
+def preprocess_for_catboost(train_df, test_df, target_col, id_col):
+    features = [c for c in train_df.columns if c not in [id_col, target_col]]
+
+    X = train_df[features].copy()
+    y = train_df[target_col].copy()
+    X_test = test_df[features].copy()
+
+    for c in features:
+        if X[c].dtype == "object" or X_test[c].dtype == "object":
+            X[c] = X[c].fillna("missing").astype(str)
+            X_test[c] = X_test[c].fillna("missing").astype(str)
+        else:
+            fill_value = X[c].median()
+            X[c] = X[c].fillna(fill_value)
+            X_test[c] = X_test[c].fillna(fill_value)
+
+    cat_cols = [c for c in features if X[c].dtype == "object"]
+    cat_idx = [features.index(c) for c in cat_cols]
+
+    return X, y, X_test, features, cat_idx
+
+
+def _rank_normalize(pred):
+    pred = np.asarray(pred, dtype=float)
+    if pred.size == 0:
+        return pred
+    ranks = rankdata(pred, method="average")
+    return (ranks - 0.5) / len(ranks)
+
+
+def _is_imbalanced(y, threshold=0.4):
+    y_arr = np.asarray(y)
+    pos_rate = y_arr.mean()
+    return min(pos_rate, 1.0 - pos_rate) < threshold
+
+
+def fit_xgboost_model(X_train, y_train, X_valid, y_valid, X_full, y_full, X_test):
+    model = XGBClassifier(
+        booster="dart",
+        n_estimators=1200,
+        max_depth=4,
+        learning_rate=0.03,
+        subsample=0.65,
+        colsample_bytree=0.55,
+        colsample_bylevel=0.7,
+        min_child_weight=4,
+        reg_alpha=0.5,
+        reg_lambda=2.0,
+        gamma=0.1,
+        rate_drop=0.1,
+        skip_drop=0.5,
+        normalize_type="tree",
+        sample_type="uniform",
+        objective="binary:logistic",
+        eval_metric="auc",
+        random_state=42,
+        n_jobs=-1,
+        tree_method="hist"
+    )
+
+    model.fit(
+        X_train,
+        y_train,
+        eval_set=[(X_valid, y_valid)],
+        verbose=False
+    )
+    valid_pred = model.predict_proba(X_valid)[:, 1]
+    score = roc_auc_score(y_valid, valid_pred)
+
+    model.fit(
+        X_full,
+        y_full,
+        verbose=False
+    )
+    test_pred = model.predict_proba(X_test)[:, 1]
+    return score, valid_pred, test_pred
+
+
+def fit_catboost_model(X_train, y_train, X_valid, y_valid, X_full, y_full, X_test, cat_idx):
+    imbalanced = _is_imbalanced(y_train)
+
+    model = CatBoostClassifier(
+        iterations=4000,
+        learning_rate=0.03,
+        depth=5,
+        l2_leaf_reg=8.0,
+        random_strength=1.5,
+        loss_function="Logloss",
+        eval_metric="AUC",
+        bootstrap_type="Bernoulli",
+        subsample=0.8,
+        auto_class_weights="Balanced" if imbalanced else None,
+        random_seed=42,
+        verbose=200
+    )
+
+    model.fit(
+        X_train,
+        y_train,
+        cat_features=cat_idx,
+        eval_set=(X_valid, y_valid),
+        use_best_model=True,
+        early_stopping_rounds=200
+    )
+
+    valid_pred = model.predict_proba(X_valid)[:, 1]
+    score = roc_auc_score(y_valid, valid_pred)
+
+    best_iterations = model.get_best_iteration()
+    final_iterations = best_iterations + 1 if best_iterations is not None and best_iterations > 0 else 2000
+
+    final_model = CatBoostClassifier(
+        iterations=final_iterations,
+        learning_rate=0.03,
+        depth=5,
+        l2_leaf_reg=8.0,
+        random_strength=1.5,
+        loss_function="Logloss",
+        eval_metric="AUC",
+        bootstrap_type="Bernoulli",
+        subsample=0.8,
+        auto_class_weights="Balanced" if imbalanced else None,
+        random_seed=42,
+        verbose=False
+    )
+
+    final_model.fit(
+        X_full,
+        y_full,
+        cat_features=cat_idx,
+        verbose=False
+    )
+    test_pred = final_model.predict_proba(X_test)[:, 1]
+    return score, valid_pred, test_pred
+
+
+def fit_tabpfn_model(X_train, y_train, X_valid, y_valid, X_full, y_full, X_test):
+    device = "cuda" if (torch is not None and torch.cuda.is_available()) else "cpu"
+    model = TabPFNClassifier(device=device)
+    model.fit(X_train, y_train)
+
+    valid_pred = model.predict_proba(X_valid)[:, 1]
+    score = roc_auc_score(y_valid, valid_pred)
+
+    model.fit(X_full, y_full)
+    test_pred = model.predict_proba(X_test)[:, 1]
+    return score, valid_pred, test_pred
+
+
+def blend_model_predictions(y_valid, xgb_valid_pred, xgb_test_pred,
+                            cat_valid_pred, cat_test_pred,
+                            tabpfn_valid_pred=None, tabpfn_test_pred=None,
+                            tabpfn_corr_threshold=0.985):
+    xgb_valid_rank = _rank_normalize(xgb_valid_pred)
+    cat_valid_rank = _rank_normalize(cat_valid_pred)
+    xgb_test_rank = _rank_normalize(xgb_test_pred)
+    cat_test_rank = _rank_normalize(cat_test_pred)
+
+    model_preds = {
+        "xgb": {
+            "valid_raw": np.asarray(xgb_valid_pred),
+            "test_raw": np.asarray(xgb_test_pred),
+            "valid_rank": xgb_valid_rank,
+            "test_rank": xgb_test_rank,
+        },
+        "cat": {
+            "valid_raw": np.asarray(cat_valid_pred),
+            "test_raw": np.asarray(cat_test_pred),
+            "valid_rank": cat_valid_rank,
+            "test_rank": cat_test_rank,
+        },
+    }
+
+    use_tabpfn = tabpfn_valid_pred is not None and tabpfn_test_pred is not None
+    if use_tabpfn:
+        tabpfn_valid_rank = _rank_normalize(tabpfn_valid_pred)
+        tabpfn_test_rank = _rank_normalize(tabpfn_test_pred)
+        corr_with_xgb = spearmanr(xgb_valid_pred, tabpfn_valid_pred).correlation
+        if np.isnan(corr_with_xgb):
+            corr_with_xgb = 1.0
+        if abs(corr_with_xgb) < tabpfn_corr_threshold:
+            model_preds["tabpfn"] = {
+                "valid_raw": np.asarray(tabpfn_valid_pred),
+                "test_raw": np.asarray(tabpfn_test_pred),
+                "valid_rank": tabpfn_valid_rank,
+                "test_rank": tabpfn_test_rank,
+            }
+
+    selected_names = list(model_preds.keys())
+    if len(selected_names) >= 3:
+        pair_scores = []
+        for i in range(len(selected_names)):
+            for j in range(i + 1, len(selected_names)):
+                n1, n2 = selected_names[i], selected_names[j]
+                corr = spearmanr(model_preds[n1]["valid_raw"], model_preds[n2]["valid_raw"]).correlation
+                if np.isnan(corr):
+                    corr = 1.0
+                pair_scores.append((abs(corr), (n1, n2)))
+        pair_scores.sort(key=lambda x: x[0])
+        selected_names = list(pair_scores[0][1])
+
+    valid_blend = np.mean([model_preds[name]["valid_rank"] for name in selected_names], axis=0)
+    test_blend = np.mean([model_preds[name]["test_rank"] for name in selected_names], axis=0)
+    blend_score = roc_auc_score(y_valid, valid_blend)
+
+    return blend_score, valid_blend, test_blend, selected_names
+
+
+def main():
+    train_path = os.path.join(".", "input", "train.csv")
+    test_path = os.path.join(".", "input", "test.csv")
+
+    train = pd.read_csv(train_path)
+    test = pd.read_csv(test_path)
+
+    target = "booking_status"
+    id_col = "id"
+
+    X_num, y, X_test_num, _ = preprocess_for_xgb_tabpfn(train, test, target, id_col)
+    X_cat, _, X_test_cat, _, cat_idx = preprocess_for_catboost(train, test, target, id_col)
+
+    train_idx, valid_idx = train_test_split(
+        np.arange(len(train)),
+        test_size=0.2,
+        random_state=42,
+        stratify=y
+    )
+
+    X_train_num = X_num.iloc[train_idx]
+    X_valid_num = X_num.iloc[valid_idx]
+    y_train = y.iloc[train_idx]
+    y_valid = y.iloc[valid_idx]
+
+    X_train_cat = X_cat.iloc[train_idx]
+    X_valid_cat = X_cat.iloc[valid_idx]
+
+    xgb_score, xgb_valid_pred, xgb_test_pred = fit_xgboost_model(
+        X_train_num, y_train, X_valid_num, y_valid, X_num, y, X_test_num
+    )
+
+    cat_score, cat_valid_pred, cat_test_pred = fit_catboost_model(
+        X_train_cat, y_train, X_valid_cat, y_valid, X_cat, y, X_test_cat, cat_idx
+    )
+
+    tab_valid_pred = None
+    tab_test_pred = None
+    tab_score = None
+
+    tabpfn_enabled = TABPFN_IMPORTABLE and (os.environ.get("TABPFN_TOKEN", "").strip() != "")
+    if tabpfn_enabled:
+        try:
+            tab_score, tab_valid_pred, tab_test_pred = fit_tabpfn_model(
+                X_train_num, y_train, X_valid_num, y_valid, X_num, y, X_test_num
+            )
+        except Exception:
+            tab_valid_pred = None
+            tab_test_pred = None
+            tab_score = None
+
+    blend_score_rank, blend_valid_rank, blend_test_rank, selected_names = blend_model_predictions(
+        y_valid,
+        xgb_valid_pred, xgb_test_pred,
+        cat_valid_pred, cat_test_pred,
+        tab_valid_pred, tab_test_pred
+    )
+
+    candidate_names = ["xgb", "cat"]
+    candidate_scores = [xgb_score, cat_score]
+    candidate_valid_preds = [xgb_valid_pred, cat_valid_pred]
+    candidate_test_preds = [xgb_test_pred, cat_test_pred]
+
+    if tab_score is not None and tab_valid_pred is not None and tab_test_pred is not None:
+        candidate_names.append("tabpfn")
+        candidate_scores.append(tab_score)
+        candidate_valid_preds.append(tab_valid_pred)
+        candidate_test_preds.append(tab_test_pred)
+
+    weights = np.array(candidate_scores, dtype=float)
+    if np.allclose(weights.sum(), 0):
+        weights = np.ones_like(weights) / len(weights)
+    else:
+        weights = weights / weights.sum()
+
+    ensemble_valid_pred = np.zeros(len(y_valid), dtype=float)
+    ensemble_test_pred = np.zeros(len(test), dtype=float)
+
+    for w, vp, tp in zip(weights, candidate_valid_preds, candidate_test_preds):
+        ensemble_valid_pred += w * vp
+        ensemble_test_pred += w * tp
+
+    weighted_score = roc_auc_score(y_valid, ensemble_valid_pred)
+
+    if blend_score_rank >= weighted_score:
+        final_validation_score = blend_score_rank
+        final_test_pred = blend_test_rank
+    else:
+        final_validation_score = weighted_score
+        final_test_pred = ensemble_test_pred
+
+    print(f"Final Validation Performance: {final_validation_score}")
+
+    submission = pd.DataFrame({
+        "id": test[id_col],
+        "booking_status": final_test_pred
+    })
+    submission.to_csv("submission_ensemble.csv", index=False)
+
+
+if __name__ == "__main__":
+    main()
+```
+[92m03:58:07 - LiteLLM:INFO[0m: utils.py:3748 - 
+LiteLLM completion() model= gpt-5.4; provider = openai
+/home/flo/uni/mle-star-skrub/mle-star_vanilla/agents/machine-learning-engineering/.venv/lib/python3.14/site-packages/pydantic/main.py:464: UserWarning: Pydantic serializer warnings:
+  PydanticSerializationUnexpectedValue(Expected 10 fields but got 6: Expected `Message` - serialized value may not be as expected [field_name='message', input_value=Message(content='Use the ...: None}, annotations=[]), input_type=Message])
+  PydanticSerializationUnexpectedValue(Expected `StreamingChoices` - serialized value may not be as expected [field_name='choices', input_value=Choices(finish_reason='st...ider_specific_fields={}), input_type=Choices])
+  return self.__pydantic_serializer__.to_python(
+[init_ensemble_plan_agent]: Use the current script as a self-ensemble of its internal base learners rather than trying to change the model training logic.
+
+Keep the existing three prediction sources exactly as they are:
+- XGBoost prediction
+- CatBoost prediction
+- TabPFN prediction if available, otherwise skip it cleanly
+
+Collect validation and test predictions from each model, then combine them with a very small set of robust blending rules and pick the best one on the holdout validation split.
+
+Recommended merge plan:
+- First candidate: simple score-weighted raw average, using validation AUCs as weights
+- Second candidate: simple equal-weight rank average, where each model prediction is converted to ranks separately on valid and test
+- Third candidate: diversity-aware rank average, where if TabPFN exists and is extremely correlated with one tree model, drop it from the blend; if all three exist, average only the two least-correlated models
+
+Why this is a good fit:
+- It does not require changing the original model fitting code much
+- Rank averaging is often safer when models have different probability calibration
+- Correlation filtering helps avoid adding a nearly duplicate model that only adds noise
+- Validation-based selection between raw weighted blend and rank blend is easy and effective
+
+Implementation sketch:
+- After getting `xgb_valid_pred`, `cat_valid_pred`, and optional `tab_valid_pred`, compute:
+  - validation AUC for each model
+  - Spearman correlation matrix between validation predictions
+  - rank-normalized predictions for valid and test
+- Build these blend candidates:
+  - `weighted_raw_blend`
+  - `equal_rank_blend`
+  - `diverse_rank_blend`
+- Evaluate all candidate blends on the existing validation fold with ROC AUC
+- Choose the single best blend and use its test predictions for submission
+
+Practical merge details:
+- For weighted raw blend, normalize weights so they sum to 1
+- For rank blend, use rank positions scaled to `[0,1]`
+- If only XGBoost and CatBoost are available, just compare:
+  - AUC-weighted raw average
+  - 50/50 rank average
+- If TabPFN is available:
+  - include it only if its validation predictions are not almost identical to another model
+  - if correlations are very high, prefer the two most diverse models for rank averaging
+
+Very small code-change path:
+- Add a helper like `blend_model_predictions(...)`
+- Keep all training functions unchanged
+- Replace the final fixed weighted ensemble with:
+  - compute several blends
+  - select the best validation blend
+  - export corresponding test blend
+
+If you want the simplest final rule with almost no risk:
+- Default to CatBoost + XGBoost 50/50 rank average
+- If TabPFN is present and sufficiently different, use equal-weight rank average over all selected models
+- Also compute the current AUC-weighted raw average and keep whichever has higher validation AUC
+
+This is probably the best balance of novelty, effectiveness, and implementation safety for the provided solution.
+[92m03:58:14 - LiteLLM:INFO[0m: utils.py:3748 - 
+LiteLLM completion() model= gpt-5.4; provider = openai
+/home/flo/uni/mle-star-skrub/mle-star_vanilla/agents/machine-learning-engineering/.venv/lib/python3.14/site-packages/pydantic/main.py:464: UserWarning: Pydantic serializer warnings:
+  PydanticSerializationUnexpectedValue(Expected 10 fields but got 6: Expected `Message` - serialized value may not be as expected [field_name='message', input_value=Message(content='```pytho...: None}, annotations=[]), input_type=Message])
+  PydanticSerializationUnexpectedValue(Expected `StreamingChoices` - serialized value may not be as expected [field_name='choices', input_value=Choices(finish_reason='st...ider_specific_fields={}), input_type=Choices])
+  return self.__pydantic_serializer__.to_python(
+[ensemble_plan_implement_initial_agent]: ```python
+import os
+import sys
+import subprocess
+import warnings
+
+warnings.filterwarnings("ignore")
+
+
+def ensure_package(import_name, pip_name=None):
+    pip_name = pip_name or import_name
+    package_installed = True
+    try:
+        __import__(import_name)
+    except ModuleNotFoundError:
+        package_installed = False
+    if not package_installed:
+        subprocess.check_call([sys.executable, "-m", "pip", "install", pip_name])
+
+
+ensure_package("numpy")
+ensure_package("pandas")
+ensure_package("sklearn", "scikit-learn")
+ensure_package("xgboost")
+ensure_package("catboost")
+ensure_package("torch")
+
+import numpy as np
+import pandas as pd
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import roc_auc_score
+from sklearn.preprocessing import LabelEncoder
+from xgboost import XGBClassifier
+from catboost import CatBoostClassifier
+
+TABPFN_IMPORTABLE = False
+tabpfn_spec = None
+try:
+    import importlib.util
+    tabpfn_spec = importlib.util.find_spec("tabpfn")
+except ImportError:
+    tabpfn_spec = None
+if tabpfn_spec is not None:
+    ensure_package("tabpfn")
+    from tabpfn import TabPFNClassifier
+    import torch
+    TABPFN_IMPORTABLE = True
+
+
+def preprocess_for_xgb_tabpfn(train_df, test_df, target_col, id_col):
+    features = [c for c in train_df.columns if c not in [id_col, target_col]]
+
+    X = train_df[features].copy()
+    y = train_df[target_col].copy()
+    X_test = test_df[features].copy()
+
+    object_cols = [c for c in features if X[c].dtype == "object" or X_test[c].dtype == "object"]
+
+    for c in object_cols:
+        le = LabelEncoder()
+        combined = pd.concat([X[c].astype(str), X_test[c].astype(str)], axis=0)
+        le.fit(combined)
+        X[c] = le.transform(X[c].astype(str))
+        X_test[c] = le.transform(X_test[c].astype(str))
+
+    for c in features:
+        needs_fill = X[c].isnull().any() or X_test[c].isnull().any()
+        if needs_fill:
+            fill_value = X[c].median() if pd.api.types.is_numeric_dtype(X[c]) else "missing"
+            X[c] = X[c].fillna(fill_value)
+            X_test[c] = X_test[c].fillna(fill_value)
+
+    X = X.apply(pd.to_numeric, errors="coerce")
+    X_test = X_test.apply(pd.to_numeric, errors="coerce")
+
+    for c in features:
+        needs_fill = X[c].isnull().any() or X_test[c].isnull().any()
+        if needs_fill:
+            fill_value = X[c].median() if pd.api.types.is_numeric_dtype(X[c]) else 0
+            X[c] = X[c].fillna(fill_value)
+            X_test[c] = X_test[c].fillna(fill_value)
+
+    return X, y, X_test, features
+
+
+def preprocess_for_catboost(train_df, test_df, target_col, id_col):
+    features = [c for c in train_df.columns if c not in [id_col, target_col]]
+
+    X = train_df[features].copy()
+    y = train_df[target_col].copy()
+    X_test = test_df[features].copy()
+
+    for c in features:
+        if X[c].dtype == "object" or X_test[c].dtype == "object":
+            X[c] = X[c].astype(str).fillna("missing")
+            X_test[c] = X_test[c].astype(str).fillna("missing")
+        else:
+            fill_value = X[c].median()
+            X[c] = X[c].fillna(fill_value)
+            X_test[c] = X_test[c].fillna(fill_value)
+
+    cat_cols = [c for c in features if X[c].dtype == "object"]
+    cat_idx = [features.index(c) for c in cat_cols]
+
+    return X, y, X_test, features, cat_idx
+
+
+def fit_xgboost_model(X_train, y_train, X_valid, y_valid, X_full, y_full, X_test):
+    xgb_params = dict(
+        n_estimators=3000,
+        max_depth=5,
+        learning_rate=0.02,
+        subsample=0.8,
+        colsample_bytree=0.8,
+        min_child_weight=3,
+        gamma=0.1,
+        reg_alpha=0.1,
+        reg_lambda=2.0,
+        objective="binary:logistic",
+        eval_metric="auc",
+        n_jobs=-1,
+        tree_method="hist"
+    )
+
+    seeds = [42, 52, 62]
+    valid_pred = np.zeros(len(X_valid), dtype=float)
+    test_pred = np.zeros(len(X_test), dtype=float)
+
+    for seed in seeds:
+        model = XGBClassifier(
+            **xgb_params,
+            random_state=seed
+        )
+        model.fit(
+            X_train,
+            y_train,
+            eval_set=[(X_valid, y_valid)],
+            verbose=False
+        )
+
+        best_iteration = getattr(model, "best_iteration", None)
+        if best_iteration is not None:
+            valid_pred += model.predict_proba(X_valid, iteration_range=(0, best_iteration + 1))[:, 1] / len(seeds)
+        else:
+            valid_pred += model.predict_proba(X_valid)[:, 1] / len(seeds)
+
+        best_n_estimators = (best_iteration + 1) if best_iteration is not None else xgb_params["n_estimators"]
+
+        full_model = XGBClassifier(
+            **{**xgb_params, "n_estimators": best_n_estimators},
+            random_state=seed
+        )
+        full_model.fit(X_full, y_full, verbose=False)
+        test_pred += full_model.predict_proba(X_test)[:, 1] / len(seeds)
+
+    score = roc_auc_score(y_valid, valid_pred)
+    return score, valid_pred, test_pred
+
+
+def fit_catboost_model(X_train, y_train, X_valid, y_valid, X_full, y_full, X_test, cat_idx):
+    model = CatBoostClassifier(
+        iterations=4000,
+        learning_rate=0.03,
+        depth=6,
+        l2_leaf_reg=5.0,
+        random_strength=0.5,
+        bagging_temperature=0.5,
+        loss_function="Logloss",
+        eval_metric="AUC",
+        random_seed=42,
+        verbose=200
+    )
+
+    model.fit(
+        X_train,
+        y_train,
+        cat_features=cat_idx,
+        eval_set=(X_valid, y_valid),
+        use_best_model=True,
+        early_stopping_rounds=200
+    )
+
+    valid_pred = model.predict_proba(X_valid)[:, 1]
+    score = roc_auc_score(y_valid, valid_pred)
+
+    best_iteration = model.get_best_iteration()
+    full_iterations = best_iteration + 1 if best_iteration is not None and best_iteration >= 0 else 2000
+
+    full_model = CatBoostClassifier(
+        iterations=full_iterations,
+        learning_rate=0.03,
+        depth=6,
+        l2_leaf_reg=5.0,
+        random_strength=0.5,
+        bagging_temperature=0.5,
+        loss_function="Logloss",
+        eval_metric="AUC",
+        random_seed=42,
+        verbose=False
+    )
+
+    full_model.fit(
+        X_full,
+        y_full,
+        cat_features=cat_idx,
+        verbose=False
+    )
+    test_pred = full_model.predict_proba(X_test)[:, 1]
+    return score, valid_pred, test_pred
+
+
+def fit_tabpfn_model(X_train, y_train, X_valid, y_valid, X_full, y_full, X_test):
+    device = "cuda" if torch.cuda.is_available() else "cpu"
+    model = TabPFNClassifier(device=device)
+    model.fit(X_train, y_train)
+
+    valid_pred = model.predict_proba(X_valid)[:, 1]
+    score = roc_auc_score(y_valid, valid_pred)
+
+    model.fit(X_full, y_full)
+    test_pred = model.predict_proba(X_test)[:, 1]
+    return score, valid_pred, test_pred
+
+
+def rank_normalize(pred):
+    s = pd.Series(pred)
+    ranks = s.rank(method="average").to_numpy(dtype=float)
+    if len(ranks) <= 1:
+        return np.zeros_like(ranks, dtype=float)
+    return (ranks - 1.0) / (len(ranks) - 1.0)
+
+
+def spearman_corr(a, b):
+    ra = rank_normalize(a)
+    rb = rank_normalize(b)
+    if np.std(ra) == 0 or np.std(rb) == 0:
+        return 0.0
+    return float(np.corrcoef(ra, rb)[0, 1])
+
+
+def blend_model_predictions(model_names, model_scores, valid_preds, test_preds, y_valid):
+    candidates = []
+
+    weights = np.array(model_scores, dtype=float)
+    if weights.sum() <= 0:
+        weights = np.ones_like(weights) / len(weights)
+    else:
+        weights = weights / weights.sum()
+
+    weighted_raw_valid = np.zeros(len(y_valid), dtype=float)
+    weighted_raw_test = np.zeros(len(test_preds[0]), dtype=float)
+    for w, vp, tp in zip(weights, valid_preds, test_preds):
+        weighted_raw_valid += w * vp
+        weighted_raw_test += w * tp
+    candidates.append(("weighted_raw_blend", weighted_raw_valid, weighted_raw_test))
+
+    rank_valid_preds = [rank_normalize(vp) for vp in valid_preds]
+    rank_test_preds = [rank_normalize(tp) for tp in test_preds]
+
+    equal_rank_valid = np.mean(rank_valid_preds, axis=0)
+    equal_rank_test = np.mean(rank_test_preds, axis=0)
+    candidates.append(("equal_rank_blend", equal_rank_valid, equal_rank_test))
+
+    if len(model_names) == 2:
+        diverse_rank_valid = np.mean([rank_valid_preds[0], rank_valid_preds[1]], axis=0)
+        diverse_rank_test = np.mean([rank_test_preds[0], rank_test_preds[1]], axis=0)
+        candidates.append(("diverse_rank_blend", diverse_rank_valid, diverse_rank_test))
+    else:
+        corr_pairs = []
+        for i in range(len(model_names)):
+            for j in range(i + 1, len(model_names)):
+                corr_ij = spearman_corr(valid_preds[i], valid_preds[j])
+                corr_pairs.append((corr_ij, i, j))
+
+        diverse_indices = None
+
+        name_to_idx = {name: idx for idx, name in enumerate(model_names)}
+        if "tabpfn" in name_to_idx:
+            tab_idx = name_to_idx["tabpfn"]
+            tab_corrs = []
+            for i in range(len(model_names)):
+                if i != tab_idx:
+                    tab_corrs.append((spearman_corr(valid_preds[tab_idx], valid_preds[i]), i))
+            if len(tab_corrs) > 0 and max(c for c, _ in tab_corrs) >= 0.995:
+                non_tab_indices = [i for i in range(len(model_names)) if i != tab_idx]
+                diverse_indices = non_tab_indices
+
+        if diverse_indices is None:
+            least_corr_pair = sorted(corr_pairs, key=lambda x: x[0])[0]
+            diverse_indices = [least_corr_pair[1], least_corr_pair[2]]
+
+        diverse_rank_valid = np.mean([rank_valid_preds[i] for i in diverse_indices], axis=0)
+        diverse_rank_test = np.mean([rank_test_preds[i] for i in diverse_indices], axis=0)
+        candidates.append(("diverse_rank_blend", diverse_rank_valid, diverse_rank_test))
+
+    best_name = None
+    best_valid_pred = None
+    best_test_pred = None
+    best_score = -1.0
+
+    for name, vp, tp in candidates:
+        score = roc_auc_score(y_valid, vp)
+        if score > best_score:
+            best_score = score
+            best_name = name
+            best_valid_pred = vp
+            best_test_pred = tp
+
+    return best_name, best_score, best_valid_pred, best_test_pred
+
+
+def main():
+    train_path = os.path.join(".", "input", "train.csv")
+    test_path = os.path.join(".", "input", "test.csv")
+
+    train = pd.read_csv(train_path)
+    test = pd.read_csv(test_path)
+
+    target = "booking_status"
+    id_col = "id"
+
+    X_num, y, X_test_num, _ = preprocess_for_xgb_tabpfn(train, test, target, id_col)
+    X_cat, _, X_test_cat, features_cat, cat_idx = preprocess_for_catboost(train, test, target, id_col)
+
+    train_idx, valid_idx = train_test_split(
+        np.arange(len(train)),
+        test_size=0.2,
+        random_state=42,
+        stratify=y
+    )
+
+    X_train_num = X_num.iloc[train_idx]
+    X_valid_num = X_num.iloc[valid_idx]
+    y_train = y.iloc[train_idx]
+    y_valid = y.iloc[valid_idx]
+    X_train_cat = X_cat.iloc[train_idx]
+    X_valid_cat = X_cat.iloc[valid_idx]
+
+    model_names = []
+    model_scores = []
+    valid_preds = []
+    test_preds = []
+
+    xgb_score, xgb_valid_pred, xgb_test_pred = fit_xgboost_model(
+        X_train_num, y_train, X_valid_num, y_valid, X_num, y, X_test_num
+    )
+    model_names.append("xgb")
+    model_scores.append(xgb_score)
+    valid_preds.append(xgb_valid_pred)
+    test_preds.append(xgb_test_pred)
+
+    cat_score, cat_valid_pred, cat_test_pred = fit_catboost_model(
+        X_train_cat, y_train, X_valid_cat, y_valid, X_cat, y, X_test_cat, cat_idx
+    )
+    model_names.append("cat")
+    model_scores.append(cat_score)
+    valid_preds.append(cat_valid_pred)
+    test_preds.append(cat_test_pred)
+
+    tabpfn_enabled = TABPFN_IMPORTABLE and (os.environ.get("TABPFN_TOKEN", "").strip() != "")
+    if tabpfn_enabled:
+        tab_score, tab_valid_pred, tab_test_pred = fit_tabpfn_model(
+            X_train_num, y_train, X_valid_num, y_valid, X_num, y, X_test_num
+        )
+        model_names.append("tabpfn")
+        model_scores.append(tab_score)
+        valid_preds.append(tab_valid_pred)
+        test_preds.append(tab_test_pred)
+
+    best_blend_name, final_validation_score, ensemble_valid_pred, ensemble_test_pred = blend_model_predictions(
+        model_names=model_names,
+        model_scores=model_scores,
+        valid_preds=valid_preds,
+        test_preds=test_preds,
+        y_valid=y_valid
+    )
+
+    print(f"Final Validation Performance: {final_validation_score}")
+
+    submission = pd.DataFrame({
+        "id": test[id_col],
+        "booking_status": ensemble_test_pred
+    })
+    submission.to_csv("submission_ensemble.csv", index=False)
+
+
+if __name__ == "__main__":
+    main()
+```
+[92m04:01:42 - LiteLLM:INFO[0m: utils.py:3748 - 
+LiteLLM completion() model= gpt-5.4; provider = openai
+/home/flo/uni/mle-star-skrub/mle-star_vanilla/agents/machine-learning-engineering/.venv/lib/python3.14/site-packages/pydantic/main.py:464: UserWarning: Pydantic serializer warnings:
+  PydanticSerializationUnexpectedValue(Expected 10 fields but got 6: Expected `Message` - serialized value may not be as expected [field_name='message', input_value=Message(content='Use a ti...: None}, annotations=[]), input_type=Message])
+  PydanticSerializationUnexpectedValue(Expected `StreamingChoices` - serialized value may not be as expected [field_name='choices', input_value=Choices(finish_reason='st...ider_specific_fields={}), input_type=Choices])
+  return self.__pydantic_serializer__.to_python(
+[ensemble_plan_refine_agent]: Use a tiny holdout-stacked blend instead of selecting among a few hand-made averages.
+
+Keep all current model training exactly unchanged:
+- keep XGBoost valid/test predictions
+- keep CatBoost valid/test predictions
+- keep optional TabPFN valid/test predictions
+
+Then replace the final blending logic with a very small second-stage blender trained only on the validation predictions:
+- build a validation prediction matrix with columns like:
+  - raw xgb
+  - raw cat
+  - raw tabpfn if present
+  - rank-normalized xgb
+  - rank-normalized cat
+  - rank-normalized tabpfn if present
+  - optional pairwise averages such as `(xgb+cat)/2` and their rank average, only if you want 1–2 extra safe meta-features
+- build the same feature matrix for test from the corresponding test predictions
+
+Train a very simple constrained meta-ensemble on the validation fold:
+- candidate 1: LogisticRegression with small regularization strength search over a tiny grid
+- candidate 2: Ridge regression on probabilities with clipping to [0,1]
+- candidate 3: Non-negative weight search over only the raw base predictions and only the rank base predictions
+
+Practical safe version:
+- do a coarse grid search for non-negative weights summing to 1
+- for 2 models use steps of 0.05 over all combinations
+- for 3 models use steps of 0.1 or 0.05 if still cheap
+- evaluate each candidate on validation AUC
+- do this twice:
+  - once on raw predictions
+  - once on rank-normalized predictions
+- also let LogisticRegression compete against these blends
+- pick the best validation scorer and use its paired test predictions
+
+Why this should beat the previous plan:
+- it is more flexible than fixed score-weighted average or equal-rank average
+- it can automatically learn that one model should get near-zero weight without hard correlation rules
+- it can exploit cases where rank-space blends outperform raw-space blends, but without forcing a manual choice
+- it is still very small and robust because only a few prediction columns are used
+
+Important implementation detail:
+- avoid using model AUCs themselves as weights directly
+- instead optimize the blend weights on the validation predictions
+- if only two models exist, exhaustive simplex search is trivial and very reliable
+- if three models exist, simplex search plus rank-space search is still easy and safe
+
+Extra low-risk safeguard:
+- if the best stacked/logistic blend beats the best single model by less than a tiny margin, for example `< 0.0002`, fall back to the best convex raw/rank blend rather than the logistic model
+- this reduces chance of overfitting the holdout blender
+
+So the final merge procedure is:
+- collect base valid/test predictions
+- generate raw and rank versions
+- search convex weights on raw predictions
+- search convex weights on rank predictions
+- optionally fit a tiny regularized logistic meta-model on prediction columns
+- compare all candidates on the same validation split
+- export the test predictions from the best candidate
+
+This is a minimal code change, more adaptive than the previous correlation/rank rule set, and usually stronger than manually choosing between a few fixed ensemble formulas.
+[92m04:01:51 - LiteLLM:INFO[0m: utils.py:3748 - 
+LiteLLM completion() model= gpt-5.4; provider = openai
+/home/flo/uni/mle-star-skrub/mle-star_vanilla/agents/machine-learning-engineering/.venv/lib/python3.14/site-packages/pydantic/main.py:464: UserWarning: Pydantic serializer warnings:
+  PydanticSerializationUnexpectedValue(Expected 10 fields but got 6: Expected `Message` - serialized value may not be as expected [field_name='message', input_value=Message(content='```pytho...: None}, annotations=[]), input_type=Message])
+  PydanticSerializationUnexpectedValue(Expected `StreamingChoices` - serialized value may not be as expected [field_name='choices', input_value=Choices(finish_reason='st...ider_specific_fields={}), input_type=Choices])
+  return self.__pydantic_serializer__.to_python(
+[ensemble_plan_implement_agent]: ```python
+import os
+import sys
+import subprocess
+import warnings
+
+warnings.filterwarnings("ignore")
+
+
+def ensure_package(import_name, pip_name=None):
+    pip_name = pip_name or import_name
+    package_installed = True
+    try:
+        __import__(import_name)
+    except ModuleNotFoundError:
+        package_installed = False
+    if not package_installed:
+        subprocess.check_call([sys.executable, "-m", "pip", "install", pip_name])
+
+
+ensure_package("numpy")
+ensure_package("pandas")
+ensure_package("sklearn", "scikit-learn")
+ensure_package("xgboost")
+ensure_package("catboost")
+ensure_package("torch")
+
+import numpy as np
+import pandas as pd
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import roc_auc_score
+from sklearn.preprocessing import LabelEncoder
+from sklearn.linear_model import LogisticRegression, Ridge
+from xgboost import XGBClassifier
+from catboost import CatBoostClassifier
+
+TABPFN_IMPORTABLE = False
+tabpfn_spec = None
+try:
+    import importlib.util
+    tabpfn_spec = importlib.util.find_spec("tabpfn")
+except ImportError:
+    tabpfn_spec = None
+if tabpfn_spec is not None:
+    ensure_package("tabpfn")
+    from tabpfn import TabPFNClassifier
+    import torch
+    TABPFN_IMPORTABLE = True
+
+
+def preprocess_for_xgb_tabpfn(train_df, test_df, target_col, id_col):
+    features = [c for c in train_df.columns if c not in [id_col, target_col]]
+
+    X = train_df[features].copy()
+    y = train_df[target_col].copy()
+    X_test = test_df[features].copy()
+
+    object_cols = [c for c in features if X[c].dtype == "object" or X_test[c].dtype == "object"]
+
+    for c in object_cols:
+        le = LabelEncoder()
+        combined = pd.concat([X[c].astype(str), X_test[c].astype(str)], axis=0)
+        le.fit(combined)
+        X[c] = le.transform(X[c].astype(str))
+        X_test[c] = le.transform(X_test[c].astype(str))
+
+    for c in features:
+        needs_fill = X[c].isnull().any() or X_test[c].isnull().any()
+        if needs_fill:
+            fill_value = X[c].median() if pd.api.types.is_numeric_dtype(X[c]) else "missing"
+            X[c] = X[c].fillna(fill_value)
+            X_test[c] = X_test[c].fillna(fill_value)
+
+    X = X.apply(pd.to_numeric, errors="coerce")
+    X_test = X_test.apply(pd.to_numeric, errors="coerce")
+
+    for c in features:
+        needs_fill = X[c].isnull().any() or X_test[c].isnull().any()
+        if needs_fill:
+            fill_value = X[c].median() if pd.api.types.is_numeric_dtype(X[c]) else 0
+            X[c] = X[c].fillna(fill_value)
+            X_test[c] = X_test[c].fillna(fill_value)
+
+    return X, y, X_test, features
+
+
+def preprocess_for_catboost(train_df, test_df, target_col, id_col):
+    features = [c for c in train_df.columns if c not in [id_col, target_col]]
+
+    X = train_df[features].copy()
+    y = train_df[target_col].copy()
+    X_test = test_df[features].copy()
+
+    for c in features:
+        if X[c].dtype == "object" or X_test[c].dtype == "object":
+            X[c] = X[c].astype(str).fillna("missing")
+            X_test[c] = X_test[c].astype(str).fillna("missing")
+        else:
+            fill_value = X[c].median()
+            X[c] = X[c].fillna(fill_value)
+            X_test[c] = X_test[c].fillna(fill_value)
+
+    cat_cols = [c for c in features if X[c].dtype == "object"]
+    cat_idx = [features.index(c) for c in cat_cols]
+
+    return X, y, X_test, features, cat_idx
+
+
+def fit_xgboost_model(X_train, y_train, X_valid, y_valid, X_full, y_full, X_test):
+    xgb_params = dict(
+        n_estimators=3000,
+        max_depth=5,
+        learning_rate=0.02,
+        subsample=0.8,
+        colsample_bytree=0.8,
+        min_child_weight=3,
+        gamma=0.1,
+        reg_alpha=0.1,
+        reg_lambda=2.0,
+        objective="binary:logistic",
+        eval_metric="auc",
+        n_jobs=-1,
+        tree_method="hist"
+    )
+
+    seeds = [42, 52, 62]
+    valid_pred = np.zeros(len(X_valid), dtype=float)
+    test_pred = np.zeros(len(X_test), dtype=float)
+
+    for seed in seeds:
+        model = XGBClassifier(
+            **xgb_params,
+            random_state=seed
+        )
+        model.fit(
+            X_train,
+            y_train,
+            eval_set=[(X_valid, y_valid)],
+            verbose=False
+        )
+
+        best_iteration = getattr(model, "best_iteration", None)
+        if best_iteration is not None:
+            valid_pred += model.predict_proba(X_valid, iteration_range=(0, best_iteration + 1))[:, 1] / len(seeds)
+        else:
+            valid_pred += model.predict_proba(X_valid)[:, 1] / len(seeds)
+
+        best_n_estimators = (best_iteration + 1) if best_iteration is not None else xgb_params["n_estimators"]
+
+        full_model = XGBClassifier(
+            **{**xgb_params, "n_estimators": best_n_estimators},
+            random_state=seed
+        )
+        full_model.fit(X_full, y_full, verbose=False)
+        test_pred += full_model.predict_proba(X_test)[:, 1] / len(seeds)
+
+    score = roc_auc_score(y_valid, valid_pred)
+    return score, valid_pred, test_pred
+
+
+def fit_catboost_model(X_train, y_train, X_valid, y_valid, X_full, y_full, X_test, cat_idx):
+    model = CatBoostClassifier(
+        iterations=4000,
+        learning_rate=0.03,
+        depth=6,
+        l2_leaf_reg=5.0,
+        random_strength=0.5,
+        bagging_temperature=0.5,
+        loss_function="Logloss",
+        eval_metric="AUC",
+        random_seed=42,
+        verbose=200
+    )
+
+    model.fit(
+        X_train,
+        y_train,
+        cat_features=cat_idx,
+        eval_set=(X_valid, y_valid),
+        use_best_model=True,
+        early_stopping_rounds=200
+    )
+
+    valid_pred = model.predict_proba(X_valid)[:, 1]
+    score = roc_auc_score(y_valid, valid_pred)
+
+    best_iteration = model.get_best_iteration()
+    full_iterations = best_iteration + 1 if best_iteration is not None and best_iteration >= 0 else 2000
+
+    full_model = CatBoostClassifier(
+        iterations=full_iterations,
+        learning_rate=0.03,
+        depth=6,
+        l2_leaf_reg=5.0,
+        random_strength=0.5,
+        bagging_temperature=0.5,
+        loss_function="Logloss",
+        eval_metric="AUC",
+        random_seed=42,
+        verbose=False
+    )
+
+    full_model.fit(
+        X_full,
+        y_full,
+        cat_features=cat_idx,
+        verbose=False
+    )
+    test_pred = full_model.predict_proba(X_test)[:, 1]
+    return score, valid_pred, test_pred
+
+
+def fit_tabpfn_model(X_train, y_train, X_valid, y_valid, X_full, y_full, X_test):
+    device = "cuda" if torch.cuda.is_available() else "cpu"
+    model = TabPFNClassifier(device=device)
+    model.fit(X_train, y_train)
+
+    valid_pred = model.predict_proba(X_valid)[:, 1]
+    score = roc_auc_score(y_valid, valid_pred)
+
+    model.fit(X_full, y_full)
+    test_pred = model.predict_proba(X_test)[:, 1]
+    return score, valid_pred, test_pred
+
+
+def rank_normalize(arr):
+    s = pd.Series(arr)
+    r = s.rank(method="average")
+    if len(r) <= 1:
+        return np.zeros(len(arr), dtype=float)
+    return ((r - 1) / (len(r) - 1)).to_numpy(dtype=float)
+
+
+def generate_weight_combinations(n_models, step):
+    units = int(round(1.0 / step))
+    combos = []
+
+    def backtrack(idx, remaining, current):
+        if idx == n_models - 1:
+            current.append(remaining)
+            combos.append(np.array(current, dtype=float) / units)
+            current.pop()
+            return
+        for v in range(remaining + 1):
+            current.append(v)
+            backtrack(idx + 1, remaining - v, current)
+            current.pop()
+
+    backtrack(0, units, [])
+    return combos
+
+
+def search_convex_blend(pred_matrix_valid, pred_matrix_test, y_valid, step):
+    n_models = pred_matrix_valid.shape[1]
+    combos = generate_weight_combinations(n_models, step)
+    best_score = -1.0
+    best_valid_pred = None
+    best_test_pred = None
+    best_weights = None
+
+    for w in combos:
+        valid_pred = pred_matrix_valid.dot(w)
+        score = roc_auc_score(y_valid, valid_pred)
+        if score > best_score:
+            best_score = score
+            best_valid_pred = valid_pred
+            best_test_pred = pred_matrix_test.dot(w)
+            best_weights = w.copy()
+
+    return {
+        "name": "convex_blend",
+        "score": best_score,
+        "valid_pred": best_valid_pred,
+        "test_pred": best_test_pred,
+        "weights": best_weights
+    }
+
+
+def build_meta_features(valid_preds_dict, test_preds_dict):
+    model_names = list(valid_preds_dict.keys())
+
+    Xv_cols = []
+    Xt_cols = []
+
+    for name in model_names:
+        Xv_cols.append(valid_preds_dict[name])
+        Xt_cols.append(test_preds_dict[name])
+
+    rank_valid = {}
+    rank_test = {}
+    for name in model_names:
+        rank_valid[name] = rank_normalize(valid_preds_dict[name])
+        rank_test[name] = rank_normalize(test_preds_dict[name])
+        Xv_cols.append(rank_valid[name])
+        Xt_cols.append(rank_test[name])
+
+    pair_names = []
+    for i in range(len(model_names)):
+        for j in range(i + 1, len(model_names)):
+            if len(pair_names) >= 2:
+                break
+            a, b = model_names[i], model_names[j]
+            raw_avg_v = (valid_preds_dict[a] + valid_preds_dict[b]) / 2.0
+            raw_avg_t = (test_preds_dict[a] + test_preds_dict[b]) / 2.0
+            rank_avg_v = (rank_valid[a] + rank_valid[b]) / 2.0
+            rank_avg_t = (rank_test[a] + rank_test[b]) / 2.0
+            Xv_cols.append(raw_avg_v)
+            Xt_cols.append(raw_avg_t)
+            Xv_cols.append(rank_avg_v)
+            Xt_cols.append(rank_avg_t)
+            pair_names.append((a, b))
+        if len(pair_names) >= 2:
+            break
+
+    X_valid_meta = np.column_stack(Xv_cols)
+    X_test_meta = np.column_stack(Xt_cols)
+
+    raw_valid_matrix = np.column_stack([valid_preds_dict[name] for name in model_names])
+    raw_test_matrix = np.column_stack([test_preds_dict[name] for name in model_names])
+    rank_valid_matrix = np.column_stack([rank_valid[name] for name in model_names])
+    rank_test_matrix = np.column_stack([rank_test[name] for name in model_names])
+
+    return X_valid_meta, X_test_meta, raw_valid_matrix, raw_test_matrix, rank_valid_matrix, rank_test_matrix, model_names
+
+
+def fit_logistic_meta(X_valid_meta, X_test_meta, y_valid):
+    best = None
+    for C in [0.05, 0.1, 0.2, 0.5, 1.0, 2.0]:
+        try:
+            model = LogisticRegression(
+                C=C,
+                solver="liblinear",
+                max_iter=1000,
+                random_state=42
+            )
+            model.fit(X_valid_meta, y_valid)
+            valid_pred = model.predict_proba(X_valid_meta)[:, 1]
+            test_pred = model.predict_proba(X_test_meta)[:, 1]
+            score = roc_auc_score(y_valid, valid_pred)
+            candidate = {
+                "name": f"logistic_C_{C}",
+                "score": score,
+                "valid_pred": valid_pred,
+                "test_pred": test_pred
+            }
+            if best is None or candidate["score"] > best["score"]:
+                best = candidate
+        except Exception:
+            continue
+    return best
+
+
+def fit_ridge_meta(X_valid_meta, X_test_meta, y_valid):
+    best = None
+    for alpha in [0.1, 0.5, 1.0, 2.0, 5.0, 10.0]:
+        try:
+            model = Ridge(alpha=alpha, random_state=42)
+            model.fit(X_valid_meta, y_valid)
+            valid_pred = np.clip(model.predict(X_valid_meta), 0.0, 1.0)
+            test_pred = np.clip(model.predict(X_test_meta), 0.0, 1.0)
+            score = roc_auc_score(y_valid, valid_pred)
+            candidate = {
+                "name": f"ridge_alpha_{alpha}",
+                "score": score,
+                "valid_pred": valid_pred,
+                "test_pred": test_pred
+            }
+            if best is None or candidate["score"] > best["score"]:
+                best = candidate
+        except Exception:
+            continue
+    return best
+
+
+def main():
+    train_path = os.path.join(".", "input", "train.csv")
+    test_path = os.path.join(".", "input", "test.csv")
+
+    train = pd.read_csv(train_path)
+    test = pd.read_csv(test_path)
+
+    target = "booking_status"
+    id_col = "id"
+
+    X_num, y, X_test_num, _ = preprocess_for_xgb_tabpfn(train, test, target, id_col)
+    X_cat, _, X_test_cat, features_cat, cat_idx = preprocess_for_catboost(train, test, target, id_col)
+
+    train_idx, valid_idx = train_test_split(
+        np.arange(len(train)),
+        test_size=0.2,
+        random_state=42,
+        stratify=y
+    )
+
+    X_train_num = X_num.iloc[train_idx]
+    X_valid_num = X_num.iloc[valid_idx]
+    y_train = y.iloc[train_idx]
+    y_valid = y.iloc[valid_idx]
+    X_train_cat = X_cat.iloc[train_idx]
+    X_valid_cat = X_cat.iloc[valid_idx]
+
+    model_scores = []
+    valid_preds_dict = {}
+    test_preds_dict = {}
+
+    xgb_score, xgb_valid_pred, xgb_test_pred = fit_xgboost_model(
+        X_train_num, y_train, X_valid_num, y_valid, X_num, y, X_test_num
+    )
+    model_scores.append(xgb_score)
+    valid_preds_dict["xgb"] = xgb_valid_pred
+    test_preds_dict["xgb"] = xgb_test_pred
+
+    cat_score, cat_valid_pred, cat_test_pred = fit_catboost_model(
+        X_train_cat, y_train, X_valid_cat, y_valid, X_cat, y, X_test_cat, cat_idx
+    )
+    model_scores.append(cat_score)
+    valid_preds_dict["cat"] = cat_valid_pred
+    test_preds_dict["cat"] = cat_test_pred
+
+    tabpfn_enabled = TABPFN_IMPORTABLE and (os.environ.get("TABPFN_TOKEN", "").strip() != "")
+    if tabpfn_enabled:
+        tab_score, tab_valid_pred, tab_test_pred = fit_tabpfn_model(
+            X_train_num, y_train, X_valid_num, y_valid, X_num, y, X_test_num
+        )
+        model_scores.append(tab_score)
+        valid_preds_dict["tabpfn"] = tab_valid_pred
+        test_preds_dict["tabpfn"] = tab_test_pred
+
+    X_valid_meta, X_test_meta, raw_valid_matrix, raw_test_matrix, rank_valid_matrix, rank_test_matrix, model_names = build_meta_features(
+        valid_preds_dict, test_preds_dict
+    )
+
+    n_models = len(model_names)
+    step = 0.05 if n_models <= 2 else 0.1
+
+    raw_blend = search_convex_blend(raw_valid_matrix, raw_test_matrix, y_valid, step)
+    raw_blend["name"] = "convex_raw"
+
+    rank_blend = search_convex_blend(rank_valid_matrix, rank_test_matrix, y_valid, step)
+    rank_blend["name"] = "convex_rank"
+
+    logistic_candidate = fit_logistic_meta(X_valid_meta, X_test_meta, y_valid)
+    ridge_candidate = fit_ridge_meta(X_valid_meta, X_test_meta, y_valid)
+
+    candidates = [raw_blend, rank_blend]
+    if logistic_candidate is not None:
+        candidates.append(logistic_candidate)
+    if ridge_candidate is not None:
+        candidates.append(ridge_candidate)
+
+    best_single_name = None
+    best_single_score = -1.0
+    for name in model_names:
+        score = roc_auc_score(y_valid, valid_preds_dict[name])
+        if score > best_single_score:
+            best_single_score = score
+            best_single_name = name
+
+    best_convex = max([raw_blend, rank_blend], key=lambda x: x["score"])
+    best_candidate = max(candidates, key=lambda x: x["score"])
+
+    if best_candidate["name"].startswith("logistic"):
+        if (best_candidate["score"] - best_single_score) < 0.0002:
+            best_candidate = best_convex
+
+    final_validation_score = roc_auc_score(y_valid, best_candidate["valid_pred"])
+    print(f"Final Validation Performance: {final_validation_score}")
+
+    submission = pd.DataFrame({
+        "id": test[id_col],
+        "booking_status": best_candidate["test_pred"]
+    })
+    submission.to_csv("submission_ensemble.csv", index=False)
+
+
+if __name__ == "__main__":
+    main()
+```
+[92m04:05:18 - LiteLLM:INFO[0m: utils.py:3748 - 
+LiteLLM completion() model= gpt-5.4; provider = openai
+/home/flo/uni/mle-star-skrub/mle-star_vanilla/agents/machine-learning-engineering/.venv/lib/python3.14/site-packages/pydantic/main.py:464: UserWarning: Pydantic serializer warnings:
+  PydanticSerializationUnexpectedValue(Expected 10 fields but got 6: Expected `Message` - serialized value may not be as expected [field_name='message', input_value=Message(content='```pytho...: None}, annotations=[]), input_type=Message])
+  PydanticSerializationUnexpectedValue(Expected `StreamingChoices` - serialized value may not be as expected [field_name='choices', input_value=Choices(finish_reason='st...ider_specific_fields={}), input_type=Choices])
+  return self.__pydantic_serializer__.to_python(
+[submission_agent]: ```python
+import os
+import sys
+import subprocess
+import warnings
+import importlib.util
+
+warnings.filterwarnings("ignore")
+
+
+def ensure_package(import_name, pip_name=None):
+    pip_name = pip_name or import_name
+    spec = importlib.util.find_spec(import_name)
+    if spec is None:
+        subprocess.check_call([sys.executable, "-m", "pip", "install", pip_name])
+
+
+ensure_package("numpy")
+ensure_package("pandas")
+ensure_package("sklearn", "scikit-learn")
+ensure_package("xgboost")
+ensure_package("catboost")
+ensure_package("torch")
+
+import numpy as np
+import pandas as pd
+from sklearn.preprocessing import LabelEncoder
+from xgboost import XGBClassifier
+from catboost import CatBoostClassifier
+
+tabpfn_spec = importlib.util.find_spec("tabpfn")
+TABPFN_IMPORTABLE = tabpfn_spec is not None
+if TABPFN_IMPORTABLE:
+    ensure_package("tabpfn")
+    from tabpfn import TabPFNClassifier
+    import torch
+
+
+def preprocess_for_xgb_tabpfn(train_df, test_df, target_col, id_col):
+    features = [c for c in train_df.columns if c not in [id_col, target_col]]
+
+    X = train_df[features].copy()
+    y = train_df[target_col].copy()
+    X_test = test_df[features].copy()
+
+    object_cols = [c for c in features if X[c].dtype == "object" or X_test[c].dtype == "object"]
+
+    for c in object_cols:
+        le = LabelEncoder()
+        combined = pd.concat([X[c].astype(str), X_test[c].astype(str)], axis=0)
+        le.fit(combined)
+        X[c] = le.transform(X[c].astype(str))
+        X_test[c] = le.transform(X_test[c].astype(str))
+
+    for c in features:
+        needs_fill = X[c].isnull().any() or X_test[c].isnull().any()
+        if needs_fill:
+            fill_value = X[c].median() if pd.api.types.is_numeric_dtype(X[c]) else "missing"
+            X[c] = X[c].fillna(fill_value)
+            X_test[c] = X_test[c].fillna(fill_value)
+
+    X = X.apply(pd.to_numeric, errors="coerce")
+    X_test = X_test.apply(pd.to_numeric, errors="coerce")
+
+    for c in features:
+        needs_fill = X[c].isnull().any() or X_test[c].isnull().any()
+        if needs_fill:
+            fill_value = X[c].median() if pd.api.types.is_numeric_dtype(X[c]) else 0
+            X[c] = X[c].fillna(fill_value)
+            X_test[c] = X_test[c].fillna(fill_value)
+
+    return X, y, X_test, features
+
+
+def preprocess_for_catboost(train_df, test_df, target_col, id_col):
+    features = [c for c in train_df.columns if c not in [id_col, target_col]]
+
+    X = train_df[features].copy()
+    y = train_df[target_col].copy()
+    X_test = test_df[features].copy()
+
+    for c in features:
+        if X[c].dtype == "object" or X_test[c].dtype == "object":
+            X[c] = X[c].astype(str).fillna("missing")
+            X_test[c] = X_test[c].astype(str).fillna("missing")
+        else:
+            fill_value = X[c].median()
+            X[c] = X[c].fillna(fill_value)
+            X_test[c] = X_test[c].fillna(fill_value)
+
+    cat_cols = [c for c in features if X[c].dtype == "object"]
+    cat_idx = [features.index(c) for c in cat_cols]
+
+    return X, y, X_test, features, cat_idx
+
+
+def fit_xgboost_full(X_full, y_full, X_test):
+    xgb_params = dict(
+        n_estimators=3000,
+        max_depth=5,
+        learning_rate=0.02,
+        subsample=0.8,
+        colsample_bytree=0.8,
+        min_child_weight=3,
+        gamma=0.1,
+        reg_alpha=0.1,
+        reg_lambda=2.0,
+        objective="binary:logistic",
+        eval_metric="auc",
+        n_jobs=-1,
+        tree_method="hist"
+    )
+
+    seeds = [42, 52, 62]
+    test_pred = np.zeros(len(X_test), dtype=float)
+
+    for seed in seeds:
+        model = XGBClassifier(**xgb_params, random_state=seed)
+        model.fit(X_full, y_full, verbose=False)
+        test_pred += model.predict_proba(X_test)[:, 1] / len(seeds)
+
+    return test_pred
+
+
+def fit_catboost_full(X_full, y_full, X_test, cat_idx):
+    model = CatBoostClassifier(
+        iterations=4000,
+        learning_rate=0.03,
+        depth=6,
+        l2_leaf_reg=5.0,
+        random_strength=0.5,
+        bagging_temperature=0.5,
+        loss_function="Logloss",
+        eval_metric="AUC",
+        random_seed=42,
+        verbose=False
+    )
+
+    model.fit(X_full, y_full, cat_features=cat_idx, verbose=False)
+    test_pred = model.predict_proba(X_test)[:, 1]
+    return test_pred
+
+
+def fit_tabpfn_full(X_full, y_full, X_test):
+    device = "cuda" if torch.cuda.is_available() else "cpu"
+    model = TabPFNClassifier(device=device)
+    model.fit(X_full, y_full)
+    test_pred = model.predict_proba(X_test)[:, 1]
+    return test_pred
+
+
+def main():
+    train_path = os.path.join(".", "input", "train.csv")
+    test_path = os.path.join(".", "input", "test.csv")
+
+    train = pd.read_csv(train_path)
+    test = pd.read_csv(test_path)
+
+    target = "booking_status"
+    id_col = "id"
+
+    X_num, y, X_test_num, _ = preprocess_for_xgb_tabpfn(train, test, target, id_col)
+    X_cat, _, X_test_cat, _, cat_idx = preprocess_for_catboost(train, test, target, id_col)
+
+    preds = []
+
+    xgb_test_pred = fit_xgboost_full(X_num, y, X_test_num)
+    preds.append(xgb_test_pred)
+
+    cat_test_pred = fit_catboost_full(X_cat, y, X_test_cat, cat_idx)
+    preds.append(cat_test_pred)
+
+    tabpfn_token = os.environ.get("TABPFN_TOKEN", "").strip()
+    if TABPFN_IMPORTABLE and len(tabpfn_token) > 0:
+        tab_test_pred = fit_tabpfn_full(X_num, y, X_test_num)
+        preds.append(tab_test_pred)
+
+    final_pred = np.mean(np.column_stack(preds), axis=1)
+
+    os.makedirs("./final", exist_ok=True)
+
+    submission = pd.DataFrame({
+        "id": test[id_col],
+        "booking_status": final_pred
+    })
+    submission.to_csv("./final/submission.csv", index=False)
+
+
+if __name__ == "__main__":
+    main()
+```
+[user]: 
+Aborted!

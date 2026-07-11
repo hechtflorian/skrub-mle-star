@@ -1,0 +1,39 @@
+## Model name
+LightGBMClassifier
+
+## Example Python code
+import pandas as pd
+from lightgbm import LGBMClassifier
+
+train = pd.read_csv('train.csv')
+test = pd.read_csv('test.csv')
+
+y = (train['Personality'] == 'Extrovert').astype(int)
+X = train.drop(columns=['Personality'])
+X_test = test.copy()
+
+for df in [X, X_test]:
+    for c in df.select_dtypes(include='object').columns:
+        df[c] = df[c].fillna('Missing').astype('category')
+
+num_cols = X.select_dtypes(exclude='category').columns
+X[num_cols] = X[num_cols].fillna(X[num_cols].median())
+X_test[num_cols] = X_test[num_cols].fillna(X[num_cols].median())
+
+model = LGBMClassifier(
+    n_estimators=500,
+    learning_rate=0.05,
+    num_leaves=31,
+    subsample=0.9,
+    colsample_bytree=0.9,
+    random_state=42
+)
+
+model.fit(X, y)
+pred = model.predict(X_test)
+
+sub = pd.DataFrame({
+    'id': test['id'],
+    'Personality': ['Extrovert' if p == 1 else 'Introvert' for p in pred]
+})
+sub.to_csv('submission.csv', index=False)

@@ -1,0 +1,44 @@
+## Model name
+LightGBMClassifier
+
+## Example Python code
+import pandas as pd
+from lightgbm import LGBMClassifier
+
+train = pd.read_csv('train.csv')
+test = pd.read_csv('test.csv')
+
+id_col = 'id' if 'id' in test.columns else 'EmployeeNumber'
+target = 'Attrition'
+
+X = train.drop(columns=[target])
+y = train[target]
+X_test = test.copy()
+
+for c in X.columns:
+    if X[c].dtype == 'object':
+        X[c] = X[c].fillna('Missing').astype('category')
+        X_test[c] = X_test[c].fillna('Missing').astype('category')
+    else:
+        med = X[c].median()
+        X[c] = X[c].fillna(med)
+        X_test[c] = X_test[c].fillna(med)
+
+model = LGBMClassifier(
+    n_estimators=800,
+    learning_rate=0.03,
+    num_leaves=31,
+    subsample=0.8,
+    colsample_bytree=0.8,
+    objective='binary',
+    random_state=42
+)
+
+model.fit(X, y)
+pred = model.predict_proba(X_test)[:, 1]
+
+sub = pd.DataFrame({
+    'EmployeeNumber': test[id_col],
+    'Attrition': pred
+})
+sub.to_csv('submission_lgbm.csv', index=False)

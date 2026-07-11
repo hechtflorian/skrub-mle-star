@@ -1,0 +1,67 @@
+## Model name
+LGBMClassifier
+
+## Example Python code
+import pandas as pd
+from lightgbm import LGBMClassifier
+from sklearn.compose import ColumnTransformer
+from sklearn.pipeline import Pipeline
+from sklearn.impute import SimpleImputer
+from sklearn.preprocessing import OneHotEncoder
+
+train = pd.read_csv('train.csv')
+test = pd.read_csv('test.csv')
+
+def add_features(df):
+    df = df.copy()
+    df[['Deck', 'CabinNum', 'Side']] = df['Cabin'].fillna('Unknown/0/U').str.split('/', expand=True)
+    df['Group'] = df['PassengerId'].str.split('_').str[0]
+    df['Spent'] = df[['RoomService','FoodCourt','ShoppingMall','Spa','VRDeck']].fillna(0).sum(axis=1)
+    df['NoSpending'] = (df['Spent'] == 0)
+    return df
+
+train = add_features(train)
+test = add_features(test)
+
+features = [
+    'HomePlanet','CryoSleep','Destination','Age','VIP',
+    'RoomService','FoodCourt','ShoppingMall','Spa','VRDeck',
+    'Deck','CabinNum','Side','Group','Spent','NoSpending'
+]
+
+X_train = train[features]
+y_train = train['Transported']
+X_test = test[features]
+
+cat_cols = ['HomePlanet','CryoSleep','Destination','VIP','Deck','Side','Group','NoSpending']
+num_cols = ['Age','RoomService','FoodCourt','ShoppingMall','Spa','VRDeck','CabinNum','Spent']
+
+preprocess = ColumnTransformer([
+    ('num', SimpleImputer(strategy='median'), num_cols),
+    ('cat', Pipeline([
+        ('imputer', SimpleImputer(strategy='most_frequent')),
+        ('onehot', OneHotEncoder(handle_unknown='ignore'))
+    ]), cat_cols)
+])
+
+model = Pipeline([
+    ('prep', preprocess),
+    ('clf', LGBMClassifier(
+        n_estimators=500,
+        learning_rate=0.03,
+        num_leaves=31,
+        subsample=0.8,
+        colsample_bytree=0.8,
+        random_state=42,
+        verbose=-1
+    ))
+])
+
+model.fit(X_train, y_train)
+pred = model.predict(X_test).astype(bool)
+
+submission = pd.DataFrame({
+    'PassengerId': test['PassengerId'],
+    'Transported': pred
+})
+submission.to_csv('submission.csv', index=False)

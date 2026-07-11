@@ -1,0 +1,53 @@
+## Model name
+CatBoostClassifier
+
+## Example Python code
+import pandas as pd
+from catboost import CatBoostClassifier
+
+train = pd.read_csv('train.csv')
+test = pd.read_csv('test.csv')
+
+def add_features(df):
+    df = df.copy()
+    df[['Deck', 'CabinNum', 'Side']] = df['Cabin'].fillna('Unknown/0/U').str.split('/', expand=True)
+    df['Group'] = df['PassengerId'].str.split('_').str[0]
+    df['Spent'] = df[['RoomService','FoodCourt','ShoppingMall','Spa','VRDeck']].fillna(0).sum(axis=1)
+    df['NoSpending'] = (df['Spent'] == 0)
+    return df
+
+train = add_features(train)
+test = add_features(test)
+
+features = [
+    'HomePlanet','CryoSleep','Destination','Age','VIP',
+    'RoomService','FoodCourt','ShoppingMall','Spa','VRDeck',
+    'Deck','CabinNum','Side','Group','Spent','NoSpending'
+]
+cat_features = [
+    'HomePlanet','CryoSleep','Destination','VIP',
+    'Deck','Side','Group','NoSpending'
+]
+
+X_train = train[features]
+y_train = train['Transported']
+X_test = test[features]
+
+model = CatBoostClassifier(
+    iterations=800,
+    depth=8,
+    learning_rate=0.03,
+    loss_function='Logloss',
+    eval_metric='Accuracy',
+    verbose=0,
+    random_state=42
+)
+
+model.fit(X_train, y_train, cat_features=cat_features)
+pred = model.predict(X_test).astype(bool)
+
+submission = pd.DataFrame({
+    'PassengerId': test['PassengerId'],
+    'Transported': pred
+})
+submission.to_csv('submission.csv', index=False)

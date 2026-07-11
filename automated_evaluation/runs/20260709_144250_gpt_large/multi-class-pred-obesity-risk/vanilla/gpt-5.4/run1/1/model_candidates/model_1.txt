@@ -1,0 +1,37 @@
+## Model name
+CatBoostClassifier
+
+## Example Python code
+import pandas as pd
+from catboost import CatBoostClassifier
+
+train = pd.read_csv('train.csv')
+test = pd.read_csv('test.csv')
+
+TARGET = 'NObeyesdad'
+ID = 'id'
+
+cat_cols = [
+    'Gender','family_history_with_overweight','FAVC','CAEC',
+    'SMOKE','SCC','CALC','MTRANS'
+]
+
+X = train.drop(columns=[ID, TARGET])
+y = train[TARGET]
+X_test = test.drop(columns=[ID])
+
+model = CatBoostClassifier(
+    loss_function='MultiClass',
+    eval_metric='Accuracy',
+    iterations=2000,
+    learning_rate=0.03,
+    depth=6,
+    random_seed=42,
+    verbose=200
+)
+
+model.fit(X, y, cat_features=cat_cols)
+pred = model.predict(X_test).ravel()
+
+sub = pd.DataFrame({ID: test[ID], TARGET: pred})
+sub.to_csv('submission.csv', index=False)

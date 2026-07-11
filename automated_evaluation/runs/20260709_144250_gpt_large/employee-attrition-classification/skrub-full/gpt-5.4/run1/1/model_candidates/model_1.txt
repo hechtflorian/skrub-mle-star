@@ -1,0 +1,36 @@
+## Model name
+CatBoostClassifier
+
+## Example Python code
+import pandas as pd
+from catboost import CatBoostClassifier
+
+train = pd.read_csv('train.csv')
+test = pd.read_csv('test.csv')
+
+target = 'Attrition'
+id_col = 'EmployeeNumber' if 'EmployeeNumber' in test.columns else 'id'
+
+X = train.drop(columns=[target])
+y = train[target]
+X_test = test.copy()
+
+cat_cols = X.select_dtypes(include=['object', 'category']).columns.tolist()
+cat_idx = [X.columns.get_loc(c) for c in cat_cols]
+
+model = CatBoostClassifier(
+    loss_function='Logloss',
+    eval_metric='AUC',
+    iterations=1200,
+    learning_rate=0.03,
+    depth=6,
+    l2_leaf_reg=5,
+    random_seed=42,
+    verbose=0
+)
+
+model.fit(X, y, cat_features=cat_idx)
+pred = model.predict_proba(X_test)[:, 1]
+
+submission = pd.DataFrame({id_col: test[id_col], 'Attrition': pred})
+submission.to_csv('submission.csv', index=False)

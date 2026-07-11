@@ -1,0 +1,36 @@
+## Model name
+CatBoostClassifier
+
+## Example Python code
+import pandas as pd
+from catboost import CatBoostClassifier
+
+train = pd.read_csv('train.csv')
+test = pd.read_csv('test.csv')
+
+target = 'booking_status'
+ignore = ['id', target]
+features = [c for c in train.columns if c not in ignore]
+
+X = train[features]
+y = train[target]
+X_test = test[features]
+
+cat_cols = [c for c in features if X[c].dtype == 'object']
+cat_idx = [features.index(c) for c in cat_cols]
+
+model = CatBoostClassifier(
+    iterations=2000,
+    learning_rate=0.03,
+    depth=6,
+    loss_function='Logloss',
+    eval_metric='AUC',
+    random_seed=42,
+    verbose=200
+)
+
+model.fit(X, y, cat_features=cat_idx)
+pred = model.predict_proba(X_test)[:, 1]
+
+sub = pd.DataFrame({'id': test['id'], 'booking_status': pred})
+sub.to_csv('submission_catboost.csv', index=False)

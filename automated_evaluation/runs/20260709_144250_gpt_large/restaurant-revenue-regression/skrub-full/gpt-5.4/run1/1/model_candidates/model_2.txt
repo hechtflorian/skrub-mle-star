@@ -1,0 +1,40 @@
+## Model name
+XGBoostRegressor with one-hot encoding
+
+## Example Python code
+import pandas as pd
+from xgboost import XGBRegressor
+
+train = pd.read_csv('train.csv')
+test = pd.read_csv('test.csv')
+
+for df in (train, test):
+    d = pd.to_datetime(df['Open Date'], format='%m/%d/%Y')
+    df['restaurant_age_days'] = (pd.Timestamp('2015-01-01') - d).dt.days
+    df['restaurant_age_log'] = (df['restaurant_age_days'].clip(lower=1)).map(__import__('math').log)
+    df.drop(columns=['Open Date'], inplace=True)
+
+all_df = pd.concat([
+    train.drop(columns=['revenue']),
+    test
+], axis=0)
+all_df = pd.get_dummies(all_df, columns=['City', 'City Group', 'Type'], dummy_na=True)
+
+X_train = all_df.iloc[:len(train)].drop(columns=['Id'])
+X_test = all_df.iloc[len(train):].drop(columns=['Id'])
+y_train = train['revenue']
+
+model = XGBRegressor(
+    objective='reg:squarederror',
+    n_estimators=500,
+    max_depth=4,
+    learning_rate=0.03,
+    subsample=0.8,
+    colsample_bytree=0.8,
+    random_state=42,
+    verbosity=0
+)
+model.fit(X_train, y_train)
+
+pred = model.predict(X_test)
+pd.DataFrame({'Id': test['Id'], 'Prediction': pred}).to_csv('submission.csv', index=False)

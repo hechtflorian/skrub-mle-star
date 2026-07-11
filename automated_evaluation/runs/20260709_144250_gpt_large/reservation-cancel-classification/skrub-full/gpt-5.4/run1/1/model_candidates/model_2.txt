@@ -1,0 +1,41 @@
+## Model name
+LGBMClassifier
+
+## Example Python code
+import pandas as pd
+from lightgbm import LGBMClassifier
+
+train = pd.read_csv('train.csv')
+test = pd.read_csv('test.csv')
+
+target = 'booking_status'
+cat_cols = [
+    'type_of_meal_plan', 'room_type_reserved', 'market_segment_type',
+    'arrival_year', 'arrival_month', 'arrival_date',
+    'required_car_parking_space', 'repeated_guest'
+]
+
+for c in cat_cols:
+    train[c] = train[c].astype('category')
+    test[c] = test[c].astype('category')
+
+X = train.drop(columns=[target, 'id'])
+y = train[target]
+X_test = test.drop(columns=['id'])
+
+model = LGBMClassifier(
+    objective='binary',
+    n_estimators=1000,
+    learning_rate=0.03,
+    num_leaves=31,
+    subsample=0.8,
+    colsample_bytree=0.8,
+    random_state=42,
+    verbose=-1
+)
+
+model.fit(X, y, categorical_feature=cat_cols)
+proba = model.predict_proba(X_test)[:, 1]
+
+submission = pd.DataFrame({'id': test['id'], 'booking_status': proba})
+submission.to_csv('submission.csv', index=False)
