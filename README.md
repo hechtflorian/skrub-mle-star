@@ -159,7 +159,7 @@ Alternatively pass `--model-label openai/gpt-5.4` on the `run_experiments.py` li
 | ------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **[CONTRIBUTIONS.md](CONTRIBUTIONS.md)**                     | What we built vs upstream/vanilla, grouped by intent, with clickable file/line pointers and authorship.                                                        |
 | **[EXPERIMENTS.md](EXPERIMENTS.md)**                         | Exact scripts and commands on how we ran the benchmark and how to reproduce, plus where the result artifacts live and how to extend to new models/repeats etc. |
-| **[EXPERIMENTAL_RESULTS_v2.md](EXPERIMENTAL_RESULTS_v2.md)** | Kaggle + holdout results, efficiency, stage analysis, discussion and summary.                                                                                  |
+| **[EXPERIMENTAL_RESULTS.md](EXPERIMENTAL_RESULTS.md)** | Kaggle + holdout results, efficiency, stage analysis, discussion and summary.                                                                                  |
 | [docs/](docs/)                                               | Deeper design notes (`WORKING_PROGRESS_MLE_STAR_SKRUB.md`, `BACKBONE_DRIFT_GUARDS.md`, `MLE_STAR_AGENT_EXPLAINED.md`).                                         |
 
 
