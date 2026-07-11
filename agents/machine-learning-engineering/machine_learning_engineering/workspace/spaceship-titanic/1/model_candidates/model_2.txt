@@ -1,37 +1,51 @@
 ## Model name
-LightGBM with simple feature engineering
+LightGBM + simple preprocessing
 
 ## Example Python code
 import pandas as pd
-import numpy as np
+from sklearn.compose import ColumnTransformer
+from sklearn.pipeline import Pipeline
+from sklearn.impute import SimpleImputer
+from sklearn.preprocessing import OneHotEncoder
 from lightgbm import LGBMClassifier
-from sklearn.model_selection import train_test_split
 
 train = pd.read_csv('train.csv')
 test = pd.read_csv('test.csv')
 
-def fe(df):
-    df = df.copy()
-    cabin = df['Cabin'].fillna('X/X/X').str.split('/', expand=True)
-    df['Deck'] = cabin[0]; df['Num'] = pd.to_numeric(cabin[1], errors='coerce')
-    df['Side'] = cabin[2]
-    df['GroupSize'] = df.groupby('Group')['PassengerId'].transform('count') if 'Group' in df.columns else 1
-    return df
-
-for d in [train, test]:
-    d[['HomePlanet','CryoSleep','Cabin','Destination','VIP']] = d[['HomePlanet','CryoSleep','Cabin','Destination','VIP']].astype('object')
-    d['Group'] = d['PassengerId'].str.split('_').str[0]
-    d = d
-train = fe(train); test = fe(test)
 y = train['Transported'].astype(int)
 X = train.drop(columns=['Transported'])
-X = X.fillna(-1); test = test.fillna(-1)
-cat = X.select_dtypes(include='object').columns.tolist()
-for c in cat:
-    X[c] = X[c].astype('category')
-    test[c] = test[c].astype('category')
-model = LGBMClassifier(n_estimators=1200, learning_rate=0.03, num_leaves=31)
+X_test = test.copy()
+
+for df in [X, X_test]:
+    df[['Deck','CabinNum','Side']] = df['Cabin'].fillna('Unknown/0/U').str.split('/', expand=True)
+    df['Group'] = df['PassengerId'].str.split('_').str[0]
+    df['Spending'] = df[['RoomService','FoodCourt','ShoppingMall','Spa','VRDeck']].fillna(0).sum(axis=1)
+    df.drop(columns=['Cabin','Name','PassengerId'], inplace=True)
+
+cat_cols = X.select_dtypes(include=['object','bool']).columns.tolist()
+num_cols = [c for c in X.columns if c not in cat_cols]
+
+preprocess = ColumnTransformer([
+    ('num', SimpleImputer(strategy='median'), num_cols),
+    ('cat', Pipeline([
+        ('imputer', SimpleImputer(strategy='most_frequent')),
+        ('oh', OneHotEncoder(handle_unknown='ignore'))
+    ]), cat_cols)
+])
+
+model = Pipeline([
+    ('prep', preprocess),
+    ('clf', LGBMClassifier(
+        n_estimators=500,
+        learning_rate=0.05,
+        num_leaves=31,
+        subsample=0.9,
+        colsample_bytree=0.8,
+        random_state=42
+    ))
+])
+
 model.fit(X, y)
-pred = model.predict(test)
-sub = pd.DataFrame({'PassengerId': test['PassengerId'], 'Transported': pred.astype(bool)})
-sub.to_csv('submission.csv', index=False)
+pred = model.predict(X_test).astype(bool)
+submission = pd.DataFrame({'PassengerId': test['PassengerId'], 'Transported': pred})
+submission.to_csv('submission.csv', index=False)

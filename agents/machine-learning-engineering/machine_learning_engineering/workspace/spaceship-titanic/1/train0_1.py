@@ -1,207 +1,140 @@
 
 import os
-import random
 import numpy as np
 import pandas as pd
-import torch
-
-from catboost import CatBoostClassifier
-from lightgbm import LGBMClassifier
+from sklearn.compose import ColumnTransformer
+from sklearn.pipeline import Pipeline
+from sklearn.impute import SimpleImputer
+from sklearn.preprocessing import OneHotEncoder
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import accuracy_score
+from lightgbm import LGBMClassifier
+from catboost import CatBoostClassifier
 
-SEED = 42
-random.seed(SEED)
-np.random.seed(SEED)
-torch.manual_seed(SEED)
-
-INPUT_DIR = "./input"
-train_path = os.path.join(INPUT_DIR, "train.csv")
-test_path = os.path.join(INPUT_DIR, "test.csv")
+train_path = os.path.join('.', 'input', 'train.csv')
+test_path = os.path.join('.', 'input', 'test.csv')
 
 train = pd.read_csv(train_path)
 test = pd.read_csv(test_path)
 
-
-def feature_engineering(df):
+def engineer_features(df):
     df = df.copy()
 
-    # Cabin parsing
-    cabin = df["Cabin"].fillna("X/X/X").astype(str).str.split("/", expand=True)
-    df["Deck"] = cabin[0].astype(str)
-    df["Num"] = pd.to_numeric(cabin[1], errors="coerce")
-    df["Side"] = cabin[2].astype(str)
+    cabin_split = df['Cabin'].fillna('Unknown/0/U').str.split('/', expand=True)
+    df['Deck'] = cabin_split[0]
+    df['CabinNum'] = pd.to_numeric(cabin_split[1], errors='coerce')
+    df['Side'] = cabin_split[2]
 
-    # Base-solution cabin numeric feature too
-    df["CabinNum"] = df["Num"]
+    df['Group'] = df['PassengerId'].str.split('_').str[0]
+    df['GroupSize'] = df.groupby('Group')['Group'].transform('count')
 
-    # Group info from PassengerId
-    df["Group"] = df["PassengerId"].astype(str).str.split("_").str[0].astype(str)
-    df["GroupSize"] = df.groupby("Group")["PassengerId"].transform("count").astype(int)
+    name_split = df['Name'].fillna('Unknown Unknown').str.split(' ', n=1, expand=True)
+    df['FirstName'] = name_split[0]
+    df['LastName'] = name_split[1].fillna('Unknown')
 
-    # Surname info from Name
-    df["Surname"] = df["Name"].fillna("NA").astype(str).str.split().str[-1].astype(str)
-    df["SurnameSize"] = df.groupby("Surname")["PassengerId"].transform("count").astype(int)
-    df["HasSurname"] = (df["Surname"] != "NA").astype(int)
-    df["SameSurnameGroupSize"] = df.groupby("Surname")["PassengerId"].transform("count").astype(int)
+    spend_cols = ['RoomService', 'FoodCourt', 'ShoppingMall', 'Spa', 'VRDeck']
+    for col in spend_cols:
+        df[col] = pd.to_numeric(df[col], errors='coerce')
 
-    # Spending features
-    spending_cols = ["RoomService", "FoodCourt", "ShoppingMall", "Spa", "VRDeck"]
-    for col in spending_cols:
-        df[col] = pd.to_numeric(df[col], errors="coerce")
+    df['Spending'] = df[spend_cols].fillna(0).sum(axis=1)
+    df['HasSpending'] = (df['Spending'] > 0).astype(str)
+    df['IsAlone'] = (df['GroupSize'] == 1).astype(str)
 
-    df["TotalSpending"] = df[spending_cols].sum(axis=1)
-    df["NoSpending"] = (df["TotalSpending"] == 0).astype(int)
-    df["SpentAny"] = (df["TotalSpending"] > 0).astype(int)
+    df['CryoSleep'] = df['CryoSleep'].astype('object')
+    df['VIP'] = df['VIP'].astype('object')
 
-    # Age features
-    df["Age"] = pd.to_numeric(df["Age"], errors="coerce")
-    df["AgeBin"] = pd.cut(df["Age"], bins=[-1, 5, 12, 18, 25, 35, 50, 65, 200], labels=False)
-
-    # Missingness indicators
-    for col in ["Age", "RoomService", "FoodCourt", "ShoppingMall", "Spa", "VRDeck", "Num", "CabinNum"]:
-        if col in df.columns:
-            df[col + "_isna"] = df[col].isna().astype(int)
-
-    # Convert categorical columns to string
-    categorical_cols = ["HomePlanet", "CryoSleep", "Destination", "VIP", "Deck", "Side", "Group", "Surname"]
-    for c in categorical_cols:
-        if c in df.columns:
-            df[c] = df[c].astype("string").fillna("NA")
-
+    df = df.drop(columns=['Cabin', 'Name', 'PassengerId'])
     return df
 
+y = train['Transported'].astype(int)
+X = engineer_features(train.drop(columns=['Transported']))
+X_test = engineer_features(test.copy())
 
-train_fe = feature_engineering(train)
-test_fe = feature_engineering(test)
-
-y = train_fe["Transported"].astype(int)
-X = train_fe.drop(columns=["Transported"]).copy()
-
-# Reindex test to train columns
-X_test = test_fe.reindex(columns=X.columns, fill_value=np.nan).copy()
-
-# Drop raw free-text and identifiers that are not directly useful
-drop_cols = ["PassengerId", "Cabin", "Name"]
-for col in drop_cols:
-    if col in X.columns:
-        X = X.drop(columns=[col])
-    if col in X_test.columns:
-        X_test = X_test.drop(columns=[col])
-
-# Detect categorical columns
-cat_cols = [
-    c for c in X.columns
-    if X[c].dtype == "object" or str(X[c].dtype).startswith("string") or str(X[c].dtype) == "bool"
-]
-
-# Make sure categorical columns are aligned and string-like for CatBoost, category for LightGBM
-for c in cat_cols:
-    X[c] = X[c].astype("string").fillna("NA").astype(str)
-    X_test[c] = X_test[c].astype("string").fillna("NA").astype(str)
-
-# Numeric columns
-num_cols = [c for c in X.columns if c not in cat_cols]
-for c in num_cols:
-    X[c] = pd.to_numeric(X[c], errors="coerce")
-    X_test[c] = pd.to_numeric(X_test[c], errors="coerce")
-    med = X[c].median()
-    if pd.isna(med):
-        med = 0
-    X[c] = X[c].fillna(med)
-    X_test[c] = X_test[c].fillna(med)
-
-# Prepare LightGBM categorical columns as category dtype with aligned categories
-X_lgb = X.copy()
-X_test_lgb = X_test.copy()
-for c in cat_cols:
-    all_cats = pd.Index(
-        pd.concat([X_lgb[c].astype("string"), X_test_lgb[c].astype("string")], axis=0)
-        .fillna("NA")
-        .unique()
-    )
-    X_lgb[c] = pd.Categorical(X_lgb[c].astype("string").fillna("NA"), categories=all_cats)
-    X_test_lgb[c] = pd.Categorical(X_test_lgb[c].astype("string").fillna("NA"), categories=all_cats)
-
-# Hold-out split
-X_train_cb, X_val_cb, y_train, y_val = train_test_split(
-    X, y, test_size=0.2, random_state=SEED, stratify=y
-)
-X_train_lgb, X_val_lgb, _, _ = train_test_split(
-    X_lgb, y, test_size=0.2, random_state=SEED, stratify=y
+X_train, X_valid, y_train, y_valid = train_test_split(
+    X, y, test_size=0.2, random_state=42, stratify=y
 )
 
-# CatBoost model
+cat_cols_lgb = X.select_dtypes(include=['object', 'bool']).columns.tolist()
+num_cols_lgb = [c for c in X.columns if c not in cat_cols_lgb]
+
+preprocess = ColumnTransformer([
+    ('num', SimpleImputer(strategy='median'), num_cols_lgb),
+    ('cat', Pipeline([
+        ('imputer', SimpleImputer(strategy='most_frequent')),
+        ('oh', OneHotEncoder(handle_unknown='ignore'))
+    ]), cat_cols_lgb)
+])
+
+lgb_model = Pipeline([
+    ('prep', preprocess),
+    ('clf', LGBMClassifier(
+        n_estimators=500,
+        learning_rate=0.05,
+        num_leaves=31,
+        subsample=0.9,
+        colsample_bytree=0.8,
+        random_state=42
+    ))
+])
+
+lgb_model.fit(X_train, y_train)
+
+X_cb = X.copy()
+X_test_cb = X_test.copy()
+X_train_cb = X_train.copy()
+X_valid_cb = X_valid.copy()
+
+for col in X_cb.columns:
+    if X_cb[col].dtype == 'object':
+        X_cb[col] = X_cb[col].fillna('Missing')
+        X_test_cb[col] = X_test_cb[col].fillna('Missing')
+        X_train_cb[col] = X_train_cb[col].fillna('Missing')
+        X_valid_cb[col] = X_valid_cb[col].fillna('Missing')
+
+numeric_cols_cb = [c for c in X_cb.columns if c not in X_cb.select_dtypes(include=['object']).columns]
+for col in numeric_cols_cb:
+    median_value = X_train_cb[col].median()
+    X_cb[col] = X_cb[col].fillna(median_value)
+    X_test_cb[col] = X_test_cb[col].fillna(median_value)
+    X_train_cb[col] = X_train_cb[col].fillna(median_value)
+    X_valid_cb[col] = X_valid_cb[col].fillna(median_value)
+
+cat_cols_cb = X_cb.select_dtypes(include=['object']).columns.tolist()
+cat_idx = [X_cb.columns.get_loc(c) for c in cat_cols_cb]
+
 cb_model = CatBoostClassifier(
-    loss_function="Logloss",
-    iterations=2000,
+    iterations=800,
     depth=6,
-    learning_rate=0.03,
-    random_seed=SEED,
+    learning_rate=0.05,
+    loss_function='Logloss',
+    eval_metric='Accuracy',
     verbose=0,
-    eval_metric="Accuracy"
+    random_state=42
 )
+
 cb_model.fit(
     X_train_cb,
     y_train,
-    cat_features=cat_cols,
-    eval_set=(X_val_cb, y_val),
+    cat_features=cat_idx,
+    eval_set=(X_valid_cb, y_valid),
     use_best_model=True
 )
-cb_val_pred = cb_model.predict(X_val_cb).astype(int)
 
-# LightGBM model
-lgb_model = LGBMClassifier(
-    n_estimators=1200,
-    learning_rate=0.03,
-    num_leaves=31,
-    subsample=0.9,
-    colsample_bytree=0.9,
-    random_state=SEED
-)
-lgb_model.fit(X_train_lgb, y_train, categorical_feature=cat_cols)
-lgb_val_pred = lgb_model.predict(X_val_lgb).astype(int)
+lgb_valid_proba = lgb_model.predict_proba(X_valid)[:, 1]
+cb_valid_proba = cb_model.predict_proba(X_valid_cb)[:, 1]
+ensemble_valid_proba = 0.5 * lgb_valid_proba + 0.5 * cb_valid_proba
+valid_pred = (ensemble_valid_proba >= 0.5).astype(int)
+valid_acc = accuracy_score(y_valid, valid_pred)
 
-# Simple ensemble on validation
-cb_val_proba = cb_model.predict_proba(X_val_cb)[:, 1]
-lgb_val_proba = lgb_model.predict_proba(X_val_lgb)[:, 1]
-ens_val_pred = ((0.5 * cb_val_proba + 0.5 * lgb_val_proba) >= 0.5).astype(int)
-
-cb_acc = accuracy_score(y_val, cb_val_pred)
-lgb_acc = accuracy_score(y_val, lgb_val_pred)
-ens_acc = accuracy_score(y_val, ens_val_pred)
-
-print(f"Final Validation Performance: {ens_acc:.6f}")
-
-# Train final models on full data
-final_cb = CatBoostClassifier(
-    loss_function="Logloss",
-    iterations=cb_model.get_best_iteration() if cb_model.get_best_iteration() is not None else 2000,
-    depth=6,
-    learning_rate=0.03,
-    random_seed=SEED,
-    verbose=0,
-    eval_metric="Accuracy"
-)
-final_cb.fit(X, y, cat_features=cat_cols)
-
-final_lgb = LGBMClassifier(
-    n_estimators=1200,
-    learning_rate=0.03,
-    num_leaves=31,
-    subsample=0.9,
-    colsample_bytree=0.9,
-    random_state=SEED
-)
-final_lgb.fit(X_lgb, y, categorical_feature=cat_cols)
-
-# Predict test with ensemble
-cb_test_proba = final_cb.predict_proba(X_test)[:, 1]
-lgb_test_proba = final_lgb.predict_proba(X_test_lgb)[:, 1]
-test_pred = ((0.5 * cb_test_proba + 0.5 * lgb_test_proba) >= 0.5).astype(bool)
+lgb_test_proba = lgb_model.predict_proba(X_test)[:, 1]
+cb_test_proba = cb_model.predict_proba(X_test_cb)[:, 1]
+ensemble_test_proba = 0.5 * lgb_test_proba + 0.5 * cb_test_proba
+test_pred = (ensemble_test_proba >= 0.5).astype(bool)
 
 submission = pd.DataFrame({
-    "PassengerId": test["PassengerId"],
-    "Transported": test_pred
+    'PassengerId': test['PassengerId'],
+    'Transported': test_pred
 })
-submission.to_csv("submission.csv", index=False)
+submission.to_csv('submission.csv', index=False)
+
+print(f"Final Validation Performance: {valid_acc:.6f}")

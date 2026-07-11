@@ -28,4 +28,4 @@ uv sync
 uv run adk run machine_learning_engineering
 ```
 
-Record this commit SHA in `experiments/phase1/README.md` for vanilla runs.
+Make sure your `.env` is correctly setup. For benchmarking vs. `skrub-full`, you can also check if both `shared_libraries/config.py` are the same.

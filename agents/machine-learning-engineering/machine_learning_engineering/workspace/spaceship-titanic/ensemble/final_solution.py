@@ -1,255 +1,144 @@
 
 import os
-import random
 import numpy as np
 import pandas as pd
-from catboost import CatBoostClassifier
-from sklearn.model_selection import train_test_split
+
+from sklearn.compose import ColumnTransformer
+from sklearn.pipeline import Pipeline
+from sklearn.impute import SimpleImputer
+from sklearn.preprocessing import OneHotEncoder
+from sklearn.model_selection import StratifiedKFold
 from sklearn.metrics import accuracy_score
-from sklearn.isotonic import IsotonicRegression
-import torch
+from lightgbm import LGBMClassifier
 
-SEED = 42
-random.seed(SEED)
-np.random.seed(SEED)
-torch.manual_seed(SEED)
-
-INPUT_DIR = "./input"
-OUTPUT_DIR = "./final"
-os.makedirs(OUTPUT_DIR, exist_ok=True)
-
-train_path = os.path.join(INPUT_DIR, "train.csv")
-test_path = os.path.join(INPUT_DIR, "test.csv")
+train_path = os.path.join('.', 'input', 'train.csv')
+test_path = os.path.join('.', 'input', 'test.csv')
 
 train = pd.read_csv(train_path)
 test = pd.read_csv(test_path)
 
-
-def feature_engineering(df):
+def engineer_features(df):
     df = df.copy()
-
-    # Cabin split
-    cabin_split = df["Cabin"].fillna("NA/NA/NA").astype(str).str.split("/", expand=True)
-    df["Deck"] = cabin_split[0].astype(str)
-    df["CabinNum"] = pd.to_numeric(cabin_split[1], errors="coerce")
-    df["Side"] = cabin_split[2].astype(str)
-
-    # Passenger group features
-    df["Group"] = df["PassengerId"].astype(str).str.split("_").str[0].astype(str)
-    df["GroupSize"] = df.groupby("Group")["PassengerId"].transform("count").astype(int)
-
-    # Spending features
-    spending_cols = ["RoomService", "FoodCourt", "ShoppingMall", "Spa", "VRDeck"]
-    for col in spending_cols:
-        df[col] = pd.to_numeric(df[col], errors="coerce")
-
-    df["TotalSpending"] = df[spending_cols].sum(axis=1)
-    df["NoSpending"] = (df["TotalSpending"] == 0).astype(int)
-
-    # Cheap high-signal interactions
-    df["AnySpending"] = (df[spending_cols].fillna(0).sum(axis=1) > 0).astype(int)
-    df["SpendingPerPerson"] = df["TotalSpending"] / df["GroupSize"].replace(0, np.nan)
-
-    # Optional per-category nonzero indicators
-    for col in spending_cols:
-        df[f"{col}_NonZero"] = (df[col].fillna(0) > 0).astype(int)
-
-    # Missingness indicators
-    for col in ["Age", "RoomService", "FoodCourt", "ShoppingMall", "Spa", "VRDeck", "CabinNum"]:
-        if col in df.columns:
-            df[col + "_isna"] = df[col].isna().astype(int)
-
-    # Keep raw cabin/group signals and core categoricals for CatBoost
-    categorical_like = ["HomePlanet", "CryoSleep", "Destination", "VIP", "Deck", "Side", "Group"]
-    for c in categorical_like:
-        if c in df.columns:
-            df[c] = df[c].astype("string").fillna("NA").astype(str)
-
-    # Keep booleans as strings to avoid CatBoost categorical type issues
-    for c in ["CryoSleep", "VIP"]:
-        if c in df.columns:
-            df[c] = df[c].astype("string").fillna("NA").astype(str)
-
+    cabin_split = df['Cabin'].fillna('Unknown/0/U').str.split('/', expand=True)
+    df['Deck'] = cabin_split[0]
+    df['CabinNum'] = pd.to_numeric(cabin_split[1], errors='coerce')
+    df['Side'] = cabin_split[2]
+    df['Group'] = df['PassengerId'].str.split('_').str[0]
+    df['Spending'] = df[['RoomService', 'FoodCourt', 'ShoppingMall', 'Spa', 'VRDeck']].fillna(0).sum(axis=1)
+    df = df.drop(columns=['Cabin', 'Name', 'PassengerId'])
     return df
 
+def prepare_view_a(df):
+    return engineer_features(df)
 
-train_fe = feature_engineering(train)
-test_fe = feature_engineering(test)
+def prepare_view_b(df):
+    df = engineer_features(df)
+    for col in ['Deck', 'Side', 'Destination', 'HomePlanet', 'Group']:
+        if col in df.columns:
+            df[col] = df[col].astype(str)
+    if 'Group' in df.columns:
+        df = df.drop(columns=['Group'])
+    return df
 
-y = train_fe["Transported"].astype(int)
-X = train_fe.drop(columns=["Transported"])
+def build_model(X, seed):
+    cat_cols = X.select_dtypes(include=['object', 'bool']).columns.tolist()
+    num_cols = [c for c in X.columns if c not in cat_cols]
 
-# Align test to train columns
-X_test = test_fe.reindex(columns=X.columns, fill_value=np.nan).copy()
+    preprocess = ColumnTransformer([
+        ('num', SimpleImputer(strategy='median'), num_cols),
+        ('cat', Pipeline([
+            ('imputer', SimpleImputer(strategy='most_frequent')),
+            ('oh', OneHotEncoder(handle_unknown='ignore'))
+        ]), cat_cols)
+    ])
 
-# Identify categorical columns explicitly and ensure they are string-like
-cat_cols = [
-    c for c in X.columns
-    if X[c].dtype == "object" or str(X[c].dtype).startswith("string")
-]
+    model = Pipeline([
+        ('prep', preprocess),
+        ('clf', LGBMClassifier(
+            n_estimators=500,
+            learning_rate=0.05,
+            num_leaves=31,
+            subsample=0.9,
+            colsample_bytree=0.8,
+            random_state=seed
+        ))
+    ])
+    return model
 
-# Convert categorical columns in both train/test to string with a single missing token
-for c in cat_cols:
-    X[c] = X[c].astype("string").fillna("NA").astype(str)
-    X_test[c] = X_test[c].astype("string").fillna("NA").astype(str)
+def get_oof_predictions(X_train_full, y_train_full, seeds=(42, 52), n_splits=5):
+    skf = StratifiedKFold(n_splits=n_splits, shuffle=True, random_state=42)
+    oof_pred = np.zeros(len(X_train_full), dtype=float)
 
-# Fill numeric missing values
-num_cols = [c for c in X.columns if c not in cat_cols]
-for c in num_cols:
-    X[c] = pd.to_numeric(X[c], errors="coerce")
-    X_test[c] = pd.to_numeric(X_test[c], errors="coerce")
-    med = X[c].median()
-    if pd.isna(med):
-        med = 0
-    X[c] = X[c].fillna(med)
-    X_test[c] = X_test[c].fillna(med)
+    for tr_idx, va_idx in skf.split(X_train_full, y_train_full):
+        X_tr = X_train_full.iloc[tr_idx]
+        y_tr = y_train_full.iloc[tr_idx]
+        X_va = X_train_full.iloc[va_idx]
 
-# Hold-out validation split
-X_train, X_val, y_train, y_val = train_test_split(
-    X, y, test_size=0.2, random_state=SEED, stratify=y
-)
+        fold_val_pred = np.zeros(len(va_idx), dtype=float)
 
-# Model 1: original CatBoost
-model1 = CatBoostClassifier(
-    loss_function="Logloss",
-    iterations=2000,
-    depth=6,
-    learning_rate=0.03,
-    random_seed=SEED,
-    verbose=0,
-    eval_metric="Accuracy"
-)
+        for seed in seeds:
+            model = build_model(X_tr, seed)
+            model.fit(X_tr, y_tr)
+            fold_val_pred += model.predict_proba(X_va)[:, 1] / len(seeds)
 
-model1.fit(
-    X_train,
-    y_train,
-    cat_features=cat_cols,
-    eval_set=(X_val, y_val),
-    use_best_model=True
-)
+        oof_pred[va_idx] = fold_val_pred
 
-# Model 2: same family, slightly different configuration to encourage complementarity
-model2 = CatBoostClassifier(
-    loss_function="Logloss",
-    iterations=2500,
-    depth=8,
-    learning_rate=0.025,
-    random_seed=SEED + 1,
-    verbose=0,
-    eval_metric="Accuracy",
-    l2_leaf_reg=4.0,
-    subsample=0.85,
-    rsm=0.85
-)
+    return oof_pred
 
-model2.fit(
-    X_train,
-    y_train,
-    cat_features=cat_cols,
-    eval_set=(X_val, y_val),
-    use_best_model=True
-)
+def fit_full_predict_test(X_tr, y_tr, X_te, seeds=(42, 52)):
+    test_pred = np.zeros(len(X_te), dtype=float)
+    for seed in seeds:
+        model = build_model(X_tr, seed)
+        model.fit(X_tr, y_tr)
+        test_pred += model.predict_proba(X_te)[:, 1] / len(seeds)
+    return test_pred
 
-# Validation probabilities
-p1_val = model1.predict_proba(X_val)[:, 1]
-p2_val = model2.predict_proba(X_val)[:, 1]
+y = train['Transported'].astype(int)
+X_raw = train.drop(columns=['Transported'])
+X_test_raw = test.copy()
 
-# Tiny calibration step: clip + isotonic calibration on validation split
-eps = 1e-6
-p1_val = np.clip(p1_val, eps, 1 - eps)
-p2_val = np.clip(p2_val, eps, 1 - eps)
+X_a = prepare_view_a(X_raw)
+X_test_a = prepare_view_a(X_test_raw)
 
-cal1 = IsotonicRegression(out_of_bounds="clip")
-cal2 = IsotonicRegression(out_of_bounds="clip")
-cal1.fit(p1_val, y_val)
-cal2.fit(p2_val, y_val)
+X_b = prepare_view_b(X_raw)
+X_test_b = prepare_view_b(X_test_raw)
 
-p1_val_cal = np.clip(cal1.transform(p1_val), eps, 1 - eps)
-p2_val_cal = np.clip(cal2.transform(p2_val), eps, 1 - eps)
+oof_a = get_oof_predictions(X_a, y, seeds=(42, 52), n_splits=5)
+oof_b = get_oof_predictions(X_b, y, seeds=(42, 52), n_splits=5)
 
-pred1_val = (p1_val_cal >= 0.5).astype(int)
-pred2_val = (p2_val_cal >= 0.5).astype(int)
+best_w = 0.5
+best_oof_acc = -1.0
+for w in np.arange(0.2, 0.81, 0.1):
+    blend_oof = w * oof_a + (1.0 - w) * oof_b
+    acc = accuracy_score(y, (blend_oof >= 0.5).astype(int))
+    if acc > best_oof_acc:
+        best_oof_acc = acc
+        best_w = float(w)
 
-acc1 = accuracy_score(y_val, pred1_val)
-acc2 = accuracy_score(y_val, pred2_val)
+best_threshold = 0.5
+best_threshold_acc = -1.0
+best_blend_oof = best_w * oof_a + (1.0 - best_w) * oof_b
+for thr in np.arange(0.45, 0.551, 0.01):
+    acc = accuracy_score(y, (best_blend_oof >= thr).astype(int))
+    if acc > best_threshold_acc:
+        best_threshold_acc = acc
+        best_threshold = float(thr)
 
-better_is_model1 = acc1 >= acc2
+test_a_full = fit_full_predict_test(X_a, y, X_test_a, seeds=(42, 52))
+test_b_full = fit_full_predict_test(X_b, y, X_test_b, seeds=(42, 52))
 
-# Learn gate thresholds from validation split once
-d_val = np.abs(p1_val_cal - p2_val_cal)
-
-# Candidate thresholds over quantiles for a simple gated ensemble
-q1 = float(np.quantile(d_val, 0.33))
-q2 = float(np.quantile(d_val, 0.66))
-if q1 >= q2:
-    q1, q2 = 0.15, 0.35
-
-def gated_blend(p1, p2, better_model1=True, t1=q1, t2=q2):
-    d = np.abs(p1 - p2)
-    if better_model1:
-        better = p1
-        other = p2
-    else:
-        better = p2
-        other = p1
-
-    blended = np.empty_like(p1, dtype=float)
-
-    small = d <= t1
-    medium = (d > t1) & (d <= t2)
-    large = d > t2
-
-    blended[small] = 0.5 * p1[small] + 0.5 * p2[small]
-    blended[medium] = 0.65 * better[medium] + 0.35 * other[medium]
-    blended[large] = better[large]
-
-    return np.clip(blended, 1e-6, 1 - 1e-6)
-
-# Validation ensemble performance
-val_blend = gated_blend(p1_val_cal, p2_val_cal, better_model1=better_is_model1)
-val_pred = (val_blend >= 0.5).astype(int)
-val_acc = accuracy_score(y_val, val_pred)
-print(f"Final Validation Performance: {val_acc:.6f}")
-
-# Train on full data and predict test set
-final_model1 = CatBoostClassifier(
-    loss_function="Logloss",
-    iterations=model1.get_best_iteration() if model1.get_best_iteration() is not None else 2000,
-    depth=6,
-    learning_rate=0.03,
-    random_seed=SEED,
-    verbose=0,
-    eval_metric="Accuracy"
-)
-
-final_model2 = CatBoostClassifier(
-    loss_function="Logloss",
-    iterations=model2.get_best_iteration() if model2.get_best_iteration() is not None else 2500,
-    depth=8,
-    learning_rate=0.025,
-    random_seed=SEED + 1,
-    verbose=0,
-    eval_metric="Accuracy",
-    l2_leaf_reg=4.0,
-    subsample=0.85,
-    rsm=0.85
-)
-
-final_model1.fit(X, y, cat_features=cat_cols)
-final_model2.fit(X, y, cat_features=cat_cols)
-
-p1_test = final_model1.predict_proba(X_test)[:, 1]
-p2_test = final_model2.predict_proba(X_test)[:, 1]
-
-p1_test = np.clip(cal1.transform(np.clip(p1_test, eps, 1 - eps)), eps, 1 - eps)
-p2_test = np.clip(cal2.transform(np.clip(p2_test, eps, 1 - eps)), eps, 1 - eps)
-
-test_blend = gated_blend(p1_test, p2_test, better_model1=better_is_model1)
-test_pred = (test_blend >= 0.5).astype(bool)
+test_blend = best_w * test_a_full + (1.0 - best_w) * test_b_full
+test_pred = (test_blend >= best_threshold).astype(bool)
 
 submission = pd.DataFrame({
-    "PassengerId": test["PassengerId"],
-    "Transported": test_pred
+    'PassengerId': test['PassengerId'],
+    'Transported': test_pred
 })
 
-submission.to_csv(os.path.join(OUTPUT_DIR, "submission.csv"), index=False)
+os.makedirs('./final', exist_ok=True)
+submission.to_csv('./final/submission.csv', index=False)
+
+print(f"OOF Accuracy: {best_oof_acc:.6f}")
+print(f"Blend Weight: {best_w:.2f}")
+print(f"Threshold: {best_threshold:.2f}")
+print("Saved submission to ./final/submission.csv")

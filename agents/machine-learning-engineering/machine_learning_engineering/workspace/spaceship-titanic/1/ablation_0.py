@@ -1,148 +1,143 @@
+
 import os
-import random
-import numpy as np
+import copy
 import pandas as pd
-from catboost import CatBoostClassifier
+from sklearn.compose import ColumnTransformer
+from sklearn.pipeline import Pipeline
+from sklearn.impute import SimpleImputer
+from sklearn.preprocessing import OneHotEncoder
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import accuracy_score
-import torch
+from lightgbm import LGBMClassifier
 
-SEED = 42
-random.seed(SEED)
-np.random.seed(SEED)
-torch.manual_seed(SEED)
-
-INPUT_DIR = "./input"
-train_path = os.path.join(INPUT_DIR, "train.csv")
-
+train_path = os.path.join('.', 'input', 'train.csv')
 train = pd.read_csv(train_path)
 
-def feature_engineering(df):
+def engineer_features(df, use_engineering=True, use_spending=True):
     df = df.copy()
 
-    cabin_split = df["Cabin"].fillna("NA/NA/NA").astype(str).str.split("/", expand=True)
-    df["Deck"] = cabin_split[0].astype(str)
-    df["CabinNum"] = pd.to_numeric(cabin_split[1], errors="coerce")
-    df["Side"] = cabin_split[2].astype(str)
+    if use_engineering:
+        cabin_split = df['Cabin'].fillna('Unknown/0/U').str.split('/', expand=True)
+        df['Deck'] = cabin_split[0]
+        df['CabinNum'] = pd.to_numeric(cabin_split[1], errors='coerce')
+        df['Side'] = cabin_split[2]
+        df['Group'] = df['PassengerId'].str.split('_').str[0]
 
-    df["Group"] = df["PassengerId"].astype(str).str.split("_").str[0].astype(str)
-    df["GroupSize"] = df.groupby("Group")["PassengerId"].transform("count").astype(int)
+        if use_spending:
+            df['Spending'] = df[['RoomService', 'FoodCourt', 'ShoppingMall', 'Spa', 'VRDeck']].fillna(0).sum(axis=1)
 
-    df["Surname"] = df["Name"].fillna("NA").astype(str).str.split().str[-1].astype(str)
-    df["HasSurname"] = (df["Surname"] != "NA").astype(int)
-    df["SameSurnameGroupSize"] = df.groupby("Surname")["PassengerId"].transform("count").astype(int)
-
-    spending_cols = ["RoomService", "FoodCourt", "ShoppingMall", "Spa", "VRDeck"]
-    for col in spending_cols:
-        df[col] = pd.to_numeric(df[col], errors="coerce")
-    df["TotalSpending"] = df[spending_cols].sum(axis=1)
-    df["NoSpending"] = (df["TotalSpending"] == 0).astype(int)
-
-    for col in ["Age", "RoomService", "FoodCourt", "ShoppingMall", "Spa", "VRDeck", "CabinNum"]:
-        if col in df.columns:
-            df[col + "_isna"] = df[col].isna().astype(int)
-
-    categorical_like = ["HomePlanet", "CryoSleep", "Destination", "VIP", "Deck", "Side", "Group", "Surname"]
-    for c in categorical_like:
-        if c in df.columns:
-            df[c] = df[c].astype("string").fillna("NA").astype(str)
-
-    for c in ["CryoSleep", "VIP"]:
-        if c in df.columns:
-            df[c] = df[c].astype("string").fillna("NA").astype(str)
+        df = df.drop(columns=['Cabin', 'Name', 'PassengerId'])
+    else:
+        df = df.drop(columns=['Name', 'PassengerId'])
 
     return df
 
-def prepare_data(df, use_feature_engineering=True, drop_engineered=None):
-    if use_feature_engineering:
-        df = feature_engineering(df)
-    else:
-        df = df.copy()
-
-    y = df["Transported"].astype(int)
-    X = df.drop(columns=["Transported"])
-
-    if drop_engineered:
-        X = X.drop(columns=[c for c in drop_engineered if c in X.columns])
-
-    cat_cols = [c for c in X.columns if X[c].dtype == "object" or str(X[c].dtype).startswith("string")]
-
-    for c in cat_cols:
-        X[c] = X[c].astype("string").fillna("NA").astype(str)
-
+def build_model(X, use_ohe=True, use_lgbm=True):
+    cat_cols = X.select_dtypes(include=['object', 'bool']).columns.tolist()
     num_cols = [c for c in X.columns if c not in cat_cols]
-    for c in num_cols:
-        X[c] = pd.to_numeric(X[c], errors="coerce")
-        med = X[c].median()
-        if pd.isna(med):
-            med = 0
-        X[c] = X[c].fillna(med)
 
-    return X, y, cat_cols
+    cat_steps = [('imputer', SimpleImputer(strategy='most_frequent'))]
+    if use_ohe:
+        cat_steps.append(('oh', OneHotEncoder(handle_unknown='ignore')))
 
-def run_experiment(name, use_feature_engineering=True, drop_engineered=None):
-    X, y, cat_cols = prepare_data(train.copy(), use_feature_engineering=use_feature_engineering, drop_engineered=drop_engineered)
+    preprocess = ColumnTransformer([
+        ('num', SimpleImputer(strategy='median'), num_cols),
+        ('cat', Pipeline(cat_steps), cat_cols)
+    ])
 
-    X_train, X_val, y_train, y_val = train_test_split(
-        X, y, test_size=0.2, random_state=SEED, stratify=y
+    if use_lgbm:
+        clf = LGBMClassifier(
+            n_estimators=500,
+            learning_rate=0.05,
+            num_leaves=31,
+            subsample=0.9,
+            colsample_bytree=0.8,
+            random_state=42
+        )
+    else:
+        from sklearn.linear_model import LogisticRegression
+        clf = LogisticRegression(max_iter=2000, random_state=42)
+
+    return Pipeline([
+        ('prep', preprocess),
+        ('clf', clf)
+    ])
+
+y = train['Transported'].astype(int)
+
+ablations = [
+    {
+        'name': 'baseline',
+        'use_engineering': True,
+        'use_spending': True,
+        'use_ohe': True,
+        'use_lgbm': True,
+    },
+    {
+        'name': 'no_feature_engineering',
+        'use_engineering': False,
+        'use_spending': False,
+        'use_ohe': True,
+        'use_lgbm': True,
+    },
+    {
+        'name': 'no_spending_feature',
+        'use_engineering': True,
+        'use_spending': False,
+        'use_ohe': True,
+        'use_lgbm': True,
+    },
+    {
+        'name': 'no_one_hot_encoding',
+        'use_engineering': True,
+        'use_spending': True,
+        'use_ohe': False,
+        'use_lgbm': True,
+    },
+    {
+        'name': 'replace_lgbm_with_logreg',
+        'use_engineering': True,
+        'use_spending': True,
+        'use_ohe': True,
+        'use_lgbm': False,
+    },
+]
+
+results = {}
+
+for ab in ablations:
+    X = engineer_features(
+        train.drop(columns=['Transported']),
+        use_engineering=ab['use_engineering'],
+        use_spending=ab['use_spending']
     )
 
-    model = CatBoostClassifier(
-        loss_function="Logloss",
-        iterations=1000,
-        depth=6,
-        learning_rate=0.03,
-        random_seed=SEED,
-        verbose=0,
-        eval_metric="Accuracy"
+    X_train, X_valid, y_train, y_valid = train_test_split(
+        X, y, test_size=0.2, random_state=42, stratify=y
     )
 
-    model.fit(
-        X_train,
-        y_train,
-        cat_features=cat_cols,
-        eval_set=(X_val, y_val),
-        use_best_model=True
-    )
+    try:
+        model = build_model(X, use_ohe=ab['use_ohe'], use_lgbm=ab['use_lgbm'])
+        model.fit(X_train, y_train)
+        valid_pred = model.predict(X_valid)
+        valid_acc = accuracy_score(y_valid, valid_pred)
+        results[ab['name']] = valid_acc
+        print(f"Ablation: {ab['name']}, Validation Accuracy: {valid_acc:.6f}")
+    except Exception as e:
+        results[ab['name']] = None
+        print(f"Ablation: {ab['name']}, Validation Accuracy: FAILED, Error: {e}")
 
-    val_pred = model.predict(X_val)
-    val_acc = accuracy_score(y_val, val_pred)
-    print(f"{name}: Validation Accuracy = {val_acc:.6f}")
-    return val_acc
+baseline_acc = results['baseline']
+drops = []
 
-baseline = run_experiment("Baseline")
+for name, acc in results.items():
+    if name == 'baseline' or acc is None:
+        continue
+    drop = baseline_acc - acc
+    drops.append((name, drop))
 
-ablation_no_feat_eng = run_experiment(
-    "Ablation 1 - No feature engineering",
-    use_feature_engineering=False
-)
-
-ablation_no_spending = run_experiment(
-    "Ablation 2 - Remove spending features",
-    use_feature_engineering=True,
-    drop_engineered=["TotalSpending", "NoSpending", "RoomService_isna", "FoodCourt_isna", "ShoppingMall_isna", "Spa_isna", "VRDeck_isna"]
-)
-
-ablation_no_group_name = run_experiment(
-    "Ablation 3 - Remove group/name features",
-    use_feature_engineering=True,
-    drop_engineered=["Group", "GroupSize", "Surname", "HasSurname", "SameSurnameGroupSize"]
-)
-
-results = {
-    "Baseline": baseline,
-    "No feature engineering": ablation_no_feat_eng,
-    "No spending features": ablation_no_spending,
-    "No group/name features": ablation_no_group_name,
-}
-
-best_ablation = min(results, key=lambda k: results[k])
-worst_drop = baseline - min(ablation_no_feat_eng, ablation_no_spending, ablation_no_group_name)
-
-print("\nSummary:")
-for k, v in results.items():
-    print(f"{k}: {v:.6f}")
-
-print(f"\nMost important component (largest accuracy drop vs baseline): "
-      f"{max(['No feature engineering', 'No spending features', 'No group/name features'], key=lambda k: baseline - results[k])}")
-print(f"Largest observed drop: {worst_drop:.6f}")
+if drops:
+    most_important_part, largest_drop = max(drops, key=lambda x: x[1])
+    print(f"Most important part: {most_important_part}, Accuracy drop vs baseline: {largest_drop:.6f}")
+else:
+    print("Most important part: could not be determined from the successful ablations.")
