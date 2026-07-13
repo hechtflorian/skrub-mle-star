@@ -1,6 +1,6 @@
 # Skrub-MLE-STAR (skrub DataOps edition)
 
-A fork of MLE-STAR (Google ADK sample `[python/agents/machine-learning-engineering](https://github.com/google/adk-samples)`, Apache-2.0) that makes the multi-agent ML engineer **skrub DataOps-native**, adds a **TableReport-driven** refinement profile, a dedicated **tuning stage**, and a set of **drift/robustness guards** — plus a runtime-compatibility layer so it runs on OpenAI-compatible providers (OpenAI, ChatAI/SAIA via LiteLLM), not just Gemini.
+A fork of MLE-STAR (Google ADK sample `[python/agents/machine-learning-engineering](https://github.com/google/adk-samples)`, Apache-2.0) that makes the multi-agent ML engineering system **skrub DataOps-native**, improves it's refinement subagents with providing **underlying data** for more targeted feature engineering, a dedicated **tuning stage** for pipeline optimization, and a set of **agent drift/robustness guards**. Lastly, a runtime-compatibility layer so it runs on OpenAI-compatible providers (OpenAI, ChatAI/SAIA via LiteLLM), not just Gemini.
 
 > The lower half of this README is the original upstream documentation. The top half is our project: our contributions, how to set it up, run it, and evaluate it.
 
@@ -8,19 +8,19 @@ A fork of MLE-STAR (Google ADK sample `[python/agents/machine-learning-engineeri
 
 ## Our contributions
 
-**Goal:** steer the agent to produce *structured, reproducible, leakage-safe* ML pipelines built on [skrub](https://skrub-data.org/) DataOps (instead of ad-hoc sklearn scripts), while keeping the system efficient and robust across LLM providers.
+We made the MLE-STAR agent produce *structured, reproducible, leakage-safe* ML pipelines built on [skrub](https://skrub-data.org/) DataOps (instead of ad-hoc sklearn scripts), while keeping the system efficient and robust across LLM providers.
 
 **Novelties**
 
-- **skrub DataOps skill:** an on-demand ADK agent skill (`SKILL.md` + 14 references) every code-writing agent can load on demand, so generated code uses `skrub.var`/`.skb.apply` DataOps DAGs. No prompt bloat, while remaining context-efficient.
-- **TableReport profiling**: `skrub.TableReport` injected into the refinement/ablation planner agents as a preprocessed, compact dataset profile to support targeted refinement; making previous trial-and-error refinement focused and grounded on underlying data.
-- **Tuning stage**: a new terminal stage (`sub_agents/tuning/`) that runs an in-graph `skrub.choose_`* randomized search for simpler pipeline optimization; if ablation signal proves tuning is valuable, bakes the best params, and promotes **only if it beats** the structural winner.
+- **skrub DataOps skill**: an on-demand ADK agent skill (`SKILL.md` + 14 references) every code-writing agent can load on demand, so generated code uses `skrub.var`/`.skb.apply` DataOps DAGs. No prompt bloat, while remaining context-efficient.
+- **TableReport profiling**: `skrub.TableReport` injected into the refinement/ablation planner agents (`sub_agents/refinement/`) as a preprocessed, compact dataset profile to support targeted refinement; making previous trial-and-error refinement focused and grounded on underlying data.
+- **Tuning stage**: a new terminal stage (`sub_agents/tuning/`) that runs an in-graph `skrub.choose_*` randomized search for simpler pipeline optimization if ablation signal proves tuning is valuable, and finally bakes the best params to promote the script if improvements are made.
 
 **Improvements**
 
-- **Pipeline drift guards & debug contracts:** deterministic code pre-execution checks to stop agents from silently swapping the optimal backbone model family or dropping DataOps blocks to make an error disappear, guarding against LLM randomness while preserving exploration.
-- **Execution-robustness gates** never stop agent turns on empty/tool-only calls to enable agent skill usage; compile-check before running scripts for efficiency; truncate huge stdout from verbose estimators; defensive score parsing to avoid unnessary crashing.
-- **Deferred submission export** early stages stop at the holdout metric; full-train refit + `test_df` predict + `submission.csv` are deferred to the submission agent (efficiency).
+- **Pipeline drift guards & debug contracts**: deterministic code pre-execution checks to stop agents from silently swapping the optimal backbone model family or dropping DataOps blocks to make an error disappear, guarding against LLM randomness while preserving exploration.
+- **Execution-robustness gates**: **enable agent skill usage** (i.e. never stop agent turns on empty/tool-only calls); compile-check before running scripts for correctness and efficiency; defensive score parsing to avoid unnessary crashing.
+- **Deferred submission export**: early stages stop at the holdout metric; full-train refit + `test_df` predict + `submission.csv` are deferred to the submission agent for efficiency.
 - **OpenAI/ChatAI runtime compatibility** model-aware web search (DuckDuckGo for non-Gemini), GPT-5 compatibility, and response parsing fixes for OpenAI-compatible providers.
 
 Full breakdown with per-file/line pointers and authorship: **[CONTRIBUTIONS.md](CONTRIBUTIONS.md)**.
@@ -35,10 +35,11 @@ Full breakdown with per-file/line pointers and authorship: **[CONTRIBUTIONS.md](
 - **[uv](https://docs.astral.sh/uv/)** — `curl -LsSf https://astral.sh/uv/install.sh | sh`
 - **Git**
 - An **API key**: an OpenAI-compatible endpoint (OpenAI or ChatAI/SAIA) **or** a Gemini/Vertex key.
+- **[Google Cloud CLI](https://cloud.google.com/sdk/docs/install)**, only if you use a Gemini model (`ROOT_AGENT_MODEL` starting with `gemini-`), else skip.
 
 ### Setup
 
-Repository: [github.com/hechtflorian/skrub-mle-star](https://github.com/hechtflorian/skrub-mle-star). Branch `**main`** is skrub-full (this project); branch `**vanilla-baseline**` is the comparison baseline for experiments.
+Repository: [github.com/hechtflorian/skrub-mle-star](https://github.com/hechtflorian/skrub-mle-star). Branch `main` is skrub-full (this project); branch `vanilla-baseline` is the comparison baseline for experiments.
 
 ```bash
 # 1. Clone (main branch = skrub-full)
@@ -52,10 +53,15 @@ cp .env.example .env
 
 # 3. Install dependencies (creates the venv)
 uv sync
+
+# 4. (Gemini only) Authenticate Google Application Default Credentials (ADC)
+#    Skip this when ROOT_AGENT_MODEL uses openai/... (OpenAI or ChatAI).
+gcloud auth application-default login
 ```
 
 Agent behaviour (task, loop counts, tuning/TableReport toggles) lives in
-`[machine_learning_engineering/shared_libraries/config.py](agents/machine-learning-engineering/machine_learning_engineering/shared_libraries/config.py)` — set `task_name`/`task_type`/`lower` for the task you want, or add a task pack under `machine_learning_engineering/tasks/<name>/` (with `train.csv`, `test.csv`, `task_description.txt`).
+[machine_learning_engineering/shared_libraries/config.py](agents/machine-learning-engineering/machine_learning_engineering/shared_libraries/config.py). Set `task_name`/`task_type`/`lower` for the task you want, or add a task pack under `machine_learning_engineering/tasks/<name>/` (with `train.csv`, `test.csv`, `task_description.txt`).
+A good smaller starting task is `tasks/spacesip-titanic`.
 
 ### Run the agent
 
@@ -73,7 +79,7 @@ After the agent starts and asks for input, you can tell it to "execute the given
 
 ### Run the automated experiments
 
-From the repo root on branch `**main**`. Full details: **[EXPERIMENTS.md](EXPERIMENTS.md)**.
+From the repo root on branch `main`. Full details: [EXPERIMENTS.md](EXPERIMENTS.md).
 
 #### Directory layout (improved + vanilla)
 
@@ -81,28 +87,29 @@ The harness compares **skrub-full** (`main`, this tree) against **vanilla** (ups
 
 ```
 <parent>/
-├── skrub-mle-star/          # branch main — skrub-full (clone + run experiments here)
+├── skrub-mle-star/          # branch main: skrub-full (clone + run experiments here)
 │   ├── automated_evaluation/
 │   └── agents/machine-learning-engineering/
-└── mle-star_vanilla/        # branch vanilla-baseline — baseline for --systems vanilla
+└── mle-star_vanilla/        # branch vanilla-baseline: baseline for --systems vanilla
     └── agents/machine-learning-engineering/
 ```
 
 Your local folder names can differ; scripts resolve paths relative to each checkout. The vanilla worktree path `../mle-star_vanilla` is what `evaluate.py` and `run_experiments.py` expect by default.
 
-#### One-time setup (improved + vanilla)
+#### One-time experiment setup (improved + vanilla)
 
 ```bash
 # Improved agent (if not done in Setup above)
 cd agents/machine-learning-engineering && cp .env.example .env && uv sync && cd ../..
 
-# Vanilla baseline — required for --systems vanilla
+# Vanilla baseline — required for --systems vanilla (run from /skrub-mle-star)
 git worktree add ../mle-star_vanilla vanilla-baseline   # skip if already present
 cp agents/machine-learning-engineering/.env \
    ../mle-star_vanilla/agents/machine-learning-engineering/.env
-(cd ../mle-star_vanilla/agents/machine-learning-engineering && uv sync)
 
-# Task manifest (exists already, rerun if tasks changed)
+cd ../mle-star_vanilla/agents/machine-learning-engineering && uv sync
+
+# Task manifest (exists already, needs rerun only if tasks changed) - run from /skrub-mle-star
 python automated_evaluation/generate_tasks_manifest.py
 ```
 
@@ -120,16 +127,16 @@ cd ../..
 | Step | What           | Command                                                                                                        |
 | ---- | -------------- | -------------------------------------------------------------------------------------------------------------- |
 | 0    | Task manifest  | `python automated_evaluation/generate_tasks_manifest.py`                                                       |
-| 1    | Preview matrix | `python automated_evaluation/run_experiments.py --dry-run`                                                     |
+| 1    | Preview matrix | `python automated_evaluation/run_experiments.py --dry-run` (optional)                                          |
 | 2    | Execute runs   | `python automated_evaluation/run_experiments.py --runs-root automated_evaluation/runs/<stamp> --skip-existing` |
 | 3    | Analyze        | `python automated_evaluation/evaluate.py --summarize-only --runs-root automated_evaluation/runs/<stamp>`       |
 
 
-Step 2 runs **all tasks × improved + vanilla** by default. Archives land under `runs/<stamp>/<task>/<system>/<model-slug>/run1/`. Use `--tasks task1 task2 …` / `--systems improved` to run in chunks (recommended for long jobs). See [EXPERIMENTS.md](EXPERIMENTS.md) for resume, repeats, and artifact layout.
+Step 2 runs **all tasks × improved + vanilla** by default. Archives land under `runs/<stamp>/<task>/<system>/<model-slug>/run1/`. Use `--tasks task1 task2 …` / `--systems improved` to run in chunks (**recommended** for long jobs). See [EXPERIMENTS.md](EXPERIMENTS.md) for resume, repeats, and artifact layout.
 
 #### Multiple base LLMs (e.g. gpt-5.4-mini + gpt-5.4)
 
-Runs are keyed by model slug, so you can append models into the **same** runs root without overwriting prior results:
+Runs are keyed by model slug, so you can append models into the **same** runs root without overwriting prior results. Example:
 
 ```bash
 RUNS=automated_evaluation/runs/<your-stamp>
@@ -160,7 +167,6 @@ Alternatively pass `--model-label openai/gpt-5.4` on the `run_experiments.py` li
 | **[CONTRIBUTIONS.md](CONTRIBUTIONS.md)**                     | What we built vs upstream/vanilla, grouped by intent, with clickable file/line pointers and authorship.                                                        |
 | **[EXPERIMENTS.md](EXPERIMENTS.md)**                         | Exact scripts and commands on how we ran the benchmark and how to reproduce, plus where the result artifacts live and how to extend to new models/repeats etc. |
 | **[EXPERIMENTAL_RESULTS.md](EXPERIMENTAL_RESULTS.md)** | Kaggle + holdout results, efficiency, stage analysis, discussion and summary.                                                                                  |
-| [docs/](docs/)                                               | Deeper design notes (`WORKING_PROGRESS_MLE_STAR_SKRUB.md`, `BACKBONE_DRIFT_GUARDS.md`, `MLE_STAR_AGENT_EXPLAINED.md`).                                         |
 
 
 ## Main code components
@@ -234,6 +240,7 @@ The key features of the Machine Learning Agent include:
 
 This diagram shows the detailed architecture of the agents and tools used
 to implement this workflow.
+<img src="machine-learning-engineering-architecture.svg" alt="Machine-Learning-Engineering" width="800"/>
 
 ### Key Features
 
@@ -308,4 +315,4 @@ Configuration lives in the `DefaultConfig` dataclass in `[shared_libraries/confi
 
 ---
 
-*Derived from google/adk-samples (`python/agents/machine-learning-engineering`), Apache-2.0. Paper: [MLE-STAR: Machine Learning Engineering Agent via Search and Targeted Refinement](https://www.arxiv.org/abs/2506.15692).*
+*Derived from [google/adk-samples — `python/agents/machine-learning-engineering`](https://github.com/google/adk-samples/tree/main/python/agents/machine-learning-engineering), Apache-2.0. Paper: [MLE-STAR: Machine Learning Engineering Agent via Search and Targeted Refinement](https://www.arxiv.org/abs/2506.15692).*

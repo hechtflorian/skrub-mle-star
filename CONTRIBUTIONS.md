@@ -17,8 +17,6 @@ git diff 6c96e03..HEAD -- agents/machine-learning-engineering/machine_learning_e
 git diff vanilla-baseline..HEAD -- agents/machine-learning-engineering/machine_learning_engineering
 ```
 
-Further context behind changes: `[docs/WORKING_PROGRESS_MLE_STAR_SKRUB.md](docs/WORKING_PROGRESS_MLE_STAR_SKRUB.md)`, `[docs/BACKBONE_DRIFT_GUARDS.md](docs/BACKBONE_DRIFT_GUARDS.md)`.
-
 ---
 
 ## Team
