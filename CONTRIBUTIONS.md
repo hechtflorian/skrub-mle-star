@@ -5,7 +5,7 @@ What was built on top of upstream MLE-STAR ([Google ADK samples](https://github.
 ## Baselines for comparison
 
 - **Upstream** = the original Google ADK sample (our initial import).
-- **Vanilla** = branch `vanilla-baseline`, sibling worktree `[../mle-star_vanilla/](../mle-star_vanilla/)` (next to the `skrub-mle-star/` checkout). This is upstream **plus our OpenAI/ChatAI runtime-compatibility layer**, so those runtime changes are still **our** contribution even though they also live in vanilla.
+- **Vanilla** = branch `vanilla-baseline`, sibling worktree [../mle-star_vanilla/](../mle-star_vanilla/) (next to the `skrub-mle-star/` checkout). This is upstream **plus our OpenAI/ChatAI runtime-compatibility layer**, so those runtime changes are still **our** contribution even though they also live in vanilla.
 - **Improved** = branch `main` in `skrub-mle-star/` (this tree), everything in vanilla **plus** the skrub DataOps skill, TableReport profiling, the tuning stage, drift/robustness guards, and prompt hardening.
 - Some sections might dublicate, if modifications are wired through multiple files. We group by MLE-STARs folder structure: `shared_libraries`, `sub_agents`. `skills`, etc.
 
@@ -24,9 +24,9 @@ git diff vanilla-baseline..HEAD -- agents/machine-learning-engineering/machine_l
 
 | Member            | Git author(s)                | Contributions                                                                                                                                                                                                                                 |
 | ----------------- | ---------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Florian Hecht** | `fhecht`                     | Runtime compat, skrub skill wiring + references, Tablereport novelty, Tuning stage novelty, agent drift/robustness guards, prompts, experiment harness refinement, experiment execution, analysis & experimental results writeup, docs, tasks |
+| **Florian Hecht** | `fhecht`, `hechtflorian`                     | Runtime compat, skrub skill implementation + references, tablereport novelty, Tuning stage novelty, agent drift/robustness guards, prompts, experiment harness refinement, experiment execution, analysis & experimental results writeup, docs writeup, tasks preparation|
 | **Yuquan Cui**    | `Yuquan Cui`                 | Base automated-experiment harness (`evaluate.py`, task manifest, experiment doc)                                                                                                                                                              |
-| **Xiaomei Long**  | `Xiaomei Long`, `Xiaomei`    | Initial `skrub-dataops-pipeline` skill package + first ADK skill wiring; initial deterministic tuning template; tune-bake drift guards                                                                                                        |
+| **Xiaomei Long**  | `Xiaomei Long`, `Xiaomei`    | Initial `skrub-dataops-pipeline` skill package + first skill wiring; initial deterministic tuning template; tune-bake drift guards                                                                                                        |
 | **Zhengkun Wang** | `wang.zk25`, `Zhengkun Wang` | Repository initial import / setup                                                                                                                                                                                                             |
 
 
@@ -47,9 +47,9 @@ Path prefix for this section: `agents/machine-learning-engineering/machine_learn
 
 | What                                                                                           | Pointer                                                                                                                                                                                 |
 | ---------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Model-aware **web search**: DuckDuckGo (`ddgs`) for non-Gemini, ADK `google_search` for Gemini | `[search_tool_util.py](agents/machine-learning-engineering/machine_learning_engineering/shared_libraries/search_tool_util.py)` - `ddg_web_search`, `get_search_tools` (new file)        |
-| **GPT-5 temperature guard** (LiteLLM rejects non-`1.0` temp for GPT-5) + config flags          | `[config.py#L50-L67](agents/machine-learning-engineering/machine_learning_engineering/shared_libraries/config.py#L50-L67)` - `is_gpt5_family_model`, `get_compatible_temperature`       |
-| **Response parsing** for openai-providers that return `text=None` parts                        | `[common_util.py#L12-L34](agents/machine-learning-engineering/machine_learning_engineering/shared_libraries/common_util.py#L12-L34)` - `get_text_from_response` (skips non-`str` parts) |
+| Model-aware **web search**: DuckDuckGo (`ddgs`) for non-Gemini, ADK `google_search` for Gemini | [search_tool_util.py](agents/machine-learning-engineering/machine_learning_engineering/shared_libraries/search_tool_util.py) - `ddg_web_search`, `get_search_tools` (new file)        |
+| **GPT-5 temperature guard** (LiteLLM rejects non-`1.0` temp for GPT-5) + config flags          | [config.py#L50-L67](agents/machine-learning-engineering/machine_learning_engineering/shared_libraries/config.py#L50-L67) - `is_gpt5_family_model`, `get_compatible_temperature`       |
+| **Response parsing** for openai-providers that return `text=None` parts                        | [common_util.py#L12-L34](agents/machine-learning-engineering/machine_learning_engineering/shared_libraries/common_util.py#L12-L34) - `get_text_from_response` (skips non-`str` parts) |
 
 
 `get_compatible_temperature` is wired at every LLM call site (`agent.py`, all sub-agents, `debug_util.py`, `check_leakage_util.py`).
@@ -65,12 +65,12 @@ Author: Florian Hecht
 
 | What                                                                                                                  | Pointer                                                                                                                                                                                                   |
 | --------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **ADK SkillToolset wrapper** + per-call logging + combined skill/search tools for search-enabled agents (init, debug) | `[skill_tool_util.py](agents/machine-learning-engineering/machine_learning_engineering/shared_libraries/skill_tool_util.py)` - `get_skill_toolset` (L103), `get_skill_and_search_tools` (L111) (new file) |
-| Leakage checker **skill-enabled** + made robust to empty tool-call turns                                              | `[check_leakage_util.py](agents/machine-learning-engineering/machine_learning_engineering/shared_libraries/check_leakage_util.py)` - see below                                                            |
-| Leakage prompts require loading the leakage reference; tool calls are prep-only and agents must finish real response  | `[data_leakage_prompt.py](agents/machine-learning-engineering/machine_learning_engineering/shared_libraries/data_leakage_prompt.py)` - `CHECK_LEAKAGE_INSTR` (L3), `LEAKAGE_REFINE_INSTR` (L24)           |
+| **ADK SkillToolset wrapper** + per-call logging + combined skill/search tools for search-enabled agents (init, debug) | [skill_tool_util.py](agents/machine-learning-engineering/machine_learning_engineering/shared_libraries/skill_tool_util.py) - `get_skill_toolset` (L103), `get_skill_and_search_tools` (L111) (new file) |
+| Leakage checker **skill-enabled** + made robust to empty tool-call turns                                              | [check_leakage_util.py](agents/machine-learning-engineering/machine_learning_engineering/shared_libraries/check_leakage_util.py) - see below                                                            |
+| Leakage prompts require loading the leakage reference; tool calls are prep-only and agents must finish real response  | [data_leakage_prompt.py](agents/machine-learning-engineering/machine_learning_engineering/shared_libraries/data_leakage_prompt.py) - `CHECK_LEAKAGE_INSTR` (L3), `LEAKAGE_REFINE_INSTR` (L24)           |
 
 
-`skill_tool_util` is wired into the leakage + debug utilities and every planning/code-writing sub-agent where necessary: `[debug_util.py](agents/machine-learning-engineering/machine_learning_engineering/shared_libraries/debug_util.py)`, `[check_leakage_util.py](agents/machine-learning-engineering/machine_learning_engineering/shared_libraries/check_leakage_util.py)`, and `sub_agents/{initialization,refinement,tuning,ensemble,submission}/agent.py`.
+`skill_tool_util` is wired into the leakage + debug utilities and every planning/code-writing sub-agent where necessary: [debug_util.py](agents/machine-learning-engineering/machine_learning_engineering/shared_libraries/debug_util.py), [check_leakage_util.py](agents/machine-learning-engineering/machine_learning_engineering/shared_libraries/check_leakage_util.py), and `sub_agents/{initialization,refinement,tuning,ensemble,submission}/agent.py`.
 
 `check_leakage_util.py` specifics (our changes vs upstream):
 
@@ -90,10 +90,10 @@ Author: Florian Hecht
 
 | What                                                                           | Pointer                                                                                                                                                                                                                                       |
 | ------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `skrub.TableReport` → compact ablation profile; state accessor with column cap | `[table_report_util.py](agents/machine-learning-engineering/machine_learning_engineering/shared_libraries/table_report_util.py)` - `load_table_report_dict` (L39), `format_ablation_profile` (L95), `get_profile_from_state` (L24) (new file) |
+| `skrub.TableReport` → compact ablation profile; state accessor with column cap | [table_report_util.py](agents/machine-learning-engineering/machine_learning_engineering/shared_libraries/table_report_util.py) - `load_table_report_dict` (L39), `format_ablation_profile` (L95), `get_profile_from_state` (L24) (new file) |
 
 
-Wired into the refinement outer loop in `[sub_agents/refinement/agent.py](agents/machine-learning-engineering/machine_learning_engineering/sub_agents/refinement/agent.py)` (builds `ablation_table_report_profile`_* and writes `workspace/<task>/table_report.json`).
+Wired into the refinement outer loop in [sub_agents/refinement/agent.py](agents/machine-learning-engineering/machine_learning_engineering/sub_agents/refinement/agent.py) (builds `ablation_table_report_profile`_* and writes `workspace/<task>/table_report.json`).
 
 Example of the compact TableReport profile fed into the ablation agent context (`{data_profile}`, abalone-regression):
 
@@ -177,7 +177,7 @@ Author: Florian Hecht
 
 ## 6. Tuning stage plumbing (improved-only)
 
-**Goal:** support a dedicated terminal `choose`_* search/bake stage (the stage agents live in `sub_agents/tuning/`, see [§8](#8-still-to-detail)).
+**Goal:** support a dedicated terminal `choose`_* search/bake stage (the stage agents live in `sub_agents/tuning/`).
 
 `config.py`: `tuning_enabled`, `tuning_n_iter`, `table_report_enabled` flags ([L41-L43](agents/machine-learning-engineering/machine_learning_engineering/shared_libraries/config.py#L41-L43)).
 
