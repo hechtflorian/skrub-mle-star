@@ -1,17 +1,17 @@
-# Experimental Results: skrub-MLE-STAR
+# Experimental Results: Skrub-MLE-STAR
 
-The folloing is a detailed presentation and discussion of the benchmark results and our **skrub-enabled MLE-STAR** (skrub DataOps agent skill, TableReport profiling for targeted ablation/refinement, tuning stage, drift/robustness guards). We also refer to our version as "skrub-full". For **how** to run/reproduce, see [EXPERIMENTS.md](EXPERIMENTS.md).
+The following is a detailed presentation and discussion of the benchmark results and our **skrub-enabled MLE-STAR** (skrub DataOps agent skill, TableReport profiling for targeted ablation/refinement, tuning stage, drift/robustness guards). We also refer to our version as "skrub-full". For **how** to run/reproduce, see [EXPERIMENTS.md](EXPERIMENTS.md).
 
 We evaluated two systems: `skrub-full` (our improved pipeline) vs `vanilla` (upstream MLE-STAR + our runtime-compat layer only) across **10 tasks** on **two base LLMs**:
 
 
 | Base LLM              | Runs                                                                                      | Generated Reports                                                                    |
 | --------------------- | ----------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------ |
-| `openai/gpt-5.4-mini` | `[runs/20260707_115040_gpt_small/](automated_evaluation/runs/20260707_115040_gpt_small/)` | `[report.md](automated_evaluation/eval_results/20260707_115040_gpt_small/report.md)` |
-| `openai/gpt-5.4`      | `[runs/20260709_144250_gpt_large/](automated_evaluation/runs/20260709_144250_gpt_large/)` | `[report.md](automated_evaluation/eval_results/20260709_144250_gpt_large/report.md)` |
+| `openai/gpt-5.4-mini` | [runs/20260707_115040_gpt_small/](automated_evaluation/runs/20260707_115040_gpt_small/) | [report.md](automated_evaluation/eval_results/20260707_115040_gpt_small/report.md) |
+| `openai/gpt-5.4`      | [runs/20260709_144250_gpt_large/](automated_evaluation/runs/20260709_144250_gpt_large/) | [report.md](automated_evaluation/eval_results/20260709_144250_gpt_large/report.md) |
 
 
-The file is organized as: **(1)** agent config, **(2)** metric guide, **(3)** an overall cross-model / cross-system comparison on primary (Kaggle test submission) and secondary (efficiency) metrics, **(4)** a stage-attribution analysis (which MLE-STAR stage produced the winning solution and per-stage gains; our best proxy for the value of the refinement/tuning novelties), (5) result discussion, and 6) summary to conclude our study. A per-base-model deep dive on holdout validation is in the appendix.
+The file is organized as: **(1)** agent config, **(2)** metric guide, **(3)** an overall cross-model / cross-system comparison on primary (Kaggle test submission) and secondary (efficiency) metrics, **(4)** a stage-attribution analysis, **(5)** result discussion, and **(6)** summary to conclude our study. A per-base-model deep dive on holdout validation is in the appendix.
 
 ---
 
@@ -45,7 +45,7 @@ Captured per system in each batch's `experiment_meta.json → agent_configs` ([s
 | `tuning_n_iter`        | 5     | max randomized-search iterations in tuning                                                                                    |
 
 
-The `data_leakage_checker` and `data_usage_checker` were disabled and `num_solutions` was set to 1 (default of upstream was 2) to speed up experiments (run more tasks and evaluate more base models) and save resources. `table_report_enabled` abd `tuning_enabled` live bedind config flags and can be conveniently enabled/disabled for ablation. Note that even though `tuning_enabled=True` , the `tune_plan_agent` is designed to decide itself wether to run tuning based on ablation/refinement results. Model temperature was set to `1.0` for the GPT-5 family via `get_compatible_temperature` (LiteLLM compat, [§1](CONTRIBUTIONS.md#1-openai--chatai-runtime-compatibility-shared-with-vanilla)). Full defaults live in `[shared_libraries/config.py](agents/machine-learning-engineering/machine_learning_engineering/shared_libraries/config.py)`.
+The `data_leakage_checker` and `data_usage_checker` were disabled and `num_solutions` was set to 1 (default of upstream was 2) to speed up experiments (run more tasks and evaluate more base models) and save resources. `table_report_enabled` abd `tuning_enabled` live bedind config flags and can be conveniently enabled/disabled for ablation. Note that even though `tuning_enabled=True` , the `tune_plan_agent` is designed to decide itself wether to run tuning based on ablation/refinement results. Model temperature was set to `1.0` for the GPT-5 family via `get_compatible_temperature` (LiteLLM compat, [§1](CONTRIBUTIONS.md#1-openai--chatai-runtime-compatibility-shared-with-vanilla)). Full defaults live in [shared_libraries/config.py](agents/machine-learning-engineering/machine_learning_engineering/shared_libraries/config.py).
 
 ---
 
@@ -56,7 +56,7 @@ Performance is evaluated in terms 1) accuracy (task metric) and 2) runtime effic
 ### **1) Accuracy:**
 
 - **Kaggle test-set leaderboard**: We submitted each system's exported `./final/submission.csv` to the original competition and read the **private** leaderboard (80% of the test set; more trustworthy than the 20% public split). This is the **primary metric** in the overall comparison below.
-- **Holdout validation** — the `Final Validation Performance:` line printed by each stage script (parsed from `final_state.json`). Internal only; used for the **stage-attribution** analysis, because it is the only score available *per MLE-STAR subagent stage* (init → refine → tune → ensemble → submission).
+- **Holdout validation**: The `Final Validation Performance:` line printed by each stage script (parsed from `final_state.json`). Internal only; used for the **stage-attribution** analysis, because it is the only score available *per MLE-STAR subagent stage* (init → refine → tune → ensemble → submission).
 
 Holdout validation reporting uses two numbers per task: **(best)** = the upstream script the submission agent received (best stage solution before export); **(sub)** = what the submission script produced by the final submission agent itself printed. When the submission print is anomalous (e.g. `0`, or suspiciously better than upstream), **(best)** is the fair comparison. Direction (↓/↑) follows each task's metric.
 
@@ -143,12 +143,12 @@ Tasks were intentionally selected by considering dataset-size (ressource efficie
 - spaceship-titanic: **public** leaderboard score (20% of test); private (80%) was still processing at write time. All other rows are private scores.
 † **tie** = classification (acc/roc_auc) margin ≤ 0.0015 or regression margin within single-run (N=1) noise; the nominally higher score is still bolded.
 
-Private-LB summary (9 tasks incl. spaceship public): 
+**Private-LB summary** (9 tasks incl. spaceship public): 
 
-- **gpt-5.4-mini** skrub 1 / vanilla 7 / tie 1 
-- **gpt-5.4** skrub 2 / vanilla 4 / tie 3.
+- **gpt-5.4-mini**: skrub 1 / vanilla 7 / tie 1 
+- **gpt-5.4**: skrub 2 / vanilla 4 / tie 3.
 
-**What the test set says.**
+**Analysis:**
 
 - **Vanilla leads on task count, but a large share of the gaps are within single-run noise (ties).** With `gpt-5.4-mini` skrub wins 1 (restaurant, by a ~25% margin), vanilla 7, 1 tie; with `gpt-5.4` skrub wins 2 (blueberry, obesity), vanilla 4, **3 ties**. The stronger model turns several nominal losses into effective ties, so skrub-full's real losses are concentrated on a few tasks (bike, employee-mini, reservation).
 - **The larger model closes the gap.** Every skrub loss shrinks from `-mini` → `gpt-5.4`: abalone −0.272 → tie, employee −0.215 → −0.026, reservation −0.072 → −0.008, spaceship −0.016 → tie. Model capability and not the DataOps constraint drives the remaining gap.
@@ -156,7 +156,7 @@ Private-LB summary (9 tasks incl. spaceship public):
 
 ## Efficiency and structure
 
-Two rows per task (one per base LLM). Δ = `vanilla − skrub`, so **positive (bold) = skrub-full faster**. `DataOps` is skrub-full's adherence (vanilla = 0.0 on every task). Detailed sources: `report.md` [(small)](automated_evaluation/eval_results/20260707_115040_gpt_small/report.md) · `[report.md` (large)](automated_evaluation/eval_results/20260709_144250_gpt_large/report.md), "Per (task, system) summary".
+Two rows per task (one per base LLM). Δ = `vanilla − skrub`, so **positive (bold) = skrub-full faster**. `DataOps` is skrub-full's adherence (vanilla = 0.0 on every task). Detailed sources: `report.md` [(small)](automated_evaluation/eval_results/20260707_115040_gpt_small/report.md), `report.md` [(large)](automated_evaluation/eval_results/20260709_144250_gpt_large/report.md), "Per (task, system) summary".
 
 
 <table>
@@ -223,18 +223,18 @@ Two rows per task (one per base LLM). Δ = `vanilla − skrub`, so **positive (b
 </table>
 
 
-**Efficiency findings (consistent across both models).**
+**Efficiency findings:**
 
-- **Per-script compute (Exec) is lower for skrub-full in 8/10 tasks on *both* models** (exceptions: covid and employee on `-mini`; covid and spaceship on `gpt-5.4`). The savings are largest exactly where vanilla is heaviest: obesity (−2,066s `-mini`, −3,543s `gpt-5.4`) and abalone (+780s `-mini`, −2,928s i.e. **89% less** on `gpt-5.4`). DataOps pipelines plus our runtime rules (refinement prefers FE over large searches, deferred full-train/export in early stages, see discussion) keep compute down.
-- **Wall-clock is faster on the expensive tasks, slower when extra stages fire.** skrub-full wins wall time on the slowest vanilla runs (abalone, obesity, reservation on both models). The `-mini` losses are dominated by LLM overhead, not compute: the two pathological runs are covid (11,348s wall vs 2,004s exec → ~9,300s "thinking", 166 skill calls) and blueberry (9,673s wall vs 896s exec, tuning stage + skill calls). This is mainly caused by expensive debugging loops with multiple skill calls (see discussion).
-- **The larger model is far cheaper wall-clock for skrub-full** (fewer skill calls, less debugging): covid 1,272s (vs 11,348s), blueberry 567s (vs 9,673s). The `-mini` LLM-overhead pathologies disappear on `gpt-5.4`. Model capability does seem to matter a lot, especially with more context from skill ressources and general debugging (i.e. faster debug, less debug overall, larger base model often has larger context window).
+- **Per-script compute (Exec) is lower for skrub-full in 8/10 tasks on *both* models** (exceptions: covid and employee on `-mini`; covid and spaceship on `gpt-5.4`). The savings are largest exactly where vanilla is heaviest: obesity (−2,066s `-mini`, −3,543s `gpt-5.4`) and abalone (+780s `-mini`, −2,928s i.e. **89% less** on `gpt-5.4`). DataOps pipelines plus our runtime rules (refinement prefers FE over large searches, deferred full-train/export in early stages) keep compute down.
+- **Wall-clock is faster on the expensive tasks, slower when extra stages fire.** skrub-full wins wall time on the slowest vanilla runs (abalone, obesity, reservation on both models). The `-mini` losses are dominated by LLM overhead, not compute: the two pathological runs are covid (11,348s wall vs 2,004s exec → ~9,300s "thinking", 166 skill calls) and blueberry (9,673s wall vs 896s exec, tuning stage + skill calls). This is mainly caused by expensive debugging loops with multiple skill calls.
+- **The larger model is far cheaper wall-clock for skrub-full**: covid 1,272s (vs 11,348s), blueberry 567s (vs 9,673s). The `-mini` LLM-overhead pathologies disappear on `gpt-5.4`. Model capability does seem to matter a lot, especially with more context from skill ressources and general debugging (i.e. faster debug, less debug overall, larger base model often has larger context window).
 - **Structure (DataOps) is the unambiguous win:** skrub-full adherence **0.69–0.98** across every task/model vs **0.0** for vanilla everywhere. Our core objective is met regardless of accuracy outcome.
 
 ---
 
 # 4) Novelty & modification analysis
 
-Holdout validation is the only score available *per MLE-STAR stage*, so we use it here to attribute value to the pipeline stages — in particular our **refinement (TableReport) novelty** and the **new tuning stage**. Per-run stage scores come from `report.md` ("Per-run results": `Init / Refine / Tune / Ensemble / Src val`).
+Holdout validation is the only score available *per MLE-STAR stage*, so we use it here as proxy to attribute value to the pipeline stages, in particular our **refinement (TableReport) novelty** and the **new tuning stage**. Per-run stage scores come from `report.md` ("Per-run results": `Init / Refine / Tune / Ensemble / Src val`).
 
 ## Init → refinement gains
 
@@ -254,8 +254,8 @@ The stronger model uses targeted block refinement far more effectively (8/10 vs 
 
 | Base LLM     | Tuning ran                                              | Promoted | Outcome                                                                                                                                                |
 | ------------ | ------------------------------------------------------- | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| gpt-5.4-mini | **1/10** (blueberry)                                    | **0**    | tuned MAE 341.82 > refine 341.53 > ensemble 340.20 — [gate](CONTRIBUTIONS.md#12-new-tuning-stage-sub_agentstuning-improved-only) correctly withheld it |
-| gpt-5.4      | **5/10** (bike, covid, employee, restaurant, spaceship) | **0**    | every tuned score ≤ structural/ensemble winner (e.g. covid tune 0.3078 vs refine 0.2965; spaceship 0.8125 vs ensemble 0.8171) — gate withheld all      |
+| gpt-5.4-mini | **1/10** (blueberry)                                    | **0**    | tuned MAE 341.82 > refine 341.53 > ensemble 340.20; [gate](CONTRIBUTIONS.md#12-new-tuning-stage-sub_agentstuning-improved-only) correctly withheld it |
+| gpt-5.4      | **5/10** (bike, covid, employee, restaurant, spaceship) | **0**    | every tuned score ≤ structural/ensemble winner (e.g. covid tune 0.3078 vs refine 0.2965; spaceship 0.8125 vs ensemble 0.8171); gate withheld all      |
 
 
 Tuning fired much more with the larger model (5/10 vs 1/10) but produced **0 promotions on either model**: in every case the promotion gate prevented a regression rather than adding a win. The agent is also allowed to **self-skip** when ablation signal suggests refinement already captured the gains ([tuning agent](CONTRIBUTIONS.md#12-new-tuning-stage-sub_agentstuning-improved-only)). The guard works, but tuning has not yet demonstrated a net gain on this benchmark.
@@ -295,19 +295,19 @@ Which stage's script became the `Src val` upstream solution handed to the submis
 - **Ensemble is the usual final winner for skrub-full** (6/10 mini, 7/10 `gpt-5.4`): the biggest score jumps come from **init → refine → ensemble** together, with ensemble landing the last gain, which is exactly the MLE-STAR design intent (each stage should improve the previous promoted solution, else the runtime would be wasted).
 - **Refinement (our TableReport-fed stage) usually improves init**, but often not the final winner: it improved init in 5/10 (`-mini`) and 8/10 (`gpt-5.4`), and it was the *promoted* source where ensemble regressed (e.g. covid and restaurant on `gpt-5.4`). The `gpt-5.4` employee rescue (+0.25) is the single most valuable refinement event in the batch.
 - **Vanilla's stage mix depends heavily on the model.** With `-mini`, vanilla's ensemble frequently *regressed* (e.g. bike ensemble 1.098 vs refine 0.2991), so refinement was promoted most often (5/10). With `gpt-5.4`, vanilla's ensemble becomes reliable (6/10), the same ensemble-dominant pattern skrub-full shows.
-- **Tuning contributed no promotions on either model**, but its gate never caused a regression. It is correctly conservative and simply under-exercised. Additionally, tuning might not be able to contribute meaningful gains if refinement already captured most gains. (see discussion)
+- **Tuning contributed no promotions on either model**, but its gate never caused a regression. It is correctly conservative and simply under-exercised. Additionally, tuning might not be able to contribute meaningful gains if refinement already captured most gains.
 
 ---
 
 ## Connecting results to our modifications
 
 
-| Modification               | Evidence in these batches                                                                                                                                             |
+| Modification               | Evidence                                                                                                                                                              |
 | -------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | skrub DataOps skill        | DataOps adherence 0.69–0.98 vs 0 on both models; large wins on text/categorical/datetime tasks (bike, restaurant)                                                     |
 | TableReport profiling      | Refinement improved init 5/10 (`-mini`) → 8/10 (`gpt-5.4`)                                                                                                            |
-| Tuning stage               | Fired 1/10 (`-mini`) and 5/10 (`gpt-5.4`); no unnessary ressource consumption if projeted gains negligable; gate withheld every worse tuned result (0 bad promotions) |
-| Execution-robustness gates | 40/40 runs produced usable `final_state.json`; no empty/tool-call-only turn scored as valid or agent turns wasted                                                     |
+| Tuning stage               | Fired 1/10 (`-mini`) and 5/10 (`gpt-5.4`); no unnessary ressource consumption if projeted gains negligable; gate withheld every worse tuned result                    |
+| Execution-robustness gates | All runs produced usable `final_state.json`; no empty/tool-call-only turn scored as valid or agent turns wasted                                                       |
 | Runtime compat             | Enabled the whole benchmark to run on both OpenAI-compatible models at all; while maintaining gemini-compat                                                           |
 
 
@@ -319,11 +319,11 @@ The improvements **reliably deliver the structural/DataOps objective** and **per
 
 **Skrub-DataOps-MLE-STAR:** Our central goal, making agents generate skrub DataOps-native ML pipelines, holds on every task and both base models and skrub-full reaches up to 0.98 DataOps adherence. The load-on-demand skill achieves this without permanent prompt bloat and stays maintainable, since references can be appended, corrected, or backed by deterministic helper scripts later. Generally, an agent skill is designed to optimize/expand agent capability while being context-efficient: agents call `list_skills` (load only skill metadata for discovery) **→** `load_skill` (load only SKILL.md) **→** `load_skill_resource` (load additional [reference.md](http://reference.md) files) in order and only when needed. That means agents decide themselves when the skill is relevant and which resources to load and they can be guided via prompts. This can get complicated when specific skill usage and loading specific resources for certain stages is necessary, because the agent must be made to load the desired resources (e.g. the agent may decide to not load them). Finally, our generated pipelines are direct evidence that the skrub DataOps skill and the stage prompt hardening work as intended.
 
-**Accuracy stays competitive and improves with model capability:** On the Kaggle private leaderboard vanilla leads on raw task count, but a large share of the gaps sit within single-run noise. Every skrub-full deficit on gpt-5.4-mini shrinks on gpt-5.4 (abalone and spaceship become roughly ties, employee moves from -0.215 to -0.026, reservation from -0.072 to -0.008), and skrub-full wins on restaurant (mini) and on blueberry and obesity (gpt-5.4). Making the agents use DataOps is genuinely hard because pretraining nudges them toward sklearn, yet once the base model is capable enough the constraint costs little to no accuracy and our skrub-MLE-STAR can keep up with vanilla.
+**Accuracy stays competitive and improves with model capability:** On the Kaggle private leaderboard vanilla does lead on raw task count, but a large share of the gaps sit within single-run noise. Every skrub-full deficit on gpt-5.4-mini shrinks on gpt-5.4, and skrub-full wins on restaurant (mini) and on blueberry and obesity (gpt-5.4). Making the agents use DataOps is genuinely hard because pretraining nudges them toward sklearn, yet once the base model is capable enough the constraint costs little to no accuracy and our skrub-MLE-STAR can keep up with vanilla.
 
-**Efficiency is a consistent, honest gain:** skrub-full runs leaner per script (execution time) on 8/10 tasks for both models, with the largest savings where vanilla is heaviest (obesity, abalone), and it wins wall-clock time on the slowest vanilla runs. Feeding a compact TableReport profile into ablation/refinement, and nudging those stages toward feature engineering rather than large searches, keeps compute down while scores often stay similar or better. When accuracy is often tied, spending less compute to reach the same result is itself a meaningful win, and it is the practical payoff of the TableReport novelty and the refinement prompt changes. However, this result should be taken with a grain of salt: While the execution time is usually lower, the wall time can sometimes increase if debugging effort increases (i.e. with less base model capability), while a base model with higher capability (gpt-5.4) shows robustness and gains on both fronts. Similarly, prefering FE and avoiding larger searches or complex ensembles can lead to reduced accuracy, so there is a real tradeoff between accuracy and efficiency.
+**Efficiency is a consistent, honest gain:** skrub-full runs leaner per script (execution time) on 8/10 tasks for both models, with the largest savings where vanilla is heaviest (obesity, abalone), and it wins wall-clock time on the slowest vanilla runs. Feeding a compact TableReport profile into ablation/refinement, and nudging those stages toward feature engineering rather than large searches, keeps compute down while scores often stay similar or better. When accuracy is often tied, spending less compute to reach the same result is itself a meaningful win, and it is the practical payoff of the TableReport novelty and the refinement prompt changes. However, this result should be taken with a grain of salt: While the execution time is usually lower, the wall time can sometimes increase if debugging effort increases (i.e. with less base model capability), while a base model with higher capability (gpt-5.4) shows robustness and gains on both fronts. Similarly, prefering FE and avoiding larger searches or complex ensembles can lead to reduced accuracy, so there is a real tradeoff between accuracy and efficiency. Most negative outliers in terms of wall time we're due to heavy debugging, and potentially even issues with the API.
 
-**The trade-offs are understood and mostly capacity-related:** Model capability governs the cost of the skill: the larger model calls skills less (51 to 91 vs 75 to 166), hallucinates less, debugs less, and removes the wall-clock pathologies of the small model (covid dropped from 11,348s to 1,272s). On weaker models more debugging fires the pre-execution guards and pulls extra skill and web-search calls, so runtime can rise even though per-script exec time is lower. We deliberately kept backbone-drift and contract guards minimal so exploration is not over-constrained, and the robustness gates still delivered 40/40 usable runs. Two design choices carry residual risk: deferring the full-train refit and export to the submission agent in our skrub-MLE-STAR saves exec time but puts more effort on the submission agent (can debug more often, which lets that agent drift; e.g. bike-sharing on the small model swapped backbones and collapsed from about 0.014 holdout RMSLE to 1.34 on the private leaderboard), and the tuning stage produced no promotions on either model.
+**The trade-offs are understood and mostly capacity-related:** Model capability governs the cost of the skill: the larger model calls skills less (51 to 91 vs 75 to 166), hallucinates less, debugs less, and removes the wall-clock pathologies of the small model. On weaker models more debugging fires the pre-execution guards and pulls extra skill and web-search calls, which can end up in more debugging and drift from the optimal solution (debug also uses web search to skrub API, which can often confuse the agent; e.g. if it sees RF model in examples, it swaps the backbone to RF) - so runtime can rise even though per-script exec time is lower. We deliberately kept backbone-drift and contract guards minimal so exploration is not over-constrained, and the robustness gates still delivered 40/40 usable runs. Two design choices carry residual risk: deferring the full-train refit and export to the submission agent in our skrub-MLE-STAR saves exec time but puts more effort on the submission agent (can debug more often, which lets that agent drift), and the tuning stage produced no promotions on either model to prove it's benefit.
 
 ---
 
@@ -331,11 +331,9 @@ The improvements **reliably deliver the structural/DataOps objective** and **per
 
 We set out to make MLE-STAR produce skrub DataOps native pipelines and to add targeted improvements around that goal: a load-on-demand skrub DataOps agent skill, TableReport-driven targeted ablation and refinement, a dedicated tuning stage, pipeline-drift and stage contract guards, execution-robustness gates, and OpenAI/ChatAI runtime compatibility. We evaluated our system (skrub-full) against the vanilla upstream baseline on 10 Kaggle tasks and two base models (gpt-5.4-mini and gpt-5.4), using both internal holdout scores and Kaggle private-leaderboard scores as well as system efficiency metrics.
 
-The structural goal is fully met. DataOps adherence up to 0.98 versus 0.0 shows the skill reliably steers code into DataOps pipelines on every task and model, and it does so without prompt bloat while references load on demand and can be maintained or extended over time.
+The structural goal is fully met. DataOps adherence up to 0.98 versus 0.0 shows the skill reliably steers code into DataOps pipelines on every task and model, and it does so without prompt bloat while references load on demand and can be maintained or extended over time. On accuracy, the our skrub-MLE-STAR is competitive and scale-sensitive. Vanilla edges the private-leaderboard task count, but many of those gaps are within single-run noise and register as ties, skrub-full wins several tasks outright, and every deficit shrinks moving from the small to the larger, more capable base model. In other words, the DataOps constraint costs little to no accuracy once the base model is strong enough, and on the capable model skrub-full is effectively level with ahead of vanilla on most tasks when considering accuracy and efficiency together.
 
-On accuracy, the our skrub-MLE-STAR is competitive and scale-sensitive. Vanilla edges the private-leaderboard task count, but many of those gaps are within single-run noise and register as ties, skrub-full wins several tasks outright, and every deficit shrinks moving from the small to the larger, more capable base model. In other words, the DataOps constraint costs little to no accuracy once the base model is strong enough, and on the capable model skrub-full is effectively level with ahead of vanilla on most tasks when considering accuracy and efficiency together.
-
-On efficiency the advantage is consistent: skrub-full is leaner per script on 8/10 tasks and faster end-to-end on the heaviest tasks, because TableReport-guided, feature-engineering-first refinement avoids the large searches vanilla tends to run. Given how often accuracy ties, this compute saving is a concrete, defensible benefit of our modifications. The pipeline also proved robust, with 40/40 usable runs and promotion guards that never promoted a regression, and tablereport-enabled refinement demonstrates strong per-stage gain on the large model.
+On efficiency the advantage is consistent: skrub-full is leaner per script on 8/10 tasks and faster end-to-end on the heaviest tasks, because TableReport-guided, feature-engineering-first refinement avoids the large searches vanilla tends to run. Given how often accuracy ties, this compute saving is a concrete benefit of our modifications. The pipeline also proved robust, with 40/40 usable runs and promotion guards that never promoted a regression, and tablereport-enabled refinement demonstrates strong per-stage gain on the large model.
 
 Overall, skrub-MLE-STAR delivers its structural objective in full, keeps pace with vanilla on accuracy while pulling ahead as the model scales, and reaches those results with less compute and with extended guardrails that keep runs valid. The remaining risks, submission-stage drift and an under-proven tuning stage, are concrete and addressable. The strongest outcomes, DataOps adherence while maintaining accuracy and per-script efficiency, are where our skrub-MLE-STAR demonstrates improvement.
 
