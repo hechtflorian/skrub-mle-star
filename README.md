@@ -79,7 +79,7 @@ After the agent starts and asks for input, you can tell it to "execute the given
 
 ### Run the automated experiments
 
-From the repo root on branch `main`. Full details: [EXPERIMENTS.md](EXPERIMENTS.md).
+From the repo root on branch `main`. Please check for full details: [EXPERIMENTS.md](EXPERIMENTS.md).
 
 #### Directory layout (improved + vanilla)
 
@@ -132,7 +132,7 @@ cd ../..
 | 3    | Analyze        | `python automated_evaluation/evaluate.py --summarize-only --runs-root automated_evaluation/runs/<stamp>`       |
 
 
-Step 2 runs **all tasks × improved + vanilla** by default. Archives land under `runs/<stamp>/<task>/<system>/<model-slug>/run1/`. Use `--tasks task1 task2 …` / `--systems improved` to run in chunks (**recommended** for long jobs). See [EXPERIMENTS.md](EXPERIMENTS.md) for resume, repeats, and artifact layout.
+Step 2 runs **all tasks × improved + vanilla** by default. Archives land under `runs/<stamp>/<task>/<system>/<model-slug>/run1/`. Use `--tasks task1 task2 …` / `--systems improved` to run in chunks (**recommended** for long jobs).
 
 #### Multiple base LLMs (e.g. gpt-5.4-mini + gpt-5.4)
 
@@ -199,15 +199,12 @@ automated_evaluation/        # run_experiments.py, evaluate.py, generate_tasks_m
 | ----------------------------------------- | ---------------------------- | ------------- |
 | **DataOps adherence** (all tasks)         | **0.69–0.98**                | 0.0           |
 | **Kaggle private LB** (gpt-5.4)           | 2 wins · 3 ~ties · 4 losses  | 4 wins        |
-| **Exec time** (obesity, gpt-5.4)          | **678 s**                    | 4221 s (−84%) |
-| **Wall time** (abalone, gpt-5.4)          | **573 s**                    | 6351 s (−91%) |
-| **Kaggle win** (restaurant, mini)         | **RMSE 1.95M**               | 2.58M         |
-| **Refinement rescue** (employee, gpt-5.4) | init 0.57 → **0.83** roc_auc | held at 0.82  |
-
+| **Exec time** (all tasks, both models)    | **faster at 8/10 tasks**     | faster at 2/10|
 
 Caveats: N=1 per cell; covid19 omitted (notebook-only submission); spaceship-titanic uses public LB score as it is still an ongoing competition. Holdout validation can diverge from Kaggle; and private score (~80% test) is the most honest test score validation.
 
 ---
+
 
 # Upstream documentation (MLE-STAR)
 
@@ -290,28 +287,6 @@ uv run deployment/deploy.py --delete --resource_id=${AGENT_ENGINE_ID}
 ```
 
 This fork is developed/run locally against OpenAI-compatible providers, so the Google Cloud deployment path is optional.
-
-## Appendix — key `config.py` parameters
-
-Configuration lives in the `DefaultConfig` dataclass in `[shared_libraries/config.py](agents/machine-learning-engineering/machine_learning_engineering/shared_libraries/config.py)`.
-
-
-| Parameter                                                       | Type           | Default                                                      | Description                                           |
-| --------------------------------------------------------------- | -------------- | ------------------------------------------------------------ | ----------------------------------------------------- |
-| `data_dir`                                                      | `str`          | `"./machine_learning_engineering/tasks/"`                    | Where task packs and their data live.                 |
-| `task_name`                                                     | `str`          | task-specific                                                | The task to load and process.                         |
-| `task_type`                                                     | `str`          | e.g. `"Tabular Regression"`                                  | Problem type.                                         |
-| `lower`                                                         | `bool`         | `True`                                                       | `True` if a lower metric value is better.             |
-| `workspace_dir`                                                 | `str`          | `"./machine_learning_engineering/workspace/"`                | Intermediate outputs, logs, artifacts.                |
-| `agent_model`                                                   | `str`          | `os.environ["ROOT_AGENT_MODEL"]` or `"gemini-2.0-flash-001"` | LLM used by all agents.                               |
-| `num_solutions`                                                 | `int`          | `1`                                                          | Parallel solution legs.                               |
-| `num_model_candidates`                                          | `int`          | `2`                                                          | Candidate models in init retrieval.                   |
-| `inner_loop_round` / `outer_loop_round` / `ensemble_loop_round` | `int`          | `1`                                                          | Refinement/ensemble loop counts.                      |
-| `max_debug_round` / `max_rollback_round`                        | `int`          | `5` / `2`                                                    | Debug retries / rollbacks.                            |
-| `exec_timeout`                                                  | `int`          | `600`                                                        | Per-script execution cap (s).                         |
-| `table_report_enabled`                                          | `bool`         | `True`                                                       | **(ours)** Build TableReport profile for refinement.  |
-| `tuning_enabled` / `tuning_n_iter`                              | `bool` / `int` | `True` / `5`                                                 | **(ours)** Terminal tuning stage + search iterations. |
-
 
 ---
 

@@ -1,9 +1,9 @@
 # Experiments
 
 How we ran the benchmark, where the artifacts live, and how to reproduce or extend the evaluation (including additional LLM models).
-
-**Detailed harness reference:** [automated_evaluation/automated_evaluation.md](automated_evaluation/automated_evaluation.md)  
+  
 Experimental **config, metrics, and result analysis:** [EXPERIMENTAL_RESULTS.md](EXPERIMENTAL_RESULTS.md)
+Detailed harness reference: [automated_evaluation/automated_evaluation.md](automated_evaluation/automated_evaluation.md)
 
 All commands below assume the **improved checkout root** (`skrub-mle-star/`).
 
@@ -46,37 +46,36 @@ Before Step 1, load `.env` into your shell if you changed `ROOT_AGENT_MODEL` (se
 
 ### Primary batch: raw run archives
 
-**Directory:** [automated_evaluation/runs/20260707_115040_full/](automated_evaluation/runs/20260707_115040_full/)
+**Directory:** [automated_evaluation/runs/20260707_115040_gpt_small/](automated_evaluation/runs/20260707_115040_gpt_small/) and [automated_evaluation/runs/20260709_144250_gpt_large/](automated_evaluation/runs/20260709_144250_gpt_large/)
 
 
 | File                  | Link                                                                                        |
 | --------------------- | ------------------------------------------------------------------------------------------- |
-| Batch config snapshot | [experiment_meta.json](automated_evaluation/runs/20260707_115040_full/experiment_meta.json) |
+| Batch config snapshot | [experiment_meta.json](automated_evaluation/runs/20260707_115040_gpt_small/experiment_meta.json) |
 
 
 Layout per run:
 
 ```
-runs/20260707_115040_full/<task>/<system>/<model-slug>/<repeat>/
+runs/<runs-root>/<task>/<system>/<model-slug>/<repeat>/
 ```
 
 Example archive:
 
-[spaceship-titanic/skrub-full/gpt-5.4-mini/run1/](automated_evaluation/runs/20260707_115040_full/spaceship-titanic/skrub-full/gpt-5.4-mini/run1/)
+[spaceship-titanic/skrub-full/gpt-5.4-mini/run1/](automated_evaluation/runs/20260707_115040_gpt_small/spaceship-titanic/skrub-full/gpt-5.4-mini/run1/)
 
 Typical files inside each run folder: `final_state.json`, `adk_run_*.log`, `meta.json`, `analysis.json`, agent-produced scripts in `1/`, `ensemble/`. log, meta.json, analysis.json added by us, rest produced by mle-star.
 
-### Primary batch — aggregated reports
+### Primary batch: aggregated reports
 
-**Directory:** [automated_evaluation/eval_results/20260707_115040_full/](automated_evaluation/eval_results/20260707_115040_full/)
+**Directory:** [automated_evaluation/eval_results/20260707_115040_full/](automated_evaluation/eval_results/20260707_115040_gpt_small/)
 
 
 | File                       | Link                                                                                                      |
 | -------------------------- | --------------------------------------------------------------------------------------------------------- |
-| Human-readable report      | [report.md](automated_evaluation/eval_results/20260707_115040_full/report.md)                             |
-| Structured JSON bundle     | [evaluation_summary.json](automated_evaluation/eval_results/20260707_115040_full/evaluation_summary.json) |
-| Task readiness scan        | [task_status.json](automated_evaluation/eval_results/20260707_115040_full/task_status.json)               |
-| Pointer to latest analysis | [eval_results/latest.json](automated_evaluation/eval_results/latest.json)                                 |
+| Human-readable report      | [report.md](automated_evaluation/eval_results/20260707_115040_gpt_small/report.md)                             |
+| Structured JSON bundle     | [evaluation_summary.json](automated_evaluation/eval_results/20260707_115040_gpt_small/evaluation_summary.json) |
+| Task readiness scan        | [task_status.json](automated_evaluation/eval_results/20260707_115040_gpt_small/task_status.json)               |
 
 
 Regenerate reports with Step 2 above (`evaluate.py --summarize-only`).
@@ -86,8 +85,8 @@ Regenerate reports with Step 2 above (`evaluate.py --summarize-only`).
 
 | Property           | Value                                                                                         |
 | ------------------ | --------------------------------------------------------------------------------------------- |
-| Runs root          | [runs/20260707_115040_full/](automated_evaluation/runs/20260707_115040_full/)                 |
-| Eval results       | [eval_results/20260707_115040_full/](automated_evaluation/eval_results/20260707_115040_full/) |
+| Runs root          | [runs/20260707_115040_gpt_small/](automated_evaluation/runs/20260707_115040_gpt_small/) & [runs/20260709_144250_gpt_large/](automated_evaluation/runs/20260709_144250_gpt_large/) |
+| Eval results       | [eval_results/20260707_115040_gpt_small/](automated_evaluation/eval_results/20260707_115040_gpt_small/) & [eval_results/20260709_144250_gpt_large/](automated_evaluation/eval_results/20260709_144250_gpt_large/) |
 | Tasks              | 10 (see table below)                                                                          |
 | Systems            | `skrub-full` (improved, ours) + `vanilla` (runtime compatibility applied)                     |
 | Base models        | `openai/gpt-5.4-mini` , `openai/gpt-5.4`                                                      |
@@ -119,7 +118,7 @@ Regenerate reports with Step 2 above (`evaluate.py --summarize-only`).
 
 ## One-time setup
 
-See [automated_evaluation/automated_evaluation.md](automated_evaluation/automated_evaluation.md) for the full checklist. Minimum:
+See [automated_evaluation/automated_evaluation.md](automated_evaluation/automated_evaluation.md) or [README.md](README.md) for more details if necessary. Minimum:
 
 ```bash
 # Improved agent
@@ -132,9 +131,9 @@ cd ../..
 git worktree add ../mle-star_vanilla vanilla-baseline   # skip if already present
 cp agents/machine-learning-engineering/.env \
    ../mle-star_vanilla/agents/machine-learning-engineering/.env
-(cd ../mle-star_vanilla/agents/machine-learning-engineering && uv sync)
+cd ../mle-star_vanilla/agents/machine-learning-engineering && uv sync
 
-# Task manifest
+# Task manifest (exists already, rerun if tasks change)
 python automated_evaluation/generate_tasks_manifest.py
 ```
 
@@ -152,9 +151,9 @@ echo "$ROOT_AGENT_MODEL"   # sanity check
 cd ../..                   # back to skrub-mle-star root
 ```
 
-Then start experiments in **that same terminal**. A new terminal needs `source .env` again. Alternative: pass `--model-label openai/your-model` explicitly (no shell export needed).
+Then start experiments in that same terminal, a new one needs `source .env` again. Alternative: pass `--model-label openai/your-model` explicitly (no shell export needed).
 
-**Agent behaviour** (tuning, TableReport, loop counts, etc.) comes from each checkout's `shared_libraries/config.py` — not overridden by the harness except `task_name`, `task_type`, `lower`, `seed`.
+**Agent behaviour** (tuning, TableReport, loop counts, etc.) comes from each checkout's `shared_libraries/config.py`, it is not overridden by the harness except `task_name`, `task_type`, `lower`, `seed`.
 
 ---
 
@@ -163,7 +162,7 @@ Then start experiments in **that same terminal**. A new terminal needs `source .
 The full matrix was **not** started as a single long job. We used a fixed runs root and resumed in chunks for resource risk management:
 
 ```bash
-RUNS=automated_evaluation/runs/20260707_115040_full
+RUNS=automated_evaluation/runs/runs-root
 
 # Example: first improved tasks
 python automated_evaluation/run_experiments.py \
@@ -191,7 +190,7 @@ python automated_evaluation/run_experiments.py \
   --runs-root automated_evaluation/runs/<new-stamp>   # optional; automatically saved in runs/ with timestamp
 ```
 
-That runs **all tasks × improved + vanilla** with seed `42`. Preview first:
+That runs **all tasks × improved + vanilla** with seed `42`. Preview first if needed:
 
 ```bash
 python automated_evaluation/run_experiments.py --dry-run
@@ -230,7 +229,7 @@ python automated_evaluation/evaluate.py --summarize-only \
 
 Read:
 
-- [eval_results/20260707_115040_full/report.md](automated_evaluation/eval_results/20260707_115040_full/report.md)
+- [eval_results/20260707_115040_gpt_small/report.md](automated_evaluation/eval_results/20260707_115040_gpt_small/report.md)
 
 The report groups comparisons **per model** when multiple model folders exist under the same runs root. Simplest if all runs are collected in the same folder.
 
@@ -256,7 +255,7 @@ You can append runs into the **same** runs root. Archives are keyed by model slu
 <task>/<system>/<model-slug>/<repeat>/
 ```
 
-`gpt-5.4-mini` and `mistral-large-3-675b-instruct-2512` are **different paths** — existing GPT runs are not touched.
+`gpt-5.4-mini` and `mistral-large-3-675b-instruct-2512` are **different paths**, existing GPT runs are not touched.
 
 ### Safe workflow
 
@@ -296,7 +295,7 @@ Or skip shell export and pass `--model-label openai/mistral-large-3-675b-instruc
 
 **Recommendation:** keep `--skip-existing` when extending a batch for safety.
 
-Optional: use a separate runs root per model (e.g. `runs/20260709_mistral_full/`) for cleaner provenance — analysis accepts any runs root.
+Optional: use a separate runs root per model (e.g. `runs/20260709_mistral_full/`) for cleaner provenance and seperation, analysis accepts any runs root.
 
 ---
 
