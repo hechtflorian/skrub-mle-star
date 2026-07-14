@@ -116,7 +116,7 @@ Columns:
   Rings            Int64        0.0%         28  no
 
 Top associations (Pearson):
-  Length          <-> Diameter          0.99
+  Length          <-> Diameter           0.99
   Whole weight    <-> Whole weight.2     0.98
   Whole weight    <-> Whole weight.1     0.97
   Whole weight    <-> Shell weight       0.96
@@ -125,6 +125,8 @@ Top associations (Pearson):
   Diameter        <-> Height             0.93
   Diameter        <-> Whole weight       0.93
 ```
+
+The prepared, compact data profile can help the ablation + refinement subagents to make focused, less random ablations, try data-grounded feature engineering, encoders, decide on tuning, etc.
 
 Contribution by: Florian Hecht
 

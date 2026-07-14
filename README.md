@@ -1,6 +1,6 @@
 # Skrub-MLE-STAR (skrub DataOps edition)
 
-A fork of MLE-STAR (Google ADK sample `[python/agents/machine-learning-engineering](https://github.com/google/adk-samples)`, Apache-2.0) that makes the multi-agent ML engineering system **skrub DataOps-native**, improves it's refinement subagents with providing **underlying data** for more targeted feature engineering, a dedicated **tuning stage** for pipeline optimization, and a set of **agent drift/robustness guards**. Lastly, a runtime-compatibility layer so it runs on OpenAI-compatible providers (OpenAI, ChatAI/SAIA via LiteLLM), not just Gemini.
+A fork of MLE-STAR (Google ADK sample [python/agents/machine-learning-engineering](https://github.com/google/adk-samples), Apache-2.0) that makes the multi-agent ML engineering system **skrub DataOps-native**, improves it's refinement subagents with providing **underlying data** for more targeted feature engineering, a dedicated **tuning stage** for pipeline optimization, and a set of **agent drift/robustness guards**. Lastly, a runtime-compatibility layer so it runs on OpenAI-compatible providers (OpenAI, ChatAI/SAIA via LiteLLM), not just Gemini.
 
 > The lower half of this README is the original upstream documentation. The top half is our project: our contributions, how to set it up, run it, and evaluate it.
 
@@ -14,7 +14,7 @@ We made the MLE-STAR agent produce *structured, reproducible, leakage-safe* ML p
 
 - **skrub DataOps skill**: an on-demand ADK agent skill (`SKILL.md` + 14 references) every code-writing agent can load on demand, so generated code uses `skrub.var`/`.skb.apply` DataOps DAGs. No prompt bloat, while remaining context-efficient.
 - **TableReport profiling**: `skrub.TableReport` injected into the refinement/ablation planner agents (`sub_agents/refinement/`) as a preprocessed, compact dataset profile to support targeted refinement; making previous trial-and-error refinement focused and grounded on underlying data.
-- **Tuning stage**: a new terminal stage (`sub_agents/tuning/`) that runs an in-graph `skrub.choose_*` randomized search for simpler pipeline optimization if ablation signal proves tuning is valuable, and finally bakes the best params to promote the script if improvements are made.
+- **Tuning stage**: a new terminal stage (`sub_agents/tuning/`) that runs an in-graph `skrub.choose_*` randomized search for convenient pipeline optimization if ablation signal proves tuning is valuable, and finally bakes the best params to promote the script if improvements are made.
 
 **Improvements**
 
@@ -134,6 +134,10 @@ cd ../..
 
 Step 2 runs **all tasks × improved + vanilla** by default. Archives land under `runs/<stamp>/<task>/<system>/<model-slug>/run1/`. Use `--tasks task1 task2 …` / `--systems improved` to run in chunks (**recommended** for long jobs).
 
+#### **Agent behaviour** (tuning, TableReport, loop counts, etc.) 
+- comes from each checkout's `shared_libraries/config.py`, it is not overridden by the harness except `task_name`, `task_type`, `lower`, `seed`.
+- Make sure to **check both branches `config.py`** (`main` for skrub-full, `mle-star_vanilla` for vanila system) so that they reflect the same setup, before running automated experiments.
+
 #### Multiple base LLMs (e.g. gpt-5.4-mini + gpt-5.4)
 
 Runs are keyed by model slug, so you can append models into the **same** runs root without overwriting prior results. Example:
@@ -162,7 +166,7 @@ Alternatively pass `--model-label openai/gpt-5.4` on the `run_experiments.py` li
 ## Documentation map
 
 
-| File                                                         | What's in it                                                                                                                                                   |
+| File                                                         | Content                                                                                                                                                   |
 | ------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **[CONTRIBUTIONS.md](CONTRIBUTIONS.md)**                     | What we built vs upstream/vanilla, grouped by intent, with clickable file/line pointers and authorship.                                                        |
 | **[EXPERIMENTS.md](EXPERIMENTS.md)**                         | Exact scripts and commands on how we ran the benchmark and how to reproduce, plus where the result artifacts live and how to extend to new models/repeats etc. |

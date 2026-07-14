@@ -153,7 +153,9 @@ cd ../..                   # back to skrub-mle-star root
 
 Then start experiments in that same terminal, a new one needs `source .env` again. Alternative: pass `--model-label openai/your-model` explicitly (no shell export needed).
 
-**Agent behaviour** (tuning, TableReport, loop counts, etc.) comes from each checkout's `shared_libraries/config.py`, it is not overridden by the harness except `task_name`, `task_type`, `lower`, `seed`.
+### **Agent behaviour** (tuning, TableReport, loop counts, etc.) 
+- comes from each checkout's `shared_libraries/config.py`, it is not overridden by the harness except `task_name`, `task_type`, `lower`, `seed`.
+- Make sure to **check both branches `config.py`** (`main` for skrub-full, `mle-star_vanilla` for vanila system) so that they reflect the same setup, before running automated experiments.
 
 ---
 
